@@ -6,3 +6,10 @@ prod.env
 .clasp.json
 .DS_Store
 *.tsbuildinfo
+
+# Terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform.tfvars
+infra/backend.hcl

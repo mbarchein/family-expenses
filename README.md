@@ -31,6 +31,7 @@ else in this repository is in English. See [`CLAUDE.md`](CLAUDE.md).
 ```
 app/           the PWA — Vite, React, TypeScript, Tailwind, vite-plugin-pwa
 apps-script/   the backend — a Google Apps Script bound to the spreadsheet
+infra/         Terraform: the Vercel project, the DNS record, the CI credentials
 docs/          DESIGN.md, the reasoning behind all of it
 ```
 

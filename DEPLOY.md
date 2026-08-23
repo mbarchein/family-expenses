@@ -6,14 +6,25 @@ a phone and updates ship from CI without anyone opening a browser again.
 Nothing here touches the real ledger. Steps 1–8 run against a **copy**; §9 is
 the switch, and it is the last thing you do.
 
-What you need:
+It comes in two halves. The Google half is by hand, because none of it can be
+automated — the reasons are one per line in [`infra/README.md`](infra/README.md).
+Everything else is `terraform apply`.
 
-- A computer with a browser and `node` ≥ 22.12 — 24 is the current LTS and what
-  CI runs. The Google Sheets mobile app has no Apps Script menu, and the editor
-  is unusable on a phone.
-- The Google account that owns the spreadsheet.
-- A Vercel account.
-- Control of DNS for `terragiro.es`.
+What you need in front of you:
+
+| | |
+| --- | --- |
+| A computer | `node` ≥ 22.12, and `terraform` ~> 1.15. The Sheets mobile app has no Apps Script menu and the editor is unusable on a phone. |
+| The Google account | The one that owns the spreadsheet. |
+| A Vercel token | Account Settings → Tokens. |
+| A GitHub PAT | `repo` and `workflow` scope, for `mbarchein/family-expenses`. |
+| A Cloudflare token | `Zone:Read` and `DNS:Edit` on `terragiro.es`. |
+| An R2 bucket | For Terraform's state. Or drop the `backend "s3" {}` block and keep the state local. |
+
+The four values the manual half produces — a client id, an /exec URL, a script
+id and a deployment id — are pasted once into `terraform.tfvars`, and Terraform
+carries them to every place CI reads them from. Nothing gets typed into a web
+panel twice.
 
 ---
 
@@ -133,43 +144,41 @@ looking at, the balance it reads, the formula behind it, both people with their
 columns and addresses, and the accounts it will accept. If any line surprises
 you, stop here — everything downstream assumes these are right.
 
-## 7. Publish the frontend
+## 7. Everything else: `terraform apply`
 
-On Vercel: **Add New → Project**, import `mbarchein/family-expenses`, and set
-**Root Directory** to `app`.
-
-Then **disconnect the Git integration** (Settings → Git → Ignored Build Step, or
-disconnect the repository). Deploys come from `.github/workflows/desplegar.yml`,
-which runs only after `verificar` passes. Leaving both connected gives you two
-deployments racing on every push, and the one that wins is the one that skipped
-the checks.
-
-Environment variables, for Production and Preview:
-
-```
-VITE_API_URL=<the /exec URL from §4>
-VITE_GOOGLE_CLIENT_ID=<the client id from §5>
+```bash
+cd infra
+cp terraform.tfvars.example terraform.tfvars   # the four values from above, plus the three tokens
+cp backend.hcl.example backend.hcl             # R2 bucket and endpoint
+make init
+make plan                                      # read it before applying
+make apply
 ```
 
-Add `gafa.terragiro.es` under **Domains** and create the DNS record Vercel asks
-for. HTTPS is issued automatically.
+That creates the Vercel project rooted at `app/`, the DNS-only CNAME for
+`gafa.terragiro.es`, branch protection on `main`, and every Actions variable and
+secret the deploy workflow reads. The Vercel identifiers are taken off the
+resources rather than copied, so they cannot drift from the project they name.
 
-Repository secrets, under Settings → Secrets and variables → Actions:
+Two things worth knowing before the first `apply`:
 
-| Secret | Where it comes from |
-| --- | --- |
-| `VERCEL_TOKEN` | Vercel → Account Settings → Tokens |
-| `VERCEL_ORG_ID` | `.vercel/project.json` after `vercel link`, or Project Settings |
-| `VERCEL_PROJECT_ID` | same place |
-| `CLASPRC_JSON` | the whole contents of `~/.clasprc.json` after §2 |
-| `SCRIPT_ID` | the script id from §2 |
-| `DEPLOYMENT_ID` | the deployment id from §4 |
+- **The Vercel project stores no environment variables.** The `VITE_*` reach the
+  build from Actions variables, so there is one place per value rather than two
+  that can disagree.
+- **Do not connect Vercel's Git integration.** It would deploy every push the
+  moment it lands, checks or no checks, racing the workflow that does gate on
+  them. Terraform leaves it disconnected by not declaring it; connecting it
+  later in the dashboard undoes that silently.
 
-Push to `main` and watch `verificar` then `desplegar` go green.
+If the plan shows `VERCEL_ORG_ID` as empty, the account has no team and
+`team_id` came back null. `vercel whoami --token <token>` prints the account id;
+put it in `vercel_org_id` and re-plan.
 
-Until those six secrets exist, `desplegar` does not fail — it skips both halves
-and says so in the run summary. A deploy workflow that is permanently red is
-worse than one that does nothing: it teaches everyone to ignore the red mark.
+Then push to `main` and watch `verificar` and `desplegar` go green.
+
+Before Terraform has run, `desplegar` does not fail — it skips both halves and
+says so in the run summary. A deploy workflow that is permanently red is worse
+than one that does nothing: it teaches everyone to ignore the red mark.
 
 ## 8. Install it on the phones
 
@@ -193,8 +202,9 @@ Only once §8 behaved. On the **real** spreadsheet:
 1. **Archivo → Hacer una copia** first. A backup that predates anything the app
    ever wrote.
 2. Extensiones → Apps Script, and repeat §2 (new script id), §3, §4.
-3. Update `VITE_API_URL` in Vercel and `DEPLOYMENT_ID` / `SCRIPT_ID` in the
-   repository secrets to the new deployment.
+3. Update `apps_script_exec_url`, `apps_script_id` and
+   `apps_script_deployment_id` in `terraform.tfvars` and `apply` again. Nothing
+   is edited in a panel.
 4. Add `oauth_client_id` and the two addresses to the new `Config` tab. The same
    OAuth client works — it is tied to the domain, not to the spreadsheet.
 5. Run `sanityCheck` again and compare the balance it prints against the number
@@ -232,3 +242,7 @@ bottom of column A. Something below the ledger has a date in that column.
 **CI deploys the backend and nothing changes.** `clasp deploy` updated a
 different deployment id than the one the phones use. There is one URL that
 matters, the one from §4.
+
+**A merge is blocked forever waiting on a check.** Branch protection lists the
+job names inside `verificar` — `app` and `backend` — not the workflow's name. If
+a job is ever renamed, `infra/github.tf` has to be renamed with it.

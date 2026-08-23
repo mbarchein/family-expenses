@@ -35,6 +35,11 @@ jobs:
   #
   # This has to be a job rather than an `if` on each one: the `secrets` context
   # is not available in a job-level `if`, only inside steps.
+  #
+  # Most of what is checked here is a `vars` rather than a secret. Anything that
+  # ends up inside the published bundle — the OAuth client id, the backend URL —
+  # is public the moment the app loads, so storing it as a secret would hide it
+  # from us and from nobody else. Both are created by infra/, not by hand.
   preflight:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
@@ -45,15 +50,18 @@ jobs:
       - id: check
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
-          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
-          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          SCRIPT_ID: ${{ vars.SCRIPT_ID }}
+          DEPLOYMENT_ID: ${{ vars.DEPLOYMENT_ID }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: |
           vercel=true
           clasp=true
-          [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ] || vercel=false
+          [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ] \
+            && [ -n "$VITE_API_URL" ] && [ -n "$VITE_GOOGLE_CLIENT_ID" ] || vercel=false
           [ -n "$CLASPRC_JSON" ] && [ -n "$SCRIPT_ID" ] && [ -n "$DEPLOYMENT_ID" ] || clasp=false
 
           echo "vercel=$vercel" >> "$GITHUB_OUTPUT"
@@ -69,7 +77,7 @@ jobs:
               echo "| App (Vercel) | \`$vercel\` |"
               echo "| Backend (clasp) | \`$clasp\` |"
               echo
-              echo "The secrets are listed in [DEPLOY.md](../blob/main/DEPLOY.md) §7."
+              echo "Run terraform apply in [infra/](../blob/main/infra), or see DEPLOY.md."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -81,8 +89,8 @@ jobs:
       name: produccion
       url: https://gafa.terragiro.es
     env:
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
     steps:
       # A workflow_run checks out the default branch's tip by default, not the
       # commit that was verified. Two pushes landing close together would
@@ -103,9 +111,15 @@ jobs:
 
       # Built here rather than by Vercel so the bundle that ships is the one
       # this workflow verified, from this commit.
+      #
+      # The VITE_* come from here, not from the Vercel project: Vite inlines
+      # them at build time, and keeping them in one place means changing the
+      # backend URL is one edit rather than two that can disagree.
       - run: vercel build --prod --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
 
       - run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
         env:
@@ -150,7 +164,7 @@ jobs:
         if: steps.changed.outputs.value == 'true'
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
-          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+          SCRIPT_ID: ${{ vars.SCRIPT_ID }}
         run: |
           printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
           printf '{"scriptId":"%s","rootDir":"./apps-script"}' "$SCRIPT_ID" > .clasp.json
@@ -158,7 +172,7 @@ jobs:
       - name: Push and redeploy
         if: steps.changed.outputs.value == 'true'
         env:
-          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
+          DEPLOYMENT_ID: ${{ vars.DEPLOYMENT_ID }}
         run: |
           npx --yes @google/clasp@2 push --force
           # Updating the existing deployment keeps the /exec URL stable. Creating

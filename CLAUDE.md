@@ -18,6 +18,13 @@ the interface is theirs. That means:
 Keep UI strings in one place so the boundary stays obvious rather than leaking
 Spanish into logic.
 
+The two workflow names, `verificar` and `desplegar`, are the one deliberate
+exception: they match the convention across the author's other repositories, and
+consistency between projects is worth more here than consistency within one.
+Their job names, and everything inside them, are English. Branch protection in
+`infra/github.tf` lists those job names — rename one and the other has to follow,
+or every merge blocks waiting on a check that never reports.
+
 ## Invariants
 
 These come out of the design and are easy to break by accident. See
