@@ -42,18 +42,6 @@ export function useLedger(): Ledger {
     setPending(await pendingCount())
   }, [])
 
-  /** Paints from the last known state before the network is consulted. This is
-   *  what makes the app open on the keypad with the list already filled in
-   *  rather than on a spinner. */
-  const hydrate = useCallback(async () => {
-    const cached = await idb.get<Bootstrap>('cache', CACHE_KEY)
-    if (cached) {
-      setData(cached)
-      setStatus('ready')
-    }
-    await replayQueue()
-  }, [replayQueue])
-
   const refresh = useCallback(async () => {
     try {
       await flush()
@@ -69,7 +57,36 @@ export function useLedger(): Ledger {
     }
   }, [replayQueue])
 
-  useEffect(() => { void hydrate().then(refresh) }, [hydrate, refresh])
+  /**
+   * The first load: paint from the last known state, then go to the network.
+   *
+   * The cached bootstrap is what makes the app open on the keypad with the list
+   * already filled in rather than on a spinner. Reading it costs a microtask,
+   * so every setState here lands in a callback rather than in the effect body —
+   * an effect that sets state synchronously cascades a second render before the
+   * first has painted.
+   *
+   * The cancelled flag is not ceremony. StrictMode mounts every effect twice in
+   * development, and without it the two runs race: two bootstraps in flight,
+   * the slower one winning and overwriting the fresher answer.
+   */
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      const cached = await idb.get<Bootstrap>('cache', CACHE_KEY)
+      if (cancelled) return
+      if (cached) {
+        setData(cached)
+        setStatus('ready')
+      }
+      await replayQueue()
+      if (cancelled) return
+      await refresh()
+    })()
+
+    return () => { cancelled = true }
+  }, [replayQueue, refresh])
 
   // Coming back online, and coming back to the foreground, are the two moments
   // worth retrying. Polling on a timer would burn battery for an app that is

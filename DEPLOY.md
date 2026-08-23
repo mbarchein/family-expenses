@@ -8,8 +8,9 @@ the switch, and it is the last thing you do.
 
 What you need:
 
-- A computer with a browser and `node` ≥ 20. The Google Sheets mobile app has no
-  Apps Script menu, and the editor is unusable on a phone.
+- A computer with a browser and `node` ≥ 22.12 — 24 is the current LTS and what
+  CI runs. The Google Sheets mobile app has no Apps Script menu, and the editor
+  is unusable on a phone.
 - The Google account that owns the spreadsheet.
 - A Vercel account.
 - Control of DNS for `terragiro.es`.

@@ -62,6 +62,25 @@ against the copy of the spreadsheet, never the live ledger.
   and the screen says so. The balance is the one number in this app that is not
   allowed to be approximately right.
 
+## Do not bump TypeScript to 7
+
+TypeScript is deliberately held at 6.x while everything else tracks the latest
+stable. The 7.0 compiler works — it typechecks this project cleanly — but
+`typescript-eslint` refuses to load against it and hard-fails the lint step:
+
+```
+Error: typescript-eslint does not support TS 7.0
+```
+
+There is no clean way round it. The version gate is a `require('typescript')`
+check, so npm `overrides` cannot give the linter its own copy: `typescript` is a
+peer dependency and npm satisfies it from the root. Running the two side by side
+is documented by Microsoft for tools that accept a compiler path; this one does
+not.
+
+Revisit when typescript-eslint ships support — it is tracked at
+<https://github.com/typescript-eslint/typescript-eslint/issues/10940>.
+
 ## Comments
 
 Comments here explain why, and several name the failure that motivated them.
