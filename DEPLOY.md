@@ -48,6 +48,11 @@ In the copy: **Extensiones → Apps Script**. A bound project opens. Leave it.
 Copy the script id out of the editor's URL — the long string between
 `/projects/` and `/edit`.
 
+Then, once per Google account, turn on the switch that `clasp` cannot turn on
+for you: <https://script.google.com/home/usersettings> → **API de Google Apps
+Script** → on. Without it `push` fails with `User has not enabled the Apps
+Script API`, and nothing in the message says where the setting lives.
+
 Back on your computer, in a clone of this repository:
 
 ```bash
@@ -56,6 +61,18 @@ cp apps-script/.clasp.json.example .clasp.json
 $EDITOR .clasp.json                      # paste the script id
 npx --yes @google/clasp@2 push --force
 ```
+
+`clasp login` asks for its whole set of scopes and the consent screen is
+accept-or-cancel — there is no subset to pick, and deselecting anything makes a
+later `push` fail on a scope error that does not name what is missing. The
+refresh token it leaves in `~/.clasprc.json` can create and overwrite any Apps
+Script project of that account, not just this one, which is why it travels as a
+secret and not as a variable. Revoke it at
+<https://myaccount.google.com/permissions> if it ever leaks.
+
+`.clasp.json` belongs at the **root of the repository**, not inside
+`apps-script/`: the file itself carries `"rootDir": "./apps-script"` and points
+down from above. It is gitignored.
 
 Reload the editor: the five files are there.
 

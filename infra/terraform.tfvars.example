@@ -16,7 +16,19 @@ apps_script_exec_url      = "https://script.google.com/macros/s/XXXXXXXX/exec"
 apps_script_id            = ""
 apps_script_deployment_id = ""
 
-# The whole contents of ~/.clasprc.json, as one line:
-#   clasprc_json = jsonencode(jsondecode(file("~/.clasprc.json")))
-# is not available in tfvars, so paste it:
-clasprc_json = ""
+# The whole contents of ~/.clasprc.json. Use a heredoc and paste the file
+# verbatim — its own double quotes, its newlines, everything. Escaping that JSON
+# into a quoted HCL string by hand is an afternoon lost to backslashes, and
+# rewriting its quotes as single ones breaks twice over: HCL has no single-quoted
+# string, and CI writes this straight back out to a file that clasp parses as
+# JSON.
+#
+# The one sequence a heredoc still interprets is ${...}. A clasp session has
+# none; if yours somehow does, double the dollar: $${.
+#
+# To keep the refresh token out of this file altogether, pass it through the
+# environment instead and leave the heredoc out:
+#   export TF_VAR_clasprc_json="$(cat ~/.clasprc.json)"
+clasprc_json = <<-EOT
+{"tokens":{"default":{"client_id":"...","refresh_token":"..."}}}
+EOT
