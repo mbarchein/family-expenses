@@ -23,8 +23,11 @@ Spanish into logic.
 These come out of the design and are easy to break by accident. See
 `docs/DESIGN.md` for the reasoning.
 
-1. **Never write to column E.** The running balance is the spreadsheet's own
-   formula. Copy it down to a new row; never compute the value ourselves.
+1. **Never write a value or a formula string into column E.** The running
+   balance is the spreadsheet's own formula. Copy the cell down from the row
+   above with `copyTo`. Building the formula text ourselves would hardcode
+   en-US function names and separators (`SUM(a,b)`, not the `SUMA(a;b)` the
+   sheet displays) and would break the day someone edits the formula.
 2. **Never delete a row.** Voiding an entry clears the two amount cells and
    marks the concept. Deleting a row inside a running total corrupts every row
    below it.

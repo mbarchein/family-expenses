@@ -58,24 +58,39 @@ The entire history lives in **a single tab**. Its current shape:
 | B | `Concepto` | Free text. Feeds the frequent-concept chips and search. |
 | C | `Viqui` | The amount, when person 1 paid. Otherwise empty. |
 | D | `Mario` | Same for person 2. |
-| E | `diferencia` | **Never written by hand.** The formula is copied down to the new row and the last cell is read. |
-| F | (no header) | Left alone. Used as a note when one is written. |
+| E | `diferencia` | **Never written by hand.** The cell is copied down from the row above and the last one is read. |
+| F | *(no header)* | Left alone; already holds occasional notes. Used as the note field. |
 | G | `id` | **The only new column.** A per-row identifier, so a phone can edit a row without guessing at a row number. |
 
 ### Writing rules
 
 1. **Who paid is expressed by the column.** The amount lands in C or in D.
    There is no payer field to keep in sync.
-2. **The balance is read, not recomputed.** Column E is
-   `previous + Viqui − Mario`, positive in favour of person 1. The app copies
-   that formula into the new row and reads the last cell. App and sheet
-   therefore cannot disagree, and opening the app costs the same with 600 rows
-   as with 6,000.
+2. **The balance is read, not recomputed.** Column E holds, per row,
+   `SUM($C$2:C{row}) − SUM($D$2:D{row})` — the cumulative difference from the
+   top, positive in favour of person 1. The app reads the last cell rather than
+   summing the columns itself, so app and sheet cannot disagree, and opening the
+   app costs the same with 600 rows as with 6,000.
+
+   Each row recomputes from the top instead of chaining off the row above. That
+   is more robust than a chained formula: a broken cell breaks one row, not
+   every row below it, and inserting a row mid-sheet still recalculates
+   correctly. The cost grows with the square of the row count — imperceptible at
+   the current size, worth revisiting past a few thousand rows. **Do not change
+   it unprompted.** It is the users' sheet and it works.
+
+   **Copy the cell down; never build the formula string.** Apps Script writes
+   formulas in en-US notation (`SUM(a,b)`) regardless of the sheet's locale,
+   while this sheet displays `SUMA(a;b)`. Constructing the text by hand invites
+   a locale bug and would silently ignore any future change the users make to
+   their own formula. `copyTo` from the previous row adjusts the relative
+   references on its own and sidesteps both problems.
 3. **Always append at the end.** Nothing is reordered.
 4. **Voiding is not deleting.** To undo an entry, the app **clears the amounts
    in C and D** and marks the concept. Deleting a row inside a running total
-   corrupts everything below it; clearing it lets the balance correct itself,
-   leaves the formula untouched, and keeps a record of what was voided.
+   corrupts everything below it; clearing it lets the balance correct itself —
+   the cumulative sums simply skip the empty cells — leaves the formula
+   untouched, and keeps a record of what was voided.
 5. **Rows without an `id` are respected.** Entries pasted by hand from a bank
    statement are read and counted, but not editable from the phone until an id
    is assigned — one tap.
