@@ -5,7 +5,7 @@ name: desplegar
 # Gated on `verificar`: Vercel's own Git integration would deploy every push the
 # moment it lands, checks or no checks, so it stays DISCONNECTED and the deploy
 # happens here instead. If you ever reconnect it, this workflow becomes a second
-# deployment racing the first — see DEPLOY.md §6.
+# deployment racing the first — see DEPLOY.md §7.
 #
 # The frontend and the backend are separate jobs on purpose. They fail for
 # unrelated reasons (a Vercel token that expired; a clasp session that did), and
@@ -25,73 +25,143 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  app:
+  # Which halves of the deployment are actually configured.
+  #
+  # Until someone has sat down and walked through DEPLOY.md, none of the secrets
+  # exist and both jobs below would fail on every single push. A deploy workflow
+  # that is permanently red is worse than one that does nothing: it teaches
+  # everyone to ignore the red mark, and the day something real breaks nobody
+  # looks. So the jobs are skipped, loudly, with a notice saying what is missing.
+  #
+  # This has to be a job rather than an `if` on each one: the `secrets` context
+  # is not available in a job-level `if`, only inside steps.
+  preflight:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      vercel: ${{ steps.check.outputs.vercel }}
+      clasp: ${{ steps.check.outputs.clasp }}
+    steps:
+      - id: check
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
+        run: |
+          vercel=true
+          clasp=true
+          [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ] || vercel=false
+          [ -n "$CLASPRC_JSON" ] && [ -n "$SCRIPT_ID" ] && [ -n "$DEPLOYMENT_ID" ] || clasp=false
+
+          echo "vercel=$vercel" >> "$GITHUB_OUTPUT"
+          echo "clasp=$clasp" >> "$GITHUB_OUTPUT"
+
+          if [ "$vercel" = false ] || [ "$clasp" = false ]; then
+            echo "::notice::Not deploying yet — app:$vercel backend:$clasp. Add the missing secrets, DEPLOY.md §7."
+            {
+              echo "### Nothing deployed"
+              echo
+              echo "| Half | Configured |"
+              echo "| --- | --- |"
+              echo "| App (Vercel) | \`$vercel\` |"
+              echo "| Backend (clasp) | \`$clasp\` |"
+              echo
+              echo "The secrets are listed in [DEPLOY.md](../blob/main/DEPLOY.md) §7."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  app:
+    needs: preflight
+    if: needs.preflight.outputs.vercel == 'true'
     runs-on: ubuntu-latest
     environment:
       name: produccion
       url: https://gafa.terragiro.es
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # A workflow_run checks out the default branch's tip by default, not the
+      # commit that was verified. Two pushes landing close together would
+      # otherwise deploy the second one twice and the first never.
+      - uses: actions/checkout@v7
         with:
-          node-version: '20'
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
 
       - run: npm install --global vercel@latest
 
-      - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       # Built here rather than by Vercel so the bundle that ships is the one
       # this workflow verified, from this commit.
-      - run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - run: vercel build --prod --token="$VERCEL_TOKEN"
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
-      - run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   backend:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    needs: preflight
+    if: needs.preflight.outputs.clasp == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 2
 
       - id: changed
         name: Did the backend change?
         run: |
-          if git diff --quiet HEAD^ HEAD -- apps-script/; then
+          # No parent commit means nothing to compare against, so treat it as
+          # changed: erring towards an unnecessary push is harmless, erring the
+          # other way ships an app talking to yesterday's backend.
+          if git rev-parse --verify --quiet HEAD^ >/dev/null \
+             && git diff --quiet HEAD^ HEAD -- apps-script/; then
             echo "value=false" >> "$GITHUB_OUTPUT"
           else
             echo "value=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.changed.outputs.value == 'true'
         with:
-          node-version: '20'
+          node-version: 22
 
       # CLASPRC_JSON is the contents of ~/.clasprc.json after `clasp login` on a
       # machine with a browser. It holds a refresh token: rotate it if it leaks,
       # and expect to redo it if it is ever revoked.
+      #
+      # Written through the environment rather than interpolated into the script:
+      # a secret pasted straight into a shell command is one stray quote away
+      # from being executed instead of stored.
       - name: Restore the clasp session
         if: steps.changed.outputs.value == 'true'
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
         run: |
-          printf '%s' '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
-          printf '{"scriptId":"%s","rootDir":"./apps-script"}' '${{ secrets.SCRIPT_ID }}' > .clasp.json
+          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+          printf '{"scriptId":"%s","rootDir":"./apps-script"}' "$SCRIPT_ID" > .clasp.json
 
       - name: Push and redeploy
         if: steps.changed.outputs.value == 'true'
+        env:
+          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
         run: |
           npx --yes @google/clasp@2 push --force
           # Updating the existing deployment keeps the /exec URL stable. Creating
           # a new one would hand out a different URL and leave both phones
           # talking to a version nobody updates again.
-          npx --yes @google/clasp@2 deploy --deploymentId '${{ secrets.DEPLOYMENT_ID }}' --description "$GITHUB_SHA"
+          npx --yes @google/clasp@2 deploy --deploymentId "$DEPLOYMENT_ID" --description "$GITHUB_SHA"

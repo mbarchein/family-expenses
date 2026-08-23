@@ -166,6 +166,10 @@ Repository secrets, under Settings → Secrets and variables → Actions:
 
 Push to `main` and watch `verificar` then `desplegar` go green.
 
+Until those six secrets exist, `desplegar` does not fail — it skips both halves
+and says so in the run summary. A deploy workflow that is permanently red is
+worse than one that does nothing: it teaches everyone to ignore the red mark.
+
 ## 8. Install it on the phones
 
 Open `https://gafa.terragiro.es` in Chrome on Android, sign in with Google, and
