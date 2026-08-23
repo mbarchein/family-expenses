@@ -13,7 +13,7 @@ variable "github_owner" {
 }
 
 variable "github_token" {
-  description = "GitHub PAT with repo and actions scope"
+  description = "GitHub PAT. Classic: repo and workflow. Fine-grained: Administration, Secrets, Variables and Actions, read and write — Administration is what branch protection needs."
   type        = string
   sensitive   = true
 }

@@ -17,7 +17,7 @@ What you need in front of you:
 | A computer | `node` ≥ 22.12, and `terraform` ~> 1.15. The Sheets mobile app has no Apps Script menu and the editor is unusable on a phone. |
 | The Google account | The one that owns the spreadsheet. |
 | A Vercel token | Account Settings → Tokens. |
-| A GitHub PAT | `repo` and `workflow` scope, for `mbarchein/family-expenses`. |
+| A GitHub PAT | For `mbarchein/family-expenses`. Classic: `repo` and `workflow`. Fine-grained: **Administration**, **Secrets**, **Variables** and **Actions**, all read and write. Administration is the one that gets forgotten, and it is the one branch protection needs. |
 | A Cloudflare token | `Zone:Read` and `DNS:Edit` on `terragiro.es`. |
 | An R2 bucket | For Terraform's state. Or drop the `backend "s3" {}` block and keep the state local. |
 
@@ -169,10 +169,26 @@ Two things worth knowing before the first `apply`:
   moment it lands, checks or no checks, racing the workflow that does gate on
   them. Terraform leaves it disconnected by not declaring it; connecting it
   later in the dashboard undoes that silently.
+- **The four values from the manual half can be left empty, and the apply still
+  works.** Their Actions variables are simply not created while they are — see
+  the comment in `infra/github.tf`, because the reason is not obvious. So this
+  can be applied before §1–6 to get DNS propagating and the certificate issued,
+  and applied again afterwards to fill them in. What must *not* be done is
+  leaving the placeholders from `terraform.tfvars.example` in place: those are
+  not empty, `desplegar`'s preflight would take them for a configured
+  deployment, and the app would ship with `XXXXXXXX` inlined as its API URL.
 
-If the plan shows `VERCEL_ORG_ID` as empty, the account has no team and
-`team_id` came back null. `vercel whoami --token <token>` prints the account id;
-put it in `vercel_org_id` and re-plan.
+If the plan shows `VERCEL_ORG_ID` as empty — or the apply stops saying it would
+be created empty — the account has no team and `team_id` came back null. Read
+the account id off the API, because `vercel whoami` prints the username and not
+an id:
+
+```bash
+curl -s https://api.vercel.com/v2/user \
+  -H "Authorization: Bearer <vercel token>" | jq -r '.user.id'
+```
+
+Put it in `vercel_org_id` and re-plan.
 
 Then push to `main` and watch `verificar` and `desplegar` go green.
 
@@ -242,6 +258,12 @@ bottom of column A. Something below the ledger has a date in that column.
 **CI deploys the backend and nothing changes.** `clasp deploy` updated a
 different deployment id than the one the phones use. There is one URL that
 matters, the one from §4.
+
+**The apply fails with 403 "Resource not accessible by personal access token".**
+Branch protection and the vulnerability alerts need more than secrets and
+variables do, so the giveaway is that those two failed while the secrets went
+in. A fine-grained PAT is missing **Administration: read and write**; it can be
+added to the existing token without regenerating it.
 
 **A merge is blocked forever waiting on a check.** Branch protection lists the
 job names inside `verificar` — `app` and `backend` — not the workflow's name. If

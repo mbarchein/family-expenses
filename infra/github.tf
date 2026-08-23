@@ -14,17 +14,44 @@
 locals {
   repo = var.github_repository
 
-  # Read by .github/workflows/desplegar.yml.
-  variables = {
-    VERCEL_ORG_ID     = var.vercel_org_id != "" ? var.vercel_org_id : vercel_project.app.team_id
+  # Null on a Vercel account with no team. Kept a string, so the precondition
+  # below can compare it rather than trip over a null.
+  vercel_team_id = vercel_project.app.team_id == null ? "" : vercel_project.app.team_id
+
+  # Read by .github/workflows/desplegar.yml. Taken off the Vercel resources, so
+  # both exist from the very first apply.
+  derived_variables = {
+    VERCEL_ORG_ID     = var.vercel_org_id != "" ? var.vercel_org_id : local.vercel_team_id
     VERCEL_PROJECT_ID = vercel_project.app.id
-    SCRIPT_ID         = var.apps_script_id
-    DEPLOYMENT_ID     = var.apps_script_deployment_id
+  }
+
+  # Also read by desplegar.yml, but these come out of the manual half and are
+  # empty until someone has walked through DEPLOY.md 1-6.
+  manual_variables = {
+    SCRIPT_ID     = var.apps_script_id
+    DEPLOYMENT_ID = var.apps_script_deployment_id
 
     # Inlined into the bundle by Vite at build time.
     VITE_API_URL          = var.apps_script_exec_url
     VITE_GOOGLE_CLIENT_ID = var.google_oauth_client_id
   }
+
+  # An empty one is not created at all, and that is the whole point. GitHub
+  # answers 422 to a variable with an empty value, so "created but blank" is not
+  # a state that exists; and desplegar.yml's preflight tests with `-n`, which
+  # reads an absent variable and an empty one the same way. Leaving it out is
+  # therefore what makes the workflow skip. Filling it with a placeholder to
+  # keep the map whole would do the opposite: preflight would see a configured
+  # deployment and publish a bundle with that placeholder inlined as the API
+  # URL.
+  #
+  # The filter runs over the input variables alone, never over the derived ones:
+  # for_each needs its keys at plan time, and VERCEL_PROJECT_ID is not known
+  # until the project exists.
+  variables = merge(
+    local.derived_variables,
+    { for name, value in local.manual_variables : name => value if value != "" }
+  )
 
   secrets = {
     VERCEL_TOKEN = var.vercel_token
@@ -38,6 +65,17 @@ resource "github_actions_variable" "ci" {
   repository    = local.repo
   variable_name = each.key
   value         = each.value
+
+  lifecycle {
+    # Without this the apply dies on GitHub's 422 after having created half the
+    # variables. The only one that can arrive here empty is VERCEL_ORG_ID: the
+    # manual half's are filtered out above, and VERCEL_PROJECT_ID always has a
+    # value once the project exists.
+    precondition {
+      condition     = each.value != ""
+      error_message = "This Actions variable would be created empty, and GitHub rejects that with a 422. For VERCEL_ORG_ID it means the Vercel account has no team, so team_id came back null: read the account id off https://api.vercel.com/v2/user and put it in vercel_org_id."
+    }
+  }
 }
 
 resource "github_actions_secret" "ci" {
