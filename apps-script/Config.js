@@ -115,3 +115,8 @@ function columnLetterToIndex_(letter) {
   }
   return index;
 }
+
+/** The inverse, for messages. Single letters only, like the check above. */
+function columnIndexToLetter_(index) {
+  return String.fromCharCode(64 + index);
+}

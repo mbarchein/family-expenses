@@ -134,6 +134,15 @@ function sanityCheck() {
     'Allowed accounts: ' + allowedEmails_().join(', ')
   ];
 
+  // A balance cell with no formula is not a balance. Printed as a bare value it
+  // reads as "nothing to see"; the app turns that same empty cell into 0 and
+  // shows a difference of zero, which is the one number here that is not
+  // allowed to be quietly wrong. Run dumpLedgerShape() when this fires.
+  if (!sheet.getRange(last, COL_BALANCE).getFormula()) {
+    lines.push('*** ' + columnIndexToLetter_(COL_BALANCE) + last + ' holds no formula —' +
+      ' the balance is read from that cell alone. Run dumpLedgerShape(). ***');
+  }
+
   var withoutId = 0;
   if (last >= 2) {
     sheet.getRange(2, COL_ID, last - 1, 1).getValues().forEach(function (row) {
@@ -141,6 +150,92 @@ function sanityCheck() {
     });
   }
   lines.push('Rows without id:  ' + withoutId + ' (read-only from the app; run backfillIds)');
+
+  console.log(lines.join('\n'));
+  return lines.join('\n');
+}
+
+/**
+ * The ledger's shape, wider than the code's own assumptions.
+ *
+ * sanityCheck() has two blind spots that between them hid a real mismatch for
+ * an entire deployment. It reads only as far as COL_ID, so a ledger with an
+ * extra column in front looks merely odd rather than shifted; and it prints the
+ * balance as a value without saying whether a formula produced it, so a balance
+ * read out of an amounts cell arrives as an empty line instead of an alarm.
+ *
+ * This looks at A to J regardless of the constants, shows every formula, and
+ * ends by checking the two configured amount columns against the five fixed
+ * ones — a person pointed at COL_BALANCE is the failure that started all this,
+ * and it is one comparison away from being obvious.
+ *
+ * Read-only. Run it whenever the shape is in doubt, and in particular before
+ * DEPLOY.md 9 hands the app the real book.
+ */
+function dumpLedgerShape() {
+  var WIDTH = 10; // A to J: deliberately wider than COL_ID
+  var config = readConfig_();
+  var sheet = ledgerSheet_(config);
+  var last = lastDataRow_(sheet);
+  var lines = [
+    'Ledger tab:   ' + config.sheetName,
+    'lastDataRow_: ' + last + ' (walked up column ' + columnIndexToLetter_(COL_DATE) + ')',
+    ''
+  ];
+
+  // Display values, not raw ones: a date comes back as a Date object whose
+  // toString says nothing about the format the sheet actually shows.
+  for (var r = 1; r <= 3; r++) {
+    var shown = sheet.getRange(r, 1, 1, WIDTH).getDisplayValues()[0];
+    lines.push('row ' + r + ':  ' + shown.map(function (v, i) {
+      return columnIndexToLetter_(i + 1) + '=' + (v === '' ? '(empty)' : v);
+    }).join(' | '));
+  }
+
+  lines.push('', 'row ' + last + ', per column:');
+  var values = sheet.getRange(last, 1, 1, WIDTH).getDisplayValues()[0];
+  var formulas = sheet.getRange(last, 1, 1, WIDTH).getFormulas()[0];
+  for (var c = 0; c < WIDTH; c++) {
+    lines.push('  ' + columnIndexToLetter_(c + 1) + ': ' +
+      (values[c] === '' ? '(empty)' : values[c]) +
+      (formulas[c] ? '   formula: ' + formulas[c] : '   (no formula)'));
+  }
+
+  // What the code will reach for, next to the header that is actually there.
+  var headers = sheet.getRange(1, 1, 1, WIDTH).getDisplayValues()[0];
+  var fixed = [
+    ['COL_DATE', COL_DATE],
+    ['COL_CONCEPT', COL_CONCEPT],
+    ['COL_BALANCE', COL_BALANCE],
+    ['COL_NOTE', COL_NOTE],
+    ['COL_ID', COL_ID]
+  ];
+  lines.push('', 'what the code will use:');
+  fixed.forEach(function (pair) {
+    lines.push('  ' + pair[0] + ' = ' + pair[1] + ' (' + columnIndexToLetter_(pair[1]) + ')' +
+      ' -> header "' + (headers[pair[1] - 1] || '(empty)') + '"');
+  });
+  config.people.forEach(function (person, i) {
+    lines.push('  persona_' + (i + 1) + '  = ' + person.column +
+      ' (' + columnIndexToLetter_(person.column) + ')' +
+      ' -> header "' + (headers[person.column - 1] || '(empty)') + '"  ' + person.name);
+  });
+
+  // The collisions. Any of these means a write lands on top of another field.
+  config.people.forEach(function (person, i) {
+    fixed.forEach(function (pair) {
+      if (person.column === pair[1]) {
+        lines.push('  *** persona_' + (i + 1) + ' and ' + pair[0] +
+          ' are both column ' + columnIndexToLetter_(pair[1]) +
+          ' — saving would write one over the other ***');
+      }
+    });
+  });
+  if (!formulas[COL_BALANCE - 1]) {
+    lines.push('  *** ' + columnIndexToLetter_(COL_BALANCE) + last +
+      ' holds no formula. The balance is read from that cell and nothing else,' +
+      ' so the app would show ' + (Number(values[COL_BALANCE - 1]) || 0) + ' ***');
+  }
 
   console.log(lines.join('\n'));
   return lines.join('\n');
