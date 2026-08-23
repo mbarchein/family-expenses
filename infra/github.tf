@@ -43,9 +43,9 @@ resource "github_actions_variable" "ci" {
 resource "github_actions_secret" "ci" {
   for_each = local.secrets
 
-  repository      = local.repo
-  secret_name     = each.key
-  plaintext_value = each.value
+  repository  = local.repo
+  secret_name = each.key
+  value       = each.value
 }
 
 resource "github_repository_vulnerability_alerts" "app" {
