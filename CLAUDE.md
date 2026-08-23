@@ -38,3 +38,33 @@ These come out of the design and are easy to break by accident. See
    statement; count them, never edit them, until an id is assigned.
 6. **Development runs against a copy of the spreadsheet.** The real ledger is
    only connected once the app works.
+
+## Layout
+
+```
+app/           the PWA. Vite + React + TypeScript + Tailwind + vite-plugin-pwa
+apps-script/   the backend. Plain .js, pushed to Google with clasp
+docs/          DESIGN.md
+```
+
+There is no local backend. `app` talks to a deployed Apps Script; develop
+against the copy of the spreadsheet, never the live ledger.
+
+## Two more traps
+
+- **Never send `application/json` to the backend, and never add a header to a
+  request.** Apps Script does not answer OPTIONS, so anything that triggers a
+  CORS preflight fails in the browser while working perfectly in curl. Requests
+  are `text/plain` with the token in the body. The reasoning is at the top of
+  `apps-script/Api.js` and `app/src/api/client.ts`.
+- **Never round a leftover cent into silence.** A difference that is an odd
+  number of cents has no even split; `splitTransfer` reports what will remain
+  and the screen says so. The balance is the one number in this app that is not
+  allowed to be approximately right.
+
+## Comments
+
+Comments here explain why, and several name the failure that motivated them.
+Match that. A comment restating what the line below it does is noise; a comment
+saying which plausible-looking change would break production is the reason the
+next person does not make it.

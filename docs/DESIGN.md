@@ -35,8 +35,12 @@ share of the person who is ahead = (total − difference) / 2
 ```
 
 If the difference exceeds the total, that person contributes nothing, the other
-contributes everything, and the app reports how much is still outstanding. A
-rounding cent goes to whoever is behind.
+contributes everything, and the app reports how much is still outstanding.
+
+A difference that is an odd number of cents has no halfway point either. The
+share of whoever is ahead is rounded down, so the extra cent is carried by the
+one who was behind — the side that owed it — and the screen says a cent remains
+rather than claiming a zero the spreadsheet will not show.
 
 ### What this gives up
 
@@ -215,15 +219,20 @@ expired session, the row waits in the queue.
 | Frontend | React + TypeScript + Vite, `vite-plugin-pwa` |
 | Local state | IndexedDB with an outbound queue |
 | Backend | `apps-script/`, deployed with `clasp` |
-| Hosting | Cloudflare Pages |
+| Hosting | Vercel, at gafa.terragiro.es |
 
 **Tests.** Vitest over the two pieces that cannot be wrong: the C/D column
 reader and the transfer splitter. A Playwright smoke test over adding an
 expense.
 
-**GitHub Actions.** On every push: lint, typecheck, tests, build. On every PR: a
-preview deployment, to try it on a phone. On merge to `main`: publish, and
-`clasp push` if the backend changed.
+**GitHub Actions.** `verificar` runs lint, typecheck, tests and build on every
+push and pull request. `desplegar` runs only after it passes, and publishes the
+app plus, when `apps-script/` changed, the backend.
+
+Cloudflare Pages was the first choice and was dropped: Spanish ISPs block
+Cloudflare IP ranges on match days, and an app that does not open at weekends is
+not an app. Vercel's own Git integration stays disconnected for a related
+reason — it would deploy every push the moment it lands, checks or no checks.
 
 All development runs against a **copy** of the spreadsheet.
 

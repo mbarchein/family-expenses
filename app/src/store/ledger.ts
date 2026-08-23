@@ -1,0 +1,155 @@
+import { useCallback, useEffect, useState } from 'react'
+import { api } from '../api/client'
+import { ApiError, type Bootstrap, type Entry } from '../api/types'
+import { idb } from './db'
+import { enqueue, flush, pendingCount, pendingOps, type QueuedEntry } from './queue'
+
+export type Status = 'loading' | 'ready' | 'needsAuth' | 'forbidden' | 'error'
+
+export interface Ledger {
+  status: Status
+  error: string | null
+  data: Bootstrap | null
+  entries: Entry[]
+  pending: number
+  addEntry: (entry: QueuedEntry) => Promise<void>
+  editEntry: (entry: QueuedEntry) => Promise<void>
+  voidEntry: (id: string) => Promise<void>
+  claimRow: (row: number) => Promise<void>
+  refresh: () => Promise<void>
+}
+
+const CACHE_KEY = 'bootstrap'
+
+export function useLedger(): Ledger {
+  const [status, setStatus] = useState<Status>('loading')
+  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<Bootstrap | null>(null)
+  const [local, setLocal] = useState<Map<string, QueuedEntry>>(new Map())
+  const [voided, setVoided] = useState<Set<string>>(new Set())
+  const [pending, setPending] = useState(0)
+
+  const replayQueue = useCallback(async () => {
+    const ops = await pendingOps()
+    const map = new Map<string, QueuedEntry>()
+    const gone = new Set<string>()
+    for (const op of ops) {
+      if (op.kind === 'void') gone.add(op.id)
+      else map.set(op.entry.id, op.entry)
+    }
+    setLocal(map)
+    setVoided(gone)
+    setPending(await pendingCount())
+  }, [])
+
+  /** Paints from the last known state before the network is consulted. This is
+   *  what makes the app open on the keypad with the list already filled in
+   *  rather than on a spinner. */
+  const hydrate = useCallback(async () => {
+    const cached = await idb.get<Bootstrap>('cache', CACHE_KEY)
+    if (cached) {
+      setData(cached)
+      setStatus('ready')
+    }
+    await replayQueue()
+  }, [replayQueue])
+
+  const refresh = useCallback(async () => {
+    try {
+      await flush()
+      const fresh = await api.bootstrap()
+      await idb.set('cache', CACHE_KEY, fresh)
+      setData(fresh)
+      setStatus('ready')
+      setError(null)
+    } catch (err) {
+      handle(err, setStatus, setError)
+    } finally {
+      await replayQueue()
+    }
+  }, [replayQueue])
+
+  useEffect(() => { void hydrate().then(refresh) }, [hydrate, refresh])
+
+  // Coming back online, and coming back to the foreground, are the two moments
+  // worth retrying. Polling on a timer would burn battery for an app that is
+  // open for eight seconds at a time.
+  useEffect(() => {
+    const onWake = () => { if (document.visibilityState === 'visible') void refresh() }
+    window.addEventListener('online', onWake)
+    document.addEventListener('visibilitychange', onWake)
+    return () => {
+      window.removeEventListener('online', onWake)
+      document.removeEventListener('visibilitychange', onWake)
+    }
+  }, [refresh])
+
+  const mutate = useCallback(async (kind: 'append' | 'update', entry: QueuedEntry) => {
+    await enqueue({ kind, entry })
+    setLocal(prev => new Map(prev).set(entry.id, entry))
+    setPending(await pendingCount())
+    void refresh()
+  }, [refresh])
+
+  const voidEntry = useCallback(async (id: string) => {
+    await enqueue({ kind: 'void', id })
+    setVoided(prev => new Set(prev).add(id))
+    setPending(await pendingCount())
+    void refresh()
+  }, [refresh])
+
+  const claimRow = useCallback(async (row: number) => {
+    // Deliberately not queued: giving a legacy row an id is only useful with the
+    // sheet in front of us, and an offline attempt would have nothing to
+    // reconcile against.
+    await api.assignId(row)
+    await refresh()
+  }, [refresh])
+
+  return {
+    status, error, data, pending,
+    entries: merge(data?.entries ?? [], local, voided),
+    addEntry: entry => mutate('append', entry),
+    editEntry: entry => mutate('update', entry),
+    voidEntry,
+    claimRow,
+    refresh,
+  }
+}
+
+/**
+ * The sheet's rows plus whatever has not reached it yet.
+ *
+ * A queued entry always wins over the server's copy of the same id: it is
+ * either newer (an edit still in flight) or identical (already uploaded, not
+ * yet re-fetched). Either way the user sees what they typed.
+ */
+function merge(server: Entry[], local: Map<string, QueuedEntry>, voided: Set<string>): Entry[] {
+  const byId = new Map<string, Entry>()
+  for (const entry of server) {
+    byId.set(entry.id || `row:${entry.row}`, entry)
+  }
+  for (const [id, entry] of local) {
+    const existing = byId.get(id)
+    byId.set(id, { ...entry, row: existing?.row ?? 0, voided: false })
+  }
+  return [...byId.values()]
+    .map(entry => (voided.has(entry.id) ? { ...entry, voided: true } : entry))
+    .sort((a, b) => (a.date === b.date ? b.row - a.row : b.date.localeCompare(a.date)))
+}
+
+function handle(err: unknown, setStatus: (s: Status) => void, setError: (m: string) => void) {
+  if (err instanceof ApiError) {
+    if (err.code === 'FORBIDDEN') return setStatus('forbidden')
+    if (err.code === 'UNAUTHENTICATED') return setStatus('needsAuth')
+    // A network failure with a cached bootstrap on screen is not an error the
+    // user needs to see: the queue will deal with it. Only surface it when
+    // there is nothing to show.
+    if (err.code === 'NETWORK') return
+    setError(err.message)
+    return setStatus('error')
+  }
+  if (String(err).includes('interaction required')) return setStatus('needsAuth')
+  setError(String(err))
+  setStatus('error')
+}

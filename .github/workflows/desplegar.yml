@@ -1,0 +1,97 @@
+name: desplegar
+
+# Publishes the app, and the backend when it changed.
+#
+# Gated on `verificar`: Vercel's own Git integration would deploy every push the
+# moment it lands, checks or no checks, so it stays DISCONNECTED and the deploy
+# happens here instead. If you ever reconnect it, this workflow becomes a second
+# deployment racing the first — see DEPLOY.md §6.
+#
+# The frontend and the backend are separate jobs on purpose. They fail for
+# unrelated reasons (a Vercel token that expired; a clasp session that did), and
+# a red frontend deploy must not leave the spreadsheet half-updated.
+
+on:
+  workflow_run:
+    workflows: [verificar]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# Serialized and never cancelled: a deploy interrupted halfway is worse than a
+# deploy that waits.
+concurrency:
+  group: produccion
+  cancel-in-progress: false
+
+jobs:
+  app:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+      url: https://gafa.terragiro.es
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm install --global vercel@latest
+
+      - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      # Built here rather than by Vercel so the bundle that ships is the one
+      # this workflow verified, from this commit.
+      - run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  backend:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - id: changed
+        name: Did the backend change?
+        run: |
+          if git diff --quiet HEAD^ HEAD -- apps-script/; then
+            echo "value=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.changed.outputs.value == 'true'
+        with:
+          node-version: '20'
+
+      # CLASPRC_JSON is the contents of ~/.clasprc.json after `clasp login` on a
+      # machine with a browser. It holds a refresh token: rotate it if it leaks,
+      # and expect to redo it if it is ever revoked.
+      - name: Restore the clasp session
+        if: steps.changed.outputs.value == 'true'
+        run: |
+          printf '%s' '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+          printf '{"scriptId":"%s","rootDir":"./apps-script"}' '${{ secrets.SCRIPT_ID }}' > .clasp.json
+
+      - name: Push and redeploy
+        if: steps.changed.outputs.value == 'true'
+        run: |
+          npx --yes @google/clasp@2 push --force
+          # Updating the existing deployment keeps the /exec URL stable. Creating
+          # a new one would hand out a different URL and leave both phones
+          # talking to a version nobody updates again.
+          npx --yes @google/clasp@2 deploy --deploymentId '${{ secrets.DEPLOYMENT_ID }}' --description "$GITHUB_SHA"

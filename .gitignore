@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.env.local
+prod.env
+.clasp.json
+.DS_Store
+*.tsbuildinfo

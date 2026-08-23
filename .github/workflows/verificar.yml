@@ -1,0 +1,63 @@
+name: verificar
+
+# Everything that can say "no" before anything is published.
+#
+# Deliberately a separate workflow from `desplegar.yml` rather than its first
+# job: a pull request needs the checks and must never reach the deploy step, and
+# a workflow that does both ends up guarding the second half with an `if` that
+# is one edit away from being wrong.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: verificar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+
+      # The build needs the two variables to exist, not to be right: Vite
+      # inlines them at build time and an undefined one becomes the string
+      # "undefined" in the bundle rather than a failure anyone would notice.
+      # Real values live in Vercel; these are here so the build is exercised.
+      - run: npm run build
+        env:
+          VITE_API_URL: https://example.invalid/exec
+          VITE_GOOGLE_CLIENT_ID: ci.apps.googleusercontent.com
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Apps Script has no build and no test runner reachable from CI — it only
+      # runs inside Google. Parsing every file is the one thing that can be
+      # checked here, and it catches the mistake that actually happens: a typo
+      # pushed with clasp, discovered by a phone that suddenly cannot save.
+      - name: Parse the Apps Script sources
+        run: for file in apps-script/*.js; do node --check "$file"; done

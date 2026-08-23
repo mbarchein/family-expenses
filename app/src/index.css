@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* The palette is defined once as tokens and consumed through Tailwind's colour
+   names (see tailwind.config.js). Light is the bare :root block; dark is a
+   redefinition of the same tokens, never a separate set of rules — a colour
+   whose only definition sits inside the media query would go missing the
+   moment the query does not match. */
+:root {
+  --paper: #f1f3f0;
+  --surface: #ffffff;
+  --surface-2: #e7eae5;
+  --ink: #161b19;
+  --ink-2: #4c5652;
+  --ink-3: #7e8882;
+  --line: #d7dcd5;
+  --accent: #0c6f63;
+  --accent-ink: #ffffff;
+  --accent-soft: #ddede9;
+  --danger: #af3f38;
+  --person-1: #2f62d9;
+  --person-2: #a96f13;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0f1413;
+    --surface: #161d1b;
+    --surface-2: #1e2624;
+    --ink: #e7ece9;
+    --ink-2: #a2ada8;
+    --ink-3: #78837e;
+    --line: #28322f;
+    --accent: #4ecfbb;
+    --accent-ink: #07211e;
+    --accent-soft: #12302c;
+    --danger: #ee8a81;
+    --person-1: #82a6ff;
+    --person-2: #e0a83f;
+  }
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Public Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* The keypad sits at the bottom of the screen; without this the home
+     indicator on an iPhone lands on top of the zero. */
+  padding-bottom: env(safe-area-inset-bottom);
+  overscroll-behavior-y: none;
+}
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
