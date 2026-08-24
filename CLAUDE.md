@@ -78,6 +78,16 @@ against the copy of the spreadsheet, never the live ledger.
   "while we are there" breaks a published document and not just a rule. The same
   goes for reading the position: only the button that says it will asks for the
   permission, and every other read gives up rather than prompting.
+- **Never let clasp push anything that is not a backend source.** Apps Script
+  compiles every file in the project and runs the top level of every one of them
+  on every single request, so one stray file breaks the whole web app rather than
+  itself. `apps-script/test/` was pushed for one afternoon: its first line is
+  `require('node:test')`, every call died with "ReferenceError: require is not
+  defined" before reaching `doPost`, the deployment answered an HTML error page,
+  and the browser showed `TypeError: Failed to fetch` — indistinguishable, from
+  inside the app, from having no network at all. The root `.claspignore` is
+  therefore default-deny, and `verify` asks clasp itself what a push would
+  contain. Both jobs were green throughout.
 - **Never round a leftover cent into silence.** A difference that is an odd
   number of cents has no even split; `splitTransfer` reports what will remain
   and the screen says so. The balance is the one number in this app that is not

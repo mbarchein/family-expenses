@@ -4,6 +4,8 @@ dist/
 .env.local
 prod.env
 .clasp.json
+# Written by verify's push-contents check, next to the .clasp.json above.
+push.json
 .DS_Store
 *.tsbuildinfo
 

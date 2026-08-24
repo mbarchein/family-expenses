@@ -99,3 +99,47 @@ jobs:
       # all the way to somebody's phone.
       - name: Run the Apps Script sources against fake sheets
         run: node --test "apps-script/test/*.test.js"
+
+      # What actually gets pushed, asked of clasp itself.
+      #
+      # The test files above are Node: their first line is `require('node:test')`.
+      # They were pushed to Google along with the sources for one afternoon,
+      # because nothing said not to — and Apps Script runs the top level of every
+      # file in a project on every request, so every call died with
+      # "ReferenceError: require is not defined" before reaching doPost. The web
+      # app answered an HTML error page, the browser reported
+      # `TypeError: Failed to fetch`, and the app was unopenable while all three
+      # jobs of this workflow stayed green.
+      #
+      # `clasp status` resolves .claspignore the same way `clasp push` does, which
+      # is the point: a check that reimplemented those rules could disagree with
+      # the deploy, which is the bug all over again. No token needed — the script
+      # id is a dummy, because nothing here talks to Google.
+      - name: Check clasp would push only what Apps Script can run
+        run: |
+          printf '{"scriptId":"verify-only","rootDir":"./apps-script"}' > .clasp.json
+          npx --yes @google/clasp@2 status --json > push.json
+          node -e '
+            const { filesToPush } = require("./push.json");
+            const fs = require("node:fs");
+            console.log("clasp would push:\n  " + filesToPush.join("\n  "));
+
+            const strays = filesToPush.filter(f => !/^apps-script\/[^/]+\.(js|json)$/.test(f));
+            if (strays.length) {
+              console.error("::error::Not a backend source: " + strays.join(", ")
+                + ". Apps Script compiles every file in the project; add it to .claspignore.");
+              process.exit(1);
+            }
+
+            // Node-only syntax in a file bound for Apps Script. `require` at the
+            // top level of any pushed file breaks every request to the web app,
+            // not just the file it is in.
+            const nodeisms = filesToPush.filter(f => f.endsWith(".js")
+              && /\brequire\s*\(|\bmodule\.exports\b/.test(fs.readFileSync(f, "utf8")));
+            if (nodeisms.length) {
+              console.error("::error::Node syntax in a file clasp pushes: " + nodeisms.join(", ")
+                + ". Apps Script has no require(); this would break every request.");
+              process.exit(1);
+            }
+            console.log("All " + filesToPush.length + " are files Apps Script can run.");
+          '

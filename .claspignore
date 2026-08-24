@@ -1,0 +1,20 @@
+# What clasp is allowed to push into the Apps Script project.
+#
+# Deny everything, then name the backend. This file exists because of an outage:
+# `apps-script/test/` arrived with no ignore rules, so `clasp push` sent the Node
+# test files to Google along with the sources. Their first line is
+# `require('node:test')`, and Apps Script runs the top level of every file in the
+# project on every single request — so every call died with
+# "ReferenceError: require is not defined" before reaching doPost, the web app
+# answered an HTML error page, and the browser turned that into
+# `TypeError: Failed to fetch`. The app was unopenable and none of it was in the
+# app.
+#
+# Default-deny rather than a list of exclusions: the next thing added next to the
+# sources — a tool, a fixture, a second test folder — is then out by default
+# instead of quietly ending up in production. Adding a real backend file means
+# adding it here, and `verify` fails if a pushed file is not one Apps Script can
+# run.
+**/**
+!*.js
+!appsscript.json
