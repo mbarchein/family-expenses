@@ -10,7 +10,8 @@
  * the email against the spreadsheet's own sharing list.
  */
 
-import { fault, report } from '../lib/progress'
+import { T } from '../i18n/strings'
+import { fault, report, state } from '../lib/progress'
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string
 const GSI_SRC = 'https://accounts.google.com/gsi/client'
@@ -98,9 +99,23 @@ export function rememberEmail(email: string) {
 }
 
 export async function getIdToken(): Promise<string> {
+  // Never the token itself — only whether there is one and how long it has left,
+  // which is the part that explains a request being refused. A bearer credential
+  // printed on a screen that gets photographed and sent to somebody is a
+  // different bug from the one being chased.
+  state(T.splash.facts.session, describeSession())
+  const account = cachedEmail()
+  if (account) state(T.splash.facts.account, account)
+
   if (cached && cached.expiresAt - REFRESH_MARGIN_MS > Date.now()) return cached.token
   if (!pending) pending = requestToken().finally(() => { pending = null })
   return pending
+}
+
+function describeSession(): string {
+  if (!cached) return T.splash.session.none
+  const minutes = Math.round((cached.expiresAt - Date.now()) / 60_000)
+  return minutes > 0 ? T.splash.session.valid(minutes) : T.splash.session.expired(-minutes)
 }
 
 /** Signals a token that is gone rather than merely old — used when the backend

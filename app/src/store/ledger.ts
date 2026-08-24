@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { T } from '../i18n/strings'
-import { clearFault, fault, report } from '../lib/progress'
+import { clearFault, fault, report, state } from '../lib/progress'
 import { ApiError, type Bootstrap, type Entry, type Fixed } from '../api/types'
 import { idb } from './db'
 import { enqueue, flush, pendingCount, pendingOps, type QueuedEntry } from './queue'
@@ -76,6 +76,7 @@ export function useLedger(): Ledger {
       const fresh = await api.bootstrap()
       await idb.set('cache', CACHE_KEY, fresh)
       setData(fresh)
+      state(T.splash.facts.rows, String(fresh.entries.length))
       painted.current = true
       setStatus('ready')
       setError(null)

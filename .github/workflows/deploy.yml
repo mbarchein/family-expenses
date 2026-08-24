@@ -57,6 +57,12 @@ jobs:
           DEPLOYMENT_ID: ${{ vars.DEPLOYMENT_ID }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          # Which commit the phone is actually running, printed in the details
+          # panel behind a failure. Not a nicety: "antes funcionaba" is a claim
+          # about two versions, and without this there is no way to tell from the
+          # phone which of them is on it — including whether it ever picked up
+          # the fix it is being asked about. A local or CI build says 'dev'.
+          VITE_BUILD: ${{ github.sha }}
           # Printed on the two legal pages. Absent, they say so rather than
           # showing a gap — which is why preflight does not gate on it: a
           # missing contact address is not a reason to refuse to publish.

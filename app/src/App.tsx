@@ -8,7 +8,7 @@ import { FixedScreen } from './screens/FixedScreen'
 import { PlacesScreen } from './screens/PlacesScreen'
 import { renderSignInButton, setInteractionHandler, setSignedInHandler } from './auth/google'
 import { PRIVACY, TERMS } from './i18n/legal'
-import { useProgress } from './lib/progress'
+import { useProgress, type Fact } from './lib/progress'
 import { useLedger } from './store/ledger'
 
 /** How long the splash is allowed to be the whole app before it admits that
@@ -92,7 +92,7 @@ export default function App() {
  * often the ones the app recovered from and carried on past.
  */
 function Splash({ stuck }: { stuck: boolean }) {
-  const { step, since, fault } = useProgress()
+  const { step, since, fault, facts } = useProgress()
   const seconds = useSecondsSince(since)
 
   return (
@@ -106,6 +106,10 @@ function Splash({ stuck }: { stuck: boolean }) {
           {seconds >= 3 && <span className="text-ink-3"> {T.splash.waiting(seconds)}</span>}
         </p>
         <Fault text={fault} />
+        {/* Shown while it is stuck even with nothing broken: the address it is
+            aimed at and the version it is running are the two questions asked
+            first, and neither needs a failure to be worth answering. */}
+        {(fault || stuck) && <Details facts={facts} />}
         {stuck && (
           <>
             <p className="text-sm text-ink-2">{T.errors.stuck}</p>
@@ -156,15 +160,49 @@ function useSecondsSince(since: number): number {
 }
 
 function Message({ text, onRetry }: { text: string; onRetry?: () => void }) {
-  const { fault } = useProgress()
+  const { fault, facts } = useProgress()
   return (
     <div className="grid h-full place-items-center p-8">
       <div className="flex flex-col items-center gap-4 text-center">
         <p className="max-w-xs text-sm text-ink-2">{text}</p>
         <Fault text={fault} />
+        <Details facts={facts} />
         {onRetry && <Button onClick={onRetry} />}
       </div>
     </div>
+  )
+}
+
+/**
+ * Everything known about this phone, folded away.
+ *
+ * Closed by default because none of it means anything on a good day, and one tap
+ * from open because "antes funcionaba" is a question about the difference
+ * between two states and this is the only place that difference is written down:
+ * which server, which build, which session, what the browser actually said.
+ *
+ * A real <details> element rather than something of ours — it is the one
+ * disclosure widget that works with no JavaScript state, keeps the text
+ * selectable, and can be read out by a screen reader as what it is.
+ */
+function Details({ facts }: { facts: readonly Fact[] }) {
+  if (!facts.length) return null
+  return (
+    <details className="w-full max-w-xs text-left">
+      <summary className="cursor-pointer text-xs text-ink-3">{T.splash.details}</summary>
+      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 font-mono text-[11px]
+                     leading-snug text-ink-2">
+        {facts.map(fact => (
+          <div key={fact.label} className="col-span-2 grid grid-cols-subgrid">
+            <dt className="text-ink-3">{fact.label}</dt>
+            {/* `break-all`, not `break-words`: the values that matter most here
+                are a URL and a deployment id, which have no spaces to break at
+                and would otherwise push the layout sideways. */}
+            <dd className="break-all">{fact.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
   )
 }
 

@@ -25,7 +25,9 @@ test('the splash says what it is waiting for', async ({ page }) => {
   await expect(page.getByRole('status')).toHaveText(/\d+ s/, { timeout: 10_000 })
 })
 
-test('the splash prints the error, not just the fact that there was one', async ({ page }) => {
+test('a request that never left the phone says so, and names the host', async ({ page }) => {
+  // Both the request and the probe die, which is what a blocked host, a VPN or
+  // a wrong address in the bundle looks like from in here.
   await stubGoogle(page)
   await page.route('**/macros/s/**', route => route.abort())
 
@@ -35,7 +37,50 @@ test('the splash prints the error, not just the fact that there was one', async 
   await expect(page.getByText('No se ha podido conectar')).toBeVisible()
   // Verbatim and in full: it is not for them to understand, it is for them to
   // be able to read it out.
-  await expect(page.getByText('Último error: NETWORK: fetch failed')).toBeVisible()
+  await expect(page.getByText(/Último error: NETWORK: No se llega a script\.google\.com/))
+    .toBeVisible()
+})
+
+test('a server that answers but is not allowed to be read says that instead', async ({ page }) => {
+  // The one "fetch failed" hides, and the one that means the backend is
+  // misdeployed rather than unreachable: an Apps Script deployment that wants a
+  // Google login redirects to a page with no CORS headers, and the browser
+  // reports that exactly like a dead network. The probe is what tells them
+  // apart — it is the request carrying `ping`, and it gets through.
+  await stubGoogle(page)
+  await page.route('**/macros/s/**', route => {
+    const body = route.request().postData() ?? ''
+    if (body.includes('"ping"')) return route.fulfill({ status: 302, body: '' })
+    return route.abort()
+  })
+
+  await page.goto('/')
+  await page.getByTestId('google-sign-in').click()
+
+  await expect(page.getByText(/Último error: NETWORK: script\.google\.com contesta, pero/))
+    .toBeVisible()
+  await expect(page.getByText(/cualquier persona/)).toBeVisible()
+})
+
+test('the probe carries no credential', async ({ page }) => {
+  // It is a request whose answer cannot be read. Nothing that identifies anybody
+  // belongs in one.
+  await stubGoogle(page)
+  const bodies: string[] = []
+  await page.route('**/macros/s/**', route => {
+    const body = route.request().postData() ?? ''
+    bodies.push(body)
+    if (body.includes('"ping"')) return route.fulfill({ status: 302, body: '' })
+    return route.abort()
+  })
+
+  await page.goto('/')
+  await page.getByTestId('google-sign-in').click()
+  await expect(page.getByText(/Último error: NETWORK:/)).toBeVisible()
+
+  const probes = bodies.filter(body => body.includes('"ping"'))
+  expect(probes.length).toBeGreaterThan(0)
+  for (const probe of probes) expect(probe).not.toContain('idToken')
 })
 
 test('a backend that refuses says which code it refused with', async ({ page }) => {
@@ -80,4 +125,67 @@ test('a load that works says nothing about errors at all', async ({ page }) => {
   await page.getByRole('button', { name: 'Volver a cargar' }).click()
   await expect(page.getByText('Paso 1 de 3')).toBeVisible()
   await expect(page.getByText(/^Último error/)).toHaveCount(0)
+})
+
+test('the details say which server, which build and which session', async ({ page }) => {
+  // "Antes funcionaba" is a claim about two versions of something, and none of
+  // the things that could differ were on screen. These are them.
+  await stubGoogle(page)
+  await page.route('**/macros/s/**', route => route.abort())
+
+  await page.goto('/')
+  await page.getByTestId('google-sign-in').click()
+  await expect(page.getByText('No se ha podido conectar')).toBeVisible()
+
+  await page.getByText('Detalles').click()
+  const panel = page.locator('details')
+  await expect(panel).toContainText('Servidor')
+  await expect(panel).toContainText('script.google.com')
+  await expect(panel).toContainText('Petición')
+  await expect(panel).toContainText('bootstrap')
+  // The browser's own words, which are the ones worth quoting to anyone else.
+  await expect(panel).toContainText(/Respuesta.*(TypeError|Failed)/s)
+  await expect(panel).toContainText('Versión')
+  await expect(panel).toContainText('Sesión')
+  await expect(panel).toContainText('válida')
+  await expect(panel).toContainText('mario@example.invalid')
+})
+
+test('the token itself never reaches the screen', async ({ page }) => {
+  // The session line says how long is left, never what the credential is. A
+  // screen that gets photographed and sent to somebody must not be a way to
+  // hand over a bearer token.
+  await stubGoogle(page)
+  await page.route('**/macros/s/**', route => route.abort())
+
+  await page.goto('/')
+  await page.getByTestId('google-sign-in').click()
+  await expect(page.getByText('No se ha podido conectar')).toBeVisible()
+  await page.getByText('Detalles').click()
+
+  const stored = await page.evaluate(() => localStorage.getItem('a-medias:token'))
+  const token = JSON.parse(stored ?? '{}').token as string
+  expect(token).toBeTruthy()
+  await expect(page.locator('body')).not.toContainText(token)
+})
+
+test('a page that is not JSON is quoted rather than thrown away', async ({ page }) => {
+  // What an Apps Script deployment answers when it wants a login, or when the
+  // script threw: an HTML page. It used to arrive as an unexplained
+  // "SyntaxError: Unexpected token '<'" from outside every catch in the client.
+  await stubGoogle(page)
+  await page.route('**/macros/s/**', route => route.fulfill({
+    status: 200,
+    contentType: 'text/html',
+    body: '<html><head><title>Se necesita autorización</title></head><body>Inicia sesión</body></html>',
+  }))
+
+  await page.goto('/')
+  await page.getByTestId('google-sign-in').click()
+
+  // Twice on screen by design: the sentence for them, and the raw line to read
+  // out. Either will do here.
+  await expect(page.getByText(/no es JSON/).first()).toBeVisible()
+  await page.getByText('Detalles').click()
+  await expect(page.locator('details')).toContainText('Se necesita autorización')
 })

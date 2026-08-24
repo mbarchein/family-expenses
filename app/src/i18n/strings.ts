@@ -27,6 +27,28 @@ export const T = {
     /** Only from a few seconds in: a counter on a fast load is just noise. */
     waiting: (seconds: number) => `${seconds} s`,
     fault: 'Último error',
+    details: 'Detalles',
+    session: {
+      none: 'sin token',
+      valid: (minutes: number) => `válida ${minutes} min más`,
+      expired: (minutes: number) => `caducada hace ${minutes} min`,
+    },
+    yes: 'sí',
+    no: 'no',
+    /** The labels of the details panel. Short, because they sit in a column on
+     *  a phone next to values that are not short at all. */
+    facts: {
+      endpoint: 'Servidor',
+      action: 'Petición',
+      answer: 'Respuesta',
+      body: 'Contestó',
+      network: 'Red',
+      session: 'Sesión',
+      account: 'Cuenta',
+      build: 'Versión',
+      worker: 'Service worker',
+      rows: 'Filas cargadas',
+    },
   },
 
   tabs: {
@@ -198,5 +220,25 @@ export const T = {
     // that used to be an eternal splash screen.
     stuck: 'Esto está tardando demasiado. Vuelve a cargar.',
     configMissing: 'Falta configuración en la hoja. Mira la pestaña Config.',
+    /**
+     * What "fetch failed" actually was. The browser will not say, so these are
+     * the three possibilities told apart by `api/client.ts`, written to be read
+     * out loud down a phone line and to point at one thing each.
+     */
+    diagnosis: {
+      offline: 'Sin conexión: el móvil dice que no hay red.',
+      timeout: (host: string, seconds: number) =>
+        `${host} no ha contestado en ${seconds} s.`,
+      refused: (host: string) =>
+        `${host} contesta, pero el navegador no deja leerlo (CORS). `
+        + 'Suele ser el despliegue de Apps Script pidiendo login: revisa que esté '
+        + 'publicado para «cualquier persona».',
+      notJson: (host: string) =>
+        `${host} ha contestado algo que no es JSON. Mira «Contestó» abajo: `
+        + 'si es HTML, el despliegue está devolviendo una página de error o de login.',
+      unreachable: (host: string) =>
+        `No se llega a ${host}. Ni un bloqueador, ni una VPN, ni un DNS del móvil `
+        + 'dejan salir la petición — o la dirección del bundle es la equivocada.',
+    },
   },
 } as const
