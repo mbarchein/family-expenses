@@ -517,7 +517,22 @@ All development runs against a **copy** of the spreadsheet.
 
 ## 8. Open
 
-- Review who has access to the spreadsheet: now that Drive governs
-  authorization, anyone with edit permission could post from the app.
-- A copy of the spreadsheet to develop against.
-- The two Google accounts used to sign in.
+The first three items on this list were the ones that had to exist before any of
+this worked, and they do: there is a copy to develop against, both accounts sign
+in, and the sheet is shared with the two of them and nobody else. What is left:
+
+- **The app still writes to the copy.** Switching it to the real ledger is
+  `DEPLOY.md` §9, and it is a deliberate last step: everything gets tried on the
+  copy first, and the copy stays afterwards for the same reason.
+- **`e2e` is not a required check yet.** `infra/github.tf` lists it among the
+  contexts branch protection waits for, but that needs a `terraform apply` to
+  take effect. It is not urgent: `deploy` triggers on `verify` completing
+  successfully, so a red browser suite already stops a release — what is missing
+  is only the block on merging a pull request.
+- **Review who has access to the spreadsheet, periodically.** Drive governs
+  authorization now, so anyone with edit permission could post from the app.
+- **Two gaps left open on purpose.** `app/e2e/` is outside `tsc -b` and
+  `eslint src`, since tsconfig covers only `src` and the tests need Node globals
+  the app's type surface excludes. And the tabs are state rather than URLs, so
+  the device's back button walks the three entry steps but does not walk between
+  Añadir, Gastos, Diferencia and Sitios.
