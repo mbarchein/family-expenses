@@ -160,13 +160,27 @@ ever needed, they append at the end with no migration.
 Four screens — **Añadir**, **Gastos**, **Diferencia**, **Fijos** — plus
 settings.
 
-### Añadir (the landing screen)
+### Añadir — three steps
 
-The amount field has focus on open. No menus first.
+Entering an expense is three screens, not one. It was one, with every control on
+it at once, and the reason for splitting it is the same reason the layout was
+rewritten before that: this is used one-handed, standing up, with a receipt in
+the other hand. Three screens is what lets each one be a single decision at a
+size a thumb can hit.
 
-- Numeric keypad with the amount set large.
-- Chips of frequent concepts, ranked by **frequency × recency** over the user's
-  own history. Nothing to configure.
+**1. When, how much, and who paid.** The keypad, the amount set large, `Hoy` /
+`Ayer` / `Otra fecha`, and the two payer buttons preselected to whoever has the
+app open.
+
+Who paid is on this screen rather than with the concept because the payment
+methods on the next one are filtered by it — a card belongs to whoever holds it,
+so the payer has to be settled before there is a list to offer.
+
+**2. What it was, and how it was paid for.** The concept field with its chips
+directly beneath it, and one row of pills for `observaciones`.
+
+- Chips of frequent concepts, ranked by **frequency × recency** over the
+  household's own history. Nothing to configure.
 
   **A chip carries the concept and nothing else.** It used to carry two more
   things, and both were removed for the same reason: a suggestion may fill in
@@ -175,25 +189,46 @@ The amount field has focus on open. No menus first.
   this app that is not allowed to be approximately right. The usual payer
   changed who was paying behind the back of somebody who had already chosen —
   and who pays is the whole point of the ledger.
-- Payer: two buttons, preselected to whoever has the app open.
-- Date: `Hoy` / `Ayer` / `Otra fecha`. Always editable, free when it is today.
-- One row of pills for `observaciones`, holding the payment methods first and
-  then the suggested observations, both filtered by **who is paying** rather
-  than by who is holding the phone. They share one row because that column holds
-  one value: two rows feeding one field would be two controls contradicting each
-  other. Tapping the active pill clears it.
-- Save.
+- The `observaciones` row holds the payment methods first and then the suggested
+  observations, both filtered by **who is paying** rather than by who is holding
+  the phone. They share one row because that column holds one value: two rows
+  feeding one field would be two controls contradicting each other. Tapping the
+  active pill clears it.
 
-The whole screen fits without scrolling, and that is a constraint rather than a
+**3. Review, and save.** Every field on one screen, each row a button that goes
+back to the step that owns it. Nothing is editable here: a field that can be
+changed in two places is a field with two versions of the truth, and a ledger is
+not where to discover that. Also a way to throw the whole thing away, which a
+three-step flow needs and a one-screen form did not.
+
+The review exists because of what saving does. The row cannot be taken back out
+of the spreadsheet, only voided — so a glance before writing is worth a tap.
+
+**The device's back button walks back through the steps.** Each step forward is
+a history entry, so back means "the previous view" rather than "close the app
+halfway through typing". The on-screen arrow calls `history.back()` and nothing
+else, so there is one way back and not two that can disagree. A draft restored
+at step two or three rebuilds those entries on the way in, because the page has
+only just loaded and there is nothing behind it yet.
+
+**Nothing typed is held only in memory.** Every keystroke goes to a draft in
+IndexedDB, and reopening lands where you left off. Three screens is three
+chances to be interrupted, and the interruptions are the normal case: a queue
+moves, somebody talks to you, the phone locks. It also closes a hole this app
+opened itself — picking up a new version on open reloads the page, and a reload
+halfway through the flow used to lose everything on screen.
+
+Every step fits without scrolling, and that is a constraint rather than a
 preference. The first version was a vertical stack of nine blocks of equal
-weight, with the keypad below the concept field and the two rows of segmented
-controls and the save button below the keypad — so on a phone the two
-most-used controls in the app were off the bottom. The column is now the height
-of the viewport, every row is one line tall, and the keypad takes whatever is
-left over. The pill rows scroll sideways for the same reason: a row that can
-only ever be one line tall cannot push anything else off the screen.
+weight, with the keypad below the concept field and the save button below the
+keypad, so on a phone the two most-used controls in the app were off the bottom.
+The spare height is now spread between the rows rather than handed to any one of
+them: given to the keypad it made 130px keys with the digits floating inside
+them, and given to a spacer it made a hole in the middle of an otherwise dense
+step. The pill rows scroll sideways for the same family of reasons — a row that
+can only ever be one line tall cannot push anything else off the screen.
 
-Short path: open → type amount → tap chip → save.
+Short path: type amount → next → tap chip → next → save.
 
 **Saving is instant.** The row is painted and the app can be closed without
 waiting for the network: it sits in a local queue with its identifier and

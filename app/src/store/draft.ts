@@ -1,0 +1,81 @@
+import { useCallback, useEffect, useState } from 'react'
+import { idb } from './db'
+import { todayIso } from '../lib/dates'
+
+/**
+ * The expense being typed, kept on the phone until it is saved or thrown away.
+ *
+ * Three screens is three chances to be interrupted, and the interruptions are
+ * the normal case: a queue moves, somebody talks to you, the phone locks. None
+ * of that should cost the amount you already typed.
+ *
+ * It also closes a hole the app opened itself. Picking up a new version on open
+ * reloads the page — see `pwa.ts` — and a reload halfway through the entry flow
+ * used to lose everything on screen. Now the reload is invisible.
+ *
+ * The step travels with the fields, so reopening lands where you left off
+ * rather than at the beginning of something you had nearly finished.
+ */
+export interface Draft {
+  step: 0 | 1 | 2
+  date: string
+  /** What the keypad emitted, not a number: '', '12', '12,5', '12,'. */
+  typed: string
+  payer: 0 | 1
+  concept: string
+  note: string
+}
+
+const KEY = 'current'
+
+export function emptyDraft(payer: 0 | 1): Draft {
+  return { step: 0, date: todayIso(), typed: '', payer, concept: '', note: '' }
+}
+
+export interface DraftStore {
+  draft: Draft
+  /** False until the stored draft has been read, so the first paint does not
+   *  flash an empty form over one that was half filled in. */
+  ready: boolean
+  patch: (fields: Partial<Draft>) => void
+  reset: () => void
+}
+
+export function useDraft(defaultPayer: 0 | 1): DraftStore {
+  const [draft, setDraft] = useState<Draft>(() => emptyDraft(defaultPayer))
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const stored = await idb.get<Draft>('draft', KEY)
+      if (cancelled) return
+      // A stored draft from an older shape is not worth migrating: the worst
+      // case is one expense typed twice, and guessing at half a record is how
+      // an amount ends up attached to the wrong concept.
+      if (stored && typeof stored.typed === 'string') setDraft(stored)
+      setReady(true)
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const patch = useCallback((fields: Partial<Draft>) => {
+    setDraft(current => {
+      const next = { ...current, ...fields }
+      // Written without being awaited on purpose. A save that has not reached
+      // the disk yet costs nothing here — the state is already updated — and
+      // waiting for IndexedDB before repainting would make the keypad feel
+      // like it was thinking.
+      void idb.set('draft', KEY, next)
+      return next
+    })
+  }, [])
+
+  const reset = useCallback(() => {
+    const fresh = emptyDraft(defaultPayer)
+    setDraft(fresh)
+    void idb.del('draft', KEY)
+  }, [defaultPayer])
+
+  return { draft, ready, patch, reset }
+}

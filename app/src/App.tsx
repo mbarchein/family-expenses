@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { TabBar, type Tab } from './components/TabBar'
 import { T } from './i18n/strings'
-import { AddScreen } from './screens/AddScreen'
+import { AddScreen } from './screens/add/AddScreen'
 import { BalanceScreen } from './screens/BalanceScreen'
 import { ListScreen } from './screens/ListScreen'
 import { renderSignInButton, setInteractionHandler, setSignedInHandler } from './auth/google'

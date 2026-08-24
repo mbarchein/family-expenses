@@ -123,6 +123,6 @@ export async function stubApi(page: Page, data: Bootstrap = bootstrap()): Promis
 export async function signIn(page: Page) {
   await page.goto('/')
   await page.getByTestId('google-sign-in').click()
-  // The keypad is the app: waiting for it is waiting for a loaded ledger.
-  await page.getByRole('button', { name: '7', exact: true }).waitFor()
+  // The first step is the app: waiting for it is waiting for a loaded ledger.
+  await page.getByText('Paso 1 de 3').waitFor()
 }
