@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Pills, type Pill } from '../../components/Pills'
 import { T } from '../../i18n/strings'
 import { fuzzyFilter } from '../../lib/fuzzy'
-import { usePlaces, type RememberResult } from '../../store/places'
+import { usePlaces } from '../../store/places'
 import type { Draft } from '../../store/draft'
 import type { Bootstrap, Suggestion } from '../../api/types'
 
@@ -33,9 +33,10 @@ export function StepDetails({ draft, data, patch, onNext }: {
   patch: (fields: Partial<Draft>) => void
   onNext: () => void
 }) {
-  const { nearby, remember } = usePlaces()
-  const [saving, setSaving] = useState(false)
-  const [outcome, setOutcome] = useState<RememberResult | 'needsConcept' | null>(null)
+  // `locate` because this is the screen that suggests by proximity, and the
+  // position is read again on every visit: a fix is only worth what it was worth
+  // when it was taken.
+  const { nearby } = usePlaces({ locate: true })
 
   const mine = useMemo(
     () => (data.suggestions ?? []).filter(
@@ -143,20 +144,6 @@ export function StepDetails({ draft, data, patch, onNext }: {
         </div>
       </div>
 
-      <SavePlace
-        state={saving ? 'saving' : outcome}
-        onSave={() => {
-          const concept = draft.concept.trim()
-          if (!concept) return setOutcome('needsConcept')
-          setSaving(true)
-          setOutcome(null)
-          void remember(concept, draft.note).then(result => {
-            setSaving(false)
-            setOutcome(result)
-          })
-        }}
-      />
-
       {/* All of the slack, below all of the content. This is the same spacer
           that was wrong on the previous version of this screen and is right
           here: there it opened a hole between two things that belong together,
@@ -173,51 +160,5 @@ export function StepDetails({ draft, data, patch, onNext }: {
         {T.add.next}
       </button>
     </>
-  )
-}
-
-/**
- * The one control in the app that asks for the location, and it says so.
- *
- * Nothing else on any screen reads the GPS unless the permission has already
- * been given — see `lib/position.ts`. That is the whole shape of this feature:
- * a phone that knows where it is is useful, and a phone that starts knowing
- * without being asked is something else.
- *
- * It reports what happened in words rather than going quiet. A refused
- * permission cannot be re-asked for by this app — only in the browser's own
- * settings — so a button that silently did nothing would be indistinguishable
- * from a broken one.
- */
-function SavePlace({ state, onSave }: {
-  state: RememberResult | 'needsConcept' | 'saving' | null
-  onSave: () => void
-}) {
-  const done = state === 'saved' || state === 'again'
-
-  return (
-    <div className="flex flex-col gap-1 pt-1">
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={state === 'saving' || done}
-        className="self-start rounded-full border border-line px-3 py-1.5 text-xs font-semibold
-                   focus-visible:outline focus-visible:outline-2 disabled:opacity-60"
-        style={{ color: done ? 'var(--accent)' : 'var(--ink-2)' }}
-      >
-        {state === 'saving' ? T.places.remembering
-          : state === 'saved' ? T.places.remembered
-          : state === 'again' ? T.places.rememberedAgain
-          : T.places.remember}
-      </button>
-
-      {(state === 'denied' || state === 'unavailable' || state === 'needsConcept') && (
-        <p role="alert" className="text-xs" style={{ color: 'var(--danger)' }}>
-          {state === 'denied' ? T.places.denied
-            : state === 'unavailable' ? T.places.unavailable
-            : T.places.rememberNeedsConcept}
-        </p>
-      )}
-    </div>
   )
 }

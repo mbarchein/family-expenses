@@ -25,11 +25,28 @@ async function typeAmount(page: Page, digits: string) {
   for (const digit of digits) await key(page, digit === '.' ? ',' : digit)
 }
 
-/** Straight to the second step with an amount in, which is where the concept
- *  and the button that saves a place both live. */
+/** The second step, where a place lends its concept back. */
 async function reachDetails(page: Page) {
   await typeAmount(page, '10')
   await next(page)
+}
+
+/** The third step with a concept in, which is where the switch lives. */
+async function reachReview(page: Page, concept: string) {
+  await reachDetails(page)
+  await page.getByRole('textbox', { name: 'Concepto' }).fill(concept)
+  await next(page)
+}
+
+/** Turns the place switch on and waits for the coordinate it shows. */
+async function savePlace(page: Page) {
+  const toggle = page.getByRole('switch', { name: 'Guardar este sitio' })
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-checked', 'true')
+  // The coordinate is the point of showing it: a fix is only trustworthy if you
+  // can see how sure of itself the phone was.
+  await expect(toggle).toContainText('37.17730, -3.59860')
+  return toggle
 }
 
 test.beforeEach(async ({ page }) => {
@@ -42,20 +59,15 @@ test.describe('with the location allowed', () => {
   test('a saved place offers its concept back, first', async ({ page }) => {
     const calls = await stubApi(page)
     await signIn(page)
-    await reachDetails(page)
 
     // A concept that is in neither list, so finding it later can only mean the
     // place produced it.
-    await page.getByRole('textbox', { name: 'Concepto' }).fill('ferretería')
-    await page.getByRole('button', { name: 'Guardar este sitio' }).click()
-    await expect(page.getByRole('button', { name: 'Sitio guardado' })).toBeVisible()
-
-    // Save the expense, which starts the flow over, and come back.
-    await next(page)
+    await reachReview(page, 'ferretería')
+    await savePlace(page)
     await page.getByRole('button', { name: 'Guardar' }).click()
     await expect(page.getByText('Paso 1 de 3')).toBeVisible()
-    await reachDetails(page)
 
+    await reachDetails(page)
     // First, because standing where you stood last time beats any frequency.
     const concepts = page.getByRole('group', { name: 'Conceptos frecuentes' })
     await expect(concepts.getByRole('button').first()).toHaveText('ferretería')
@@ -66,6 +78,38 @@ test.describe('with the location allowed', () => {
     expect(JSON.stringify(calls)).not.toContain('-3.59')
   })
 
+  test('the switch off means nothing is saved', async ({ page }) => {
+    // The whole reason it is a switch: turning it on is a decision that can be
+    // taken back before the expense is written, and the place is written with
+    // the expense rather than the moment the switch moves.
+    await stubApi(page)
+    await signIn(page)
+
+    await reachReview(page, 'ferretería')
+    const toggle = await savePlace(page)
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-checked', 'false')
+
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Sitios' }).click()
+    await expect(page.getByText('Todavía no has guardado ningún sitio')).toBeVisible()
+  })
+
+  test('a discarded expense leaves no place behind', async ({ page }) => {
+    await stubApi(page)
+    await signIn(page)
+
+    await reachReview(page, 'ferretería')
+    await savePlace(page)
+    await page.getByRole('button', { name: 'Descartar este gasto' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Sitios' }).click()
+    await expect(page.getByText('Todavía no has guardado ningún sitio')).toBeVisible()
+  })
+
   test('forty metres away is somewhere else', async ({ page, context }) => {
     // The tolerance, end to end. Fifteen metres is the radius, so a doorway
     // forty metres up the street is a different shop and must not lend its
@@ -73,21 +117,14 @@ test.describe('with the location allowed', () => {
     // "super" everywhere in the neighbourhood.
     await stubApi(page)
     await signIn(page)
-    await reachDetails(page)
 
-    await page.getByRole('textbox', { name: 'Concepto' }).fill('ferretería')
-    await page.getByRole('button', { name: 'Guardar este sitio' }).click()
-    await expect(page.getByRole('button', { name: 'Sitio guardado' })).toBeVisible()
+    await reachReview(page, 'ferretería')
+    await savePlace(page)
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
 
     await context.setGeolocation(northOf(40))
-    // Back to the first step and forward again: the position is read when this
-    // screen mounts, so this is a fresh look from a new place.
-    await page.goBack()
-    await next(page)
-
-    // Empty the field first: it is the search box for these chips, so leaving
-    // "ferretería" in it would filter the row down to nothing and prove nothing.
-    await page.getByRole('textbox', { name: 'Concepto' }).fill('')
+    await reachDetails(page)
 
     await expect(page.getByRole('button', { name: 'farmacia' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'ferretería' })).toHaveCount(0)
@@ -100,11 +137,11 @@ test.describe('with the location allowed', () => {
   test('the places screen lists what was saved and can forget it', async ({ page }) => {
     await stubApi(page)
     await signIn(page)
-    await reachDetails(page)
 
-    await page.getByRole('textbox', { name: 'Concepto' }).fill('ferretería')
-    await page.getByRole('button', { name: 'Guardar este sitio' }).click()
-    await expect(page.getByRole('button', { name: 'Sitio guardado' })).toBeVisible()
+    await reachReview(page, 'ferretería')
+    await savePlace(page)
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
 
     await page.getByRole('button', { name: 'Sitios' }).click()
     const row = page.getByRole('listitem').filter({ hasText: 'ferretería' })
@@ -116,19 +153,10 @@ test.describe('with the location allowed', () => {
     await row.getByRole('button', { name: 'Borrar' }).click()
     await expect(page.getByText('Todavía no has guardado ningún sitio')).toBeVisible()
   })
-
-  test('a place needs a concept to be saved against', async ({ page }) => {
-    await stubApi(page)
-    await signIn(page)
-    await reachDetails(page)
-
-    await page.getByRole('button', { name: 'Guardar este sitio' }).click()
-    await expect(page.getByRole('alert')).toHaveText('Pon primero el concepto')
-  })
 })
 
 test.describe('with the location not allowed', () => {
-  test('nothing is suggested, and nothing is asked for', async ({ page }) => {
+  test('nothing is suggested and nothing is asked for', async ({ page }) => {
     // The permission is undecided here, which is the state every user starts in.
     // The screen must not read the position and must not raise a dialog: the
     // chips are the ones the sheet and the history gave it, in that order.
@@ -143,8 +171,8 @@ test.describe('with the location not allowed', () => {
   test('a refusal is said out loud rather than going quiet', async ({ page }) => {
     // The refusal is stubbed rather than left to the browser: an undecided
     // prompt in a headless Chromium neither denies nor answers, and what is
-    // being tested is what the screen does with a no — a button that silently
-    // did nothing would be indistinguishable from a broken one, and this app
+    // being tested is what the screen does with a no — a switch that silently
+    // sprang back would be indistinguishable from a broken one, and this app
     // cannot re-ask for a permission it has been refused.
     await page.addInitScript(() => {
       Object.defineProperty(navigator, 'geolocation', {
@@ -157,10 +185,12 @@ test.describe('with the location not allowed', () => {
     })
     await stubApi(page)
     await signIn(page)
-    await reachDetails(page)
 
-    await page.getByRole('textbox', { name: 'Concepto' }).fill('ferretería')
-    await page.getByRole('button', { name: 'Guardar este sitio' }).click()
+    await reachReview(page, 'ferretería')
+    const toggle = page.getByRole('switch', { name: 'Guardar este sitio' })
+    await toggle.click()
+
     await expect(page.getByRole('alert')).toContainText('Sin permiso de ubicación')
+    await expect(toggle).toHaveAttribute('aria-checked', 'false')
   })
 })

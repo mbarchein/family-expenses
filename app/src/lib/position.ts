@@ -73,3 +73,16 @@ function read(position: GeolocationPosition): Fix {
     accuracy: position.coords.accuracy,
   }
 }
+
+/**
+ * The coordinate as a person can read it, and paste into a map.
+ *
+ * Five decimals is about a metre, which is finer than any phone knows and
+ * coarse enough to fit on one line. A point and not a comma for the decimal
+ * separator even though the interface is Spanish: this is the one number here
+ * that is not prose, and `37,17730, -3,59860` is a string with four numbers in
+ * it as far as anyone reading it is concerned.
+ */
+export function formatCoords(fix: Fix): string {
+  return `${fix.lat.toFixed(5)}, ${fix.lon.toFixed(5)}`
+}

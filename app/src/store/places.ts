@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { idb } from './db'
 import { TOLERANCE_METRES, metresBetween, samePlace } from '../lib/geo'
-import { askForPosition, positionIfAlreadyAllowed, type Fix } from '../lib/position'
+import {
+  askForPosition, positionIfAlreadyAllowed, type Fix, type PositionFailure,
+} from '../lib/position'
 
 /**
  * Places, and the concept spent at each one — on this device and nowhere else.
@@ -52,14 +54,33 @@ export interface PlacesStore {
   here: Fix | null
   /** The places within the tolerance of `here`, nearest first. */
   nearby: NearPlace[]
-  /** Saves where the phone is now against this concept. Prompts for the
-   *  permission if it has not been decided yet: it is reached by a tap on a
-   *  button that says what it does. */
-  remember: (concept: string, note: string) => Promise<RememberResult>
+  /** Reads where the phone is, prompting if the permission has not been decided
+   *  yet. Only ever reached from a control that says it will ask. */
+  locateNow: () => Promise<Fix | PositionFailure>
+  /** Whether this doorway already holds this concept. Asked by the review
+   *  step's switch, which has a fix in hand and no business recomputing the
+   *  tolerance itself. */
+  knows: (fix: Fix, concept: string) => boolean
+  /** Stores a fix already in hand against this concept. Separate from reading
+   *  it because the two happen at different times: the switch on the review
+   *  step reads the position when it is turned on, and the place is written
+   *  only if the expense it belongs to is saved. */
+  rememberAt: (fix: Fix, concept: string, note: string) => Promise<RememberResult>
   forget: (id: string) => Promise<void>
 }
 
-export function usePlaces(): PlacesStore {
+/**
+ * `locate` asks for the position on mount — but only where it is already
+ * allowed, and never with a prompt. It is opt-in because two screens need it
+ * (the chips on the second step, the distances on the places screen) and one
+ * does not: the flow that only ever writes a place would otherwise read the GPS
+ * on every mount for nothing.
+ */
+export interface PlacesOptions {
+  locate?: boolean
+}
+
+export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
   const [places, setPlaces] = useState<Place[]>([])
   const [ready, setReady] = useState(false)
   const [here, setHere] = useState<Fix | null>(null)
@@ -75,11 +96,12 @@ export function usePlaces(): PlacesStore {
       // Deliberately after the list and deliberately without prompting: the
       // screens that use this are useful with no position at all, and a dialog
       // nobody asked for is how a permission gets denied for good.
+      if (!locate) return
       const fix = await positionIfAlreadyAllowed()
       if (!cancelled && fix) setHere(fix)
     })()
     return () => { cancelled = true }
-  }, [])
+  }, [locate])
 
   const nearby = useMemo<NearPlace[]>(() => {
     if (!here) return []
@@ -89,11 +111,21 @@ export function usePlaces(): PlacesStore {
       .sort((a, b) => a.metres - b.metres || b.uses - a.uses)
   }, [places, here])
 
-  const remember = useCallback(async (concept: string, note: string): Promise<RememberResult> => {
+  const locateNow = useCallback(async () => {
     const fix = await askForPosition()
-    if (fix === 'denied' || fix === 'unavailable') return fix
-    setHere(fix)
+    if (fix !== 'denied' && fix !== 'unavailable') setHere(fix)
+    return fix
+  }, [])
 
+  const knows = useCallback(
+    (fix: Fix, concept: string) =>
+      places.some(place => place.concept === concept && samePlace(fix, place)),
+    [places],
+  )
+
+  const rememberAt = useCallback(async (
+    fix: Fix, concept: string, note: string,
+  ): Promise<RememberResult> => {
     // The same concept at the same doorway is the same place. Saving it again
     // counts as a use rather than adding a second row that will always be
     // offered twice.
@@ -123,7 +155,7 @@ export function usePlaces(): PlacesStore {
     setPlaces(current => current.filter(place => place.id !== id))
   }, [])
 
-  return { places, ready, here, nearby, remember, forget }
+  return { places, ready, here, nearby, locateNow, knows, rememberAt, forget }
 }
 
 /** Guards against a half-written record from an older shape of this store: a

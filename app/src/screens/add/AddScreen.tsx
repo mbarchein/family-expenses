@@ -3,9 +3,10 @@ import { T } from '../../i18n/strings'
 import { parseAmount } from '../../lib/money'
 import { useDraft } from '../../store/draft'
 import type { Ledger } from '../../store/ledger'
+import { usePlaces } from '../../store/places'
 import { StepAmount } from './StepAmount'
 import { StepDetails } from './StepDetails'
-import { StepReview } from './StepReview'
+import { StepReview, type PlaceState } from './StepReview'
 
 const STEPS = 3
 
@@ -35,6 +36,12 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
   const { draft, ready, patch, reset } = useDraft(me === 1 ? 1 : 0)
   const [problem, setProblem] = useState<string | null>(null)
   const [justSaved, setJustSaved] = useState<string | null>(null)
+
+  // No `locate`: this only ever writes a place, and reading the GPS on the way
+  // into a flow that may never ask for one is exactly what the option exists to
+  // avoid. The screen that suggests by proximity does its own reading.
+  const { locateNow, knows, rememberAt } = usePlaces()
+  const [place, setPlace] = useState<PlaceState>({ kind: 'off' })
 
   const step = draft.step
 
@@ -84,6 +91,22 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
     if (step > 0) history.go(-step)
   }
 
+  /**
+   * The switch reads the position when it goes on and forgets it when it goes
+   * off. Nothing is written here: the place lands in `save()`, with the expense
+   * it belongs to, so abandoning the entry does not leave a place behind for a
+   * gasto that was never apuntado.
+   */
+  async function togglePlace() {
+    if (place.kind === 'on') return setPlace({ kind: 'off' })
+    setPlace({ kind: 'asking' })
+    const fix = await locateNow()
+    if (fix === 'denied' || fix === 'unavailable') return setPlace({ kind: fix })
+    // Whether this doorway and concept are already stored, so the switch can say
+    // "you already had this" instead of implying something new was added.
+    setPlace({ kind: 'on', fix, known: knows(fix, draft.concept.trim()) })
+  }
+
   function forward() {
     if (step === 0) {
       if (amount <= 0) return setProblem(T.add.needAmount)
@@ -102,6 +125,13 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
     if (!draft.concept.trim()) return setProblem(T.add.needConcept)
 
     const id = crypto.randomUUID()
+    // Before the entry, and deliberately not awaited together with it: a place
+    // is local and instant, while the entry goes through the outbound queue.
+    // Failing to store a place must never stop an expense being apuntado.
+    if (place.kind === 'on') {
+      await rememberAt(place.fix, draft.concept.trim(), draft.note).catch(() => {})
+    }
+
     await ledger.addEntry({
       id,
       date: draft.date,
@@ -112,6 +142,7 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
     })
 
     reset()
+    setPlace({ kind: 'off' })
     setProblem(null)
     // Back to where the flow started, so the steps just walked through are not
     // left behind us for the back button to wander into. `go` and not two
@@ -174,11 +205,13 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
           people={people}
           amount={amount}
           readOnly={readOnly}
+          place={place}
+          onTogglePlace={() => void togglePlace()}
           // One call, not a back() per step: two in a row race each other and
           // the second can land before the first popstate has been handled.
           onEdit={target => history.go(target - step)}
           onSave={save}
-          onDiscard={() => { reset(); rewind() }}
+          onDiscard={() => { reset(); setPlace({ kind: 'off' }); rewind() }}
         />
       )}
 

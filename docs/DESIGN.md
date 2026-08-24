@@ -220,7 +220,12 @@ tapping a match just finishes the word. See `app/src/lib/fuzzy.ts`.
   active pill clears it.
 
 **3. Review, and save.** Every field on one screen, each row a button that goes
-back to the step that owns it. Nothing is editable here: a field that can be
+back to the step that owns it. Below the card, outside it because it is not a
+field of the expense, the switch that saves where the phone is — see **Sitios**.
+It is on this step and not the second one for two reasons: this is where
+everything about to be written is confirmed, and by the time it can be touched
+there is certainly a concept to attach a place to, since the second step cannot
+be left without one. Nothing is editable here: a field that can be
 changed in two places is a field with two versions of the truth, and a ledger is
 not where to discover that. Also a way to throw the whole thing away, which a
 three-step flow needs and a one-screen form did not.
@@ -284,10 +289,22 @@ column for them — what reaches the ledger is the concept, exactly as if it had
 been typed. The other person in the house cannot see them. The first line of the
 screen says so, and section 13 of the privacy policy says it again.
 
-Saving one is always a deliberate tap on "Guardar este sitio", which is the only
-thing in the app that asks for the location permission. Every other read is
-guarded by a permission check that gives up rather than prompting, so somebody
-who never uses places is never asked — see `app/src/lib/position.ts`.
+Saving one is always a deliberate flick of the "Guardar este sitio" switch on
+the review step, which is the only thing in the app that asks for the location
+permission. Every other read is guarded by a permission check that gives up
+rather than prompting, so somebody who never uses places is never asked — see
+`app/src/lib/position.ts`.
+
+The switch reads the position when it goes on and shows the coordinate it would
+save, with the accuracy beside it. Showing it is the only way to tell a good fix
+from a bad one *before* trusting it: the radius is fifteen metres, a phone
+indoors is often less sure of itself than that, and `±38 m` on screen explains in
+advance what would otherwise be a suggestion that mysteriously never comes back.
+It is also the only place in the app that ever displays a coordinate.
+
+The place is written when the expense is, not when the switch moves — so
+abandoning the entry leaves nothing behind, and a place cannot exist for a gasto
+that was never apuntado.
 
 A place is a location *and* a concept, not a location with a concept attached.
 The pharmacy and the supermarket in the same square are two places, and both are

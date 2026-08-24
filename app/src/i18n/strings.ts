@@ -54,9 +54,10 @@ export const T = {
       'aquí el concepto ya estará esperando.',
     remember: 'Guardar este sitio',
     remembering: 'Buscando dónde estás…',
-    remembered: 'Sitio guardado',
-    rememberedAgain: 'Ya lo tenías guardado',
-    rememberNeedsConcept: 'Pon primero el concepto',
+    // Said in the future tense on purpose: the place is written when the expense
+    // is, not when the switch goes on.
+    willRemember: 'Se guardará con el gasto',
+    knownAlready: 'Ya tenías este sitio guardado',
     denied: 'Sin permiso de ubicación. Se lo puedes dar en los ajustes del navegador.',
     unavailable: 'No se ha podido saber dónde estás',
     here: 'Aquí',
