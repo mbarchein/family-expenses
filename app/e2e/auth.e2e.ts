@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { signIn, stubApi, stubGoogle } from './harness'
+import { bootstrap, signIn, stubApi, stubGoogle } from './harness'
 
 /**
  * Being remembered between openings.
@@ -61,4 +61,57 @@ test('a rejected token is thrown away, not retried for ever', async ({ page }) =
 
   await expect(page.getByTestId('google-sign-in')).toBeVisible()
   expect(await page.evaluate(() => localStorage.getItem('a-medias:token'))).toBeNull()
+})
+
+/**
+ * The two ways the app could never open at all.
+ *
+ * Both of these are what "la app no carga después de identificarme" was, and
+ * both survived 45 browser tests because every one of them stubs a One Tap that
+ * politely says it cannot display itself and a backend that always answers 200.
+ * Neither is what a phone with its site data just cleared actually meets.
+ */
+test('a prompt that never answers still ends on a sign-in button', async ({ page }) => {
+  // FedCM does not report the moments the old code waited for, so the silent
+  // request settled through nothing at all: no token, no rejection, no sign-in
+  // screen, and a splash screen that was the whole app for ever.
+  await stubApi(page)
+  await stubGoogle(page, 'mario@example.invalid', 'silent')
+
+  await page.goto('/')
+  // Longer than the app's own deadline for the silent path, and deliberately
+  // tied to nothing: the point is that it is bounded at all.
+  await expect(page.getByTestId('google-sign-in')).toBeVisible({ timeout: 20_000 })
+
+  await page.getByTestId('google-sign-in').click()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+})
+
+test('a backend that cannot be reached says so, and can be retried', async ({ page }) => {
+  // Nothing cached, because the site data has just been cleared — which is the
+  // state in which a single failed request used to be swallowed in silence.
+  let broken = true
+  await page.route('**/macros/s/**', async route => {
+    if (broken) return route.abort()
+    return route.fulfill({ json: { ok: true, data: bootstrap() } })
+  })
+
+  await page.goto('/')
+  await page.getByTestId('google-sign-in').click()
+  await expect(page.getByText('No se ha podido conectar')).toBeVisible()
+
+  broken = false
+  await page.getByRole('button', { name: 'Volver a cargar' }).click()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+})
+
+test('an answer that never arrives does not leave the splash on screen', async ({ page }) => {
+  // The backstop for the third cause nobody has found yet: a request that hangs
+  // rather than failing. Fifteen seconds of "A medias" and then something to do.
+  await page.route('**/macros/s/**', () => { /* never answered, never refused */ })
+
+  await page.goto('/')
+  await page.getByTestId('google-sign-in').click()
+  await expect(page.getByText('Esto está tardando demasiado. Vuelve a cargar.'))
+    .toBeVisible({ timeout: 25_000 })
 })

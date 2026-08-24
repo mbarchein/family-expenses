@@ -165,22 +165,65 @@ function initialise() {
   })
 }
 
+/**
+ * How long the silent path is given before the app stops waiting for it.
+ *
+ * This number is the fix to "la app no carga". The silent attempt used to have
+ * no deadline at all: it rejected only when the prompt reported that it could
+ * not display itself, and with `use_fedcm_for_prompt` that report never comes —
+ * Google does not invoke `isNotDisplayed()` or `isSkippedMoment()` once FedCM is
+ * on. So every way FedCM can fail to produce a credential (no browser support,
+ * a dialog the user closes, a mediation that goes nowhere) left this promise
+ * pending for ever, `refresh()` never returned, the status never left 'loading',
+ * and the app sat on the splash screen with no way out and nothing to catch it:
+ * a hang is not an exception, so no error boundary sees it.
+ *
+ * Timing out early is safe in both directions. If the credential arrives after
+ * the deadline it is not lost — `receive` finds nobody waiting and tells the app
+ * through `onSignedIn`, which is the same path the tapped button uses.
+ */
+const SILENT_TIMEOUT_MS = 8_000
+
 async function requestToken(): Promise<string> {
   await loadGsi()
   initialise()
 
   return new Promise<string>((resolve, reject) => {
-    deliver = resolve
+    let settled = false
+
+    const handOver = (token: string) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(token)
+    }
+
+    /** No credential is coming. Hand the screen its sign-in button. */
+    const giveUp = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (deliver === handOver) deliver = null
+      onNeedsInteraction?.()
+      reject(new Error('interaction required'))
+    }
+
+    deliver = handOver
+    // Armed before the prompt is opened, so that a listener called synchronously
+    // — which is what the stubbed One Tap in the tests does — finds it there.
+    const timer = setTimeout(giveUp, SILENT_TIMEOUT_MS)
 
     google.accounts.id.prompt((notification: PromptNotification) => {
       // A prompt that cannot display itself is not an error — it usually means
       // the browser has no Google session, or One Tap is suppressed. The app
-      // shows its own sign-in button instead of leaving a dead screen.
-      if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.()) {
-        deliver = null
-        onNeedsInteraction?.()
-        reject(new Error('interaction required'))
-      }
+      // shows its own sign-in button instead of leaving a dead screen. The two
+      // pre-FedCM moments are still handled because the browsers that lack
+      // FedCM still report them; the deadline above covers the ones that do not.
+      if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.()) return giveUp()
+      // Dismissal is also fired straight after a credential is handed over,
+      // with that reason, so it cannot be treated as a failure on its own.
+      if (notification.isDismissedMoment?.()
+          && notification.getDismissedReason?.() !== 'credential_returned') giveUp()
     })
   })
 }
@@ -224,6 +267,8 @@ function decodeJwt(token: string): { exp: number; email?: string } {
 interface PromptNotification {
   isNotDisplayed?: () => boolean
   isSkippedMoment?: () => boolean
+  isDismissedMoment?: () => boolean
+  getDismissedReason?: () => string
 }
 
 declare const google: {

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
+import { T } from '../i18n/strings'
 import { ApiError, type Bootstrap, type Entry, type Fixed } from '../api/types'
 import { idb } from './db'
 import { enqueue, flush, pendingCount, pendingOps, type QueuedEntry } from './queue'
@@ -35,6 +36,15 @@ export function useLedger(): Ledger {
   const [voided, setVoided] = useState<Set<string>>(new Set())
   const [pending, setPending] = useState(0)
 
+  /**
+   * Whether anything is on screen yet.
+   *
+   * A ref and not state, deliberately. `refresh` would have to depend on it to
+   * read it, the mount effect below depends on `refresh`, and an effect that
+   * re-runs whenever the data changes bootstraps in a loop.
+   */
+  const painted = useRef(false)
+
   const replayQueue = useCallback(async () => {
     const ops = await pendingOps()
     const map = new Map<string, QueuedEntry>()
@@ -49,15 +59,25 @@ export function useLedger(): Ledger {
   }, [])
 
   const refresh = useCallback(async () => {
+    // Back to the splash while the first load is in flight, and only then.
+    //
+    // Without this, tapping the sign-in button left the status on 'needsAuth'
+    // for as long as the request took — so a request that never came back left
+    // the sign-in screen on screen, and the app answered a tap on "Entrar con
+    // Google" by showing the same button again. That is the third shape of
+    // "la app no carga después de identificarme", and the one that looks least
+    // like a bug and most like a phone being slow.
+    if (!painted.current) setStatus('loading')
     try {
       await flush()
       const fresh = await api.bootstrap()
       await idb.set('cache', CACHE_KEY, fresh)
       setData(fresh)
+      painted.current = true
       setStatus('ready')
       setError(null)
     } catch (err) {
-      handle(err, setStatus, setError)
+      handle(err, setStatus, setError, painted.current)
     } finally {
       await replayQueue()
     }
@@ -84,6 +104,7 @@ export function useLedger(): Ledger {
       if (cancelled) return
       if (cached) {
         setData(cached)
+        painted.current = true
         setStatus('ready')
       }
       await replayQueue()
@@ -185,14 +206,27 @@ function merge(server: Entry[], local: Map<string, QueuedEntry>, voided: Set<str
     .sort((a, b) => (a.date === b.date ? b.row - a.row : b.date.localeCompare(a.date)))
 }
 
-function handle(err: unknown, setStatus: (s: Status) => void, setError: (m: string) => void) {
+function handle(err: unknown, setStatus: (s: Status) => void, setError: (m: string) => void,
+                painted: boolean) {
   if (err instanceof ApiError) {
     if (err.code === 'FORBIDDEN') return setStatus('forbidden')
     if (err.code === 'UNAUTHENTICATED') return setStatus('needsAuth')
     // A network failure with a cached bootstrap on screen is not an error the
     // user needs to see: the queue will deal with it. Only surface it when
-    // there is nothing to show.
-    if (err.code === 'NETWORK') return
+    // there is nothing to show — and that second half is what was missing.
+    //
+    // This `return` used to be unconditional, against its own comment, and it is
+    // the other half of "la app no carga". On a phone whose site data has just
+    // been cleared there is no cached bootstrap, so a single failed request —
+    // no signal, or any answer from the deployment that is not a 200, which
+    // includes every Apps Script error page — left the status on 'loading' and
+    // the app on the splash screen for ever, with nothing said and nothing to
+    // retry. Clearing the cache again could only make it more likely.
+    if (err.code === 'NETWORK') {
+      if (painted) return
+      setError(T.errors.network)
+      return setStatus('error')
+    }
     setError(err.message)
     return setStatus('error')
   }

@@ -99,22 +99,37 @@ function entry(fields: Omit<Entry, 'note' | 'voided'> & Partial<Entry>): Entry {
 }
 
 /**
- * One Tap refuses to show itself, which is the path that matters.
+ * What the silent prompt does, which is the difference between two real worlds.
  *
- * It is also the path that was broken: the silent request rejects, the user taps
- * the rendered button, and the credential arrives with nothing waiting for it.
- * Every test here goes in through the button for that reason.
+ * `notDisplayed` is One Tap saying it cannot show itself — the pre-FedCM answer,
+ * and the one every test here relies on: the silent request rejects, the user
+ * taps the rendered button, and the credential arrives with nothing waiting for
+ * it.
+ *
+ * `silent` is what FedCM does, and what made the app unopenable. Google does not
+ * invoke `isNotDisplayed()` or `isSkippedMoment()` once `use_fedcm_for_prompt`
+ * is on, so a prompt that produces no credential produces no notification
+ * either. Nothing was stubbed this way, which is exactly how 45 browser tests
+ * passed over a bug that left the app on its splash screen for ever.
  */
-export async function stubGoogle(page: Page, email = 'mario@example.invalid') {
-  await page.addInitScript(credential => {
+export type Moment = 'notDisplayed' | 'silent'
+
+export async function stubGoogle(
+  page: Page,
+  email = 'mario@example.invalid',
+  moment: Moment = 'notDisplayed',
+) {
+  await page.addInitScript(([credential, moment]) => {
     let config: { callback: (response: { credential: string }) => void } | null = null
     Object.assign(window, {
       google: {
         accounts: {
           id: {
             initialize: (options: typeof config) => { config = options },
-            prompt: (listener: (n: { isNotDisplayed: () => boolean; isSkippedMoment: () => boolean }) => void) =>
-              listener({ isNotDisplayed: () => true, isSkippedMoment: () => false }),
+            prompt: (listener: (n: { isNotDisplayed: () => boolean; isSkippedMoment: () => boolean }) => void) => {
+              if (moment === 'silent') return
+              listener({ isNotDisplayed: () => true, isSkippedMoment: () => false })
+            },
             renderButton: (target: HTMLElement) => {
               const button = document.createElement('button')
               button.dataset.testid = 'google-sign-in'
@@ -126,7 +141,7 @@ export async function stubGoogle(page: Page, email = 'mario@example.invalid') {
         },
       },
     })
-  }, fakeCredential(email))
+  }, [fakeCredential(email), moment] as const)
 }
 
 /**

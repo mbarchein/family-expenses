@@ -174,6 +174,9 @@ export const T = {
     // saved is in the outbound queue before the screen repaints.
     queueSafe: 'Lo que ya habías guardado no se ha perdido.',
     network: 'No se ha podido conectar',
+    // Shown when nothing has arrived and nothing has failed either — the case
+    // that used to be an eternal splash screen.
+    stuck: 'Esto está tardando demasiado. Vuelve a cargar.',
     configMissing: 'Falta configuración en la hoja. Mira la pestaña Config.',
   },
 } as const

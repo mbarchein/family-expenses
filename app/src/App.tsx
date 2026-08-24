@@ -10,10 +10,15 @@ import { renderSignInButton, setInteractionHandler, setSignedInHandler } from '.
 import { PRIVACY, TERMS } from './i18n/legal'
 import { useLedger } from './store/ledger'
 
+/** How long the splash is allowed to be the whole app before it admits that
+ *  something is wrong. */
+const PATIENCE_MS = 15_000
+
 export default function App() {
   const ledger = useLedger()
   const [tab, setTab] = useState<Tab>('add')
   const [needsTap, setNeedsTap] = useState(false)
+  const [stuck, setStuck] = useState(false)
 
   const refresh = ledger.refresh
   useEffect(() => {
@@ -24,14 +29,38 @@ export default function App() {
     setSignedInHandler(() => { setNeedsTap(false); void refresh() })
   }, [refresh])
 
-  if (ledger.status === 'loading') return <Splash />
+  /**
+   * The splash cannot be the last thing that ever happens.
+   *
+   * Two specific ways of never leaving 'loading' have been fixed — a silent
+   * sign-in with no deadline, a network failure swallowed with nothing on
+   * screen — and this is here so that a third one costs a message and a button
+   * instead of another report that the app does not load. Anything that leaves
+   * the status on 'loading' is a hang rather than an exception, so the error
+   * boundary never sees it; this is the only thing that can.
+   */
+  useEffect(() => {
+    if (ledger.status !== 'loading') return
+    const timer = setTimeout(() => setStuck(true), PATIENCE_MS)
+    return () => clearTimeout(timer)
+  }, [ledger.status])
+
+  if (ledger.status === 'loading') {
+    return stuck
+      ? <Message text={T.errors.stuck} onRetry={() => location.reload()} />
+      : <Splash />
+  }
   if (ledger.status === 'forbidden') return <Message text={T.auth.forbidden} />
   // `needsTap` is not allowed to outlive a successful load. It used to be a
   // one-way latch — set when One Tap could not show itself, never cleared — so
   // an app that had signed in perfectly well behind the scenes still showed the
   // sign-in screen, and the only button on it reopened the account chooser.
   if (ledger.status === 'needsAuth' || (needsTap && ledger.status !== 'ready')) return <SignIn />
-  if (ledger.status === 'error') return <Message text={ledger.error ?? T.errors.generic} />
+  // With a retry, because the commonest error here is a request that failed on
+  // a phone in a lift, and a screen that only states that is a dead end.
+  if (ledger.status === 'error') {
+    return <Message text={ledger.error ?? T.errors.generic} onRetry={() => void ledger.refresh()} />
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -62,10 +91,22 @@ function Splash() {
   )
 }
 
-function Message({ text }: { text: string }) {
+function Message({ text, onRetry }: { text: string; onRetry?: () => void }) {
   return (
     <div className="grid h-full place-items-center p-8">
-      <p className="max-w-xs text-center text-sm text-ink-2">{text}</p>
+      <div className="flex flex-col items-center gap-4">
+        <p className="max-w-xs text-center text-sm text-ink-2">{text}</p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-full px-4 py-2 text-sm font-semibold text-white"
+            style={{ background: 'var(--accent)' }}
+          >
+            {T.errors.reload}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
