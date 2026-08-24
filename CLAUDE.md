@@ -18,12 +18,18 @@ the interface is theirs. That means:
 Keep UI strings in one place so the boundary stays obvious rather than leaking
 Spanish into logic.
 
-The two workflow names, `verificar` and `desplegar`, are the one deliberate
-exception: they match the convention across the author's other repositories, and
-consistency between projects is worth more here than consistency within one.
-Their job names, and everything inside them, are English. Branch protection in
-`infra/github.tf` lists those job names — rename one and the other has to follow,
-or every merge blocks waiting on a check that never reports.
+This includes the CI/CD pipelines. The workflows were `verificar` and
+`desplegar` for a while — matching the convention across the author's other
+repositories — and that exception was dropped: nothing in `.github/` is read by
+the two people using the app, so the rule has no reason to bend there. They are
+`verify` and `deploy`.
+
+What survives the rename is the trap underneath it. Branch protection in
+`infra/github.tf` lists the **job** names inside `verify` — `app` and `backend` —
+and not the workflow's name. Rename a job and that file has to follow in the
+same commit, or every merge blocks forever waiting on a check that will never
+report. `deploy.yml` also names `verify` in its `workflow_run` trigger, so those
+two move together too.
 
 ## Invariants
 

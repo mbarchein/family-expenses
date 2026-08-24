@@ -166,14 +166,15 @@ The amount field has focus on open. No menus first.
 
 - Numeric keypad with the amount set large.
 - Chips of frequent concepts, ranked by **frequency × recency** over the user's
-  own history. A chip carries the concept and who usually pays it. Nothing to
-  configure.
+  own history. Nothing to configure.
 
-  **A chip does not carry an amount.** It used to: the median of what that
-  concept had cost before, filled into the field on a tap. That was dropped
-  because an amount which appears without being typed is an amount nobody
-  checked, in the one field of this app that is not allowed to be approximately
-  right. The figure is on the receipt in the other hand; it gets typed.
+  **A chip carries the concept and nothing else.** It used to carry two more
+  things, and both were removed for the same reason: a suggestion may fill in
+  the field it is a suggestion for, and no others. The median amount of what
+  that concept had cost put a figure nobody had checked into the one field of
+  this app that is not allowed to be approximately right. The usual payer
+  changed who was paying behind the back of somebody who had already chosen —
+  and who pays is the whole point of the ledger.
 - Payer: two buttons, preselected to whoever has the app open.
 - Date: `Hoy` / `Ayer` / `Otra fecha`. Always editable, free when it is today.
 - One row of pills for `observaciones`, holding the payment methods first and
@@ -288,8 +289,8 @@ names.
 reader and the transfer splitter. A Playwright smoke test over adding an
 expense.
 
-**GitHub Actions.** `verificar` runs lint, typecheck, tests and build on every
-push and pull request. `desplegar` runs only after it passes, and publishes the
+**GitHub Actions.** `verify` runs lint, typecheck, tests and build on every
+push and pull request. `deploy` runs only after it passes, and publishes the
 app and the backend. The backend goes out on every run rather than only when
 `apps-script/` changed: the change detection compared the last commit against
 its parent, which is not the same as the push, so a merge of two commits could

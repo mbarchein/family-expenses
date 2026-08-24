@@ -18,14 +18,14 @@ locals {
   # below can compare it rather than trip over a null.
   vercel_team_id = vercel_project.app.team_id == null ? "" : vercel_project.app.team_id
 
-  # Read by .github/workflows/desplegar.yml. Taken off the Vercel resources, so
+  # Read by .github/workflows/deploy.yml. Taken off the Vercel resources, so
   # both exist from the very first apply.
   derived_variables = {
     VERCEL_ORG_ID     = var.vercel_org_id != "" ? var.vercel_org_id : local.vercel_team_id
     VERCEL_PROJECT_ID = vercel_project.app.id
   }
 
-  # Also read by desplegar.yml, but these come out of the manual half and are
+  # Also read by deploy.yml, but these come out of the manual half and are
   # empty until someone has walked through DEPLOY.md 1-6.
   manual_variables = {
     SCRIPT_ID     = var.apps_script_id
@@ -38,7 +38,7 @@ locals {
 
   # An empty one is not created at all, and that is the whole point. GitHub
   # answers 422 to a variable with an empty value, so "created but blank" is not
-  # a state that exists; and desplegar.yml's preflight tests with `-n`, which
+  # a state that exists; and deploy.yml's preflight tests with `-n`, which
   # reads an absent variable and an empty one the same way. Leaving it out is
   # therefore what makes the workflow skip. Filling it with a placeholder to
   # keep the map whole would do the opposite: preflight would see a configured
@@ -97,7 +97,7 @@ resource "github_branch_protection" "main" {
 
   required_status_checks {
     strict = true
-    # The job names inside `verificar`, not the workflow. A context that names
+    # The job names inside `verify`, not the workflow. A context that names
     # no real check is never reported, and a branch protection waiting on a
     # check that will never arrive blocks every merge forever.
     contexts = ["app", "backend"]

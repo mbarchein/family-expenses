@@ -195,7 +195,7 @@ Two things worth knowing before the first `apply`:
   can be applied before §1–6 to get DNS propagating and the certificate issued,
   and applied again afterwards to fill them in. What must *not* be done is
   leaving the placeholders from `terraform.tfvars.example` in place: those are
-  not empty, `desplegar`'s preflight would take them for a configured
+  not empty, `deploy`'s preflight would take them for a configured
   deployment, and the app would ship with `XXXXXXXX` inlined as its API URL.
 
 If the plan shows `VERCEL_ORG_ID` as empty — or the apply stops saying it would
@@ -210,9 +210,9 @@ curl -s https://api.vercel.com/v2/user \
 
 Put it in `vercel_org_id` and re-plan.
 
-Then push to `main` and watch `verificar` and `desplegar` go green.
+Then push to `main` and watch `verify` and `deploy` go green.
 
-Before Terraform has run, `desplegar` does not fail — it skips both halves and
+Before Terraform has run, `deploy` does not fail — it skips both halves and
 says so in the run summary. A deploy workflow that is permanently red is worse
 than one that does nothing: it teaches everyone to ignore the red mark.
 
@@ -286,5 +286,5 @@ in. A fine-grained PAT is missing **Administration: read and write**; it can be
 added to the existing token without regenerating it.
 
 **A merge is blocked forever waiting on a check.** Branch protection lists the
-job names inside `verificar` — `app` and `backend` — not the workflow's name. If
+job names inside `verify` — `app` and `backend` — not the workflow's name. If
 a job is ever renamed, `infra/github.tf` has to be renamed with it.

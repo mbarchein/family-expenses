@@ -1,8 +1,8 @@
-name: desplegar
+name: deploy
 
 # Publishes the app and the backend, both on every run.
 #
-# Gated on `verificar`: Vercel's own Git integration would deploy every push the
+# Gated on `verify`: Vercel's own Git integration would deploy every push the
 # moment it lands, checks or no checks, so it stays DISCONNECTED and the deploy
 # happens here instead. If you ever reconnect it, this workflow becomes a second
 # deployment racing the first — see DEPLOY.md §7.
@@ -13,7 +13,7 @@ name: desplegar
 
 on:
   workflow_run:
-    workflows: [verificar]
+    workflows: [verify]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -21,7 +21,7 @@ on:
 # Serialized and never cancelled: a deploy interrupted halfway is worse than a
 # deploy that waits.
 concurrency:
-  group: produccion
+  group: production
   cancel-in-progress: false
 
 jobs:
@@ -86,7 +86,7 @@ jobs:
     if: needs.preflight.outputs.vercel == 'true'
     runs-on: ubuntu-latest
     environment:
-      name: produccion
+      name: production
       url: https://gafa.terragiro.es
     env:
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}

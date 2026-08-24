@@ -80,12 +80,6 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
   const readOnly = me === -1
   const kind = dateKind(date)
 
-  function pickConcept(key: string) {
-    setConcept(key)
-    const chip = frequent.find(item => item.concept === key)
-    if (chip) setPayer(chip.payer)
-  }
-
   async function save() {
     const amount = parseAmount(typed)
     if (amount <= 0) return setProblem(T.add.needAmount)
@@ -161,7 +155,12 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
                    placeholder:text-ink-2 focus-visible:outline focus-visible:outline-2"
       />
 
-      <Pills items={conceptPills} active={concept} onPick={pickConcept} label={T.add.conceptRow} />
+      {/* Sets the concept and nothing else. This used to set the payer as well,
+          to whoever pays that concept most often, so tapping a chip changed who
+          was paying — silently, and over a choice the user may have made
+          deliberately a second earlier. A suggestion may fill in the field it
+          is a suggestion for, and no others. */}
+      <Pills items={conceptPills} active={concept} onPick={setConcept} label={T.add.conceptRow} />
       <Pills items={notePills} active={note} onPick={setNote} label={T.add.noteRow} />
 
       <Keypad value={typed} onChange={setTyped} />

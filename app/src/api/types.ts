@@ -27,7 +27,7 @@ export interface Bootstrap {
   config: { people: [Person, Person]; meIndex: number }
   balance: number
   entries: Entry[]
-  frequent: { concept: string; payer: 0 | 1 }[]
+  frequent: { concept: string }[]
   suggestions: Suggestion[]
   lastRow: number
 }

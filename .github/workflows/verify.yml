@@ -1,8 +1,8 @@
-name: verificar
+name: verify
 
 # Everything that can say "no" before anything is published.
 #
-# Deliberately a separate workflow from `desplegar.yml` rather than its first
+# Deliberately a separate workflow from `deploy.yml` rather than its first
 # job: a pull request needs the checks and must never reach the deploy step, and
 # a workflow that does both ends up guarding the second half with an `if` that
 # is one edit away from being wrong.
@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: verificar-${{ github.ref }}
+  group: verify-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

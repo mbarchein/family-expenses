@@ -289,12 +289,9 @@ function frequentConcepts_(entries) {
     var ageDays = (today - new Date(entry.date)) / 86400000;
     var weight = Math.pow(0.5, Math.max(0, ageDays) / HALF_LIFE_DAYS);
 
-    var bucket = byKey[key] || (byKey[key] = {
-      concept: entry.concept, score: 0, payers: [0, 0]
-    });
+    var bucket = byKey[key] || (byKey[key] = { concept: entry.concept, score: 0 });
     bucket.concept = entry.concept;   // keep the most recent spelling
     bucket.score += weight;
-    bucket.payers[entry.payer]++;
   });
 
   return Object.keys(byKey)
@@ -302,15 +299,12 @@ function frequentConcepts_(entries) {
     .sort(function (a, b) { return b.score - a.score; })
     .slice(0, 8)
     .map(function (bucket) {
-      // No amount. A chip used to carry the median of what that concept
-      // usually cost, and the screen filled it in on a tap. It was removed on
-      // purpose: an amount that appears without being typed is an amount
-      // nobody checked, and the two people here type the figure off a receipt
-      // anyway. The chip is a concept and nothing else.
-      return {
-        concept: bucket.concept,
-        payer: bucket.payers[0] >= bucket.payers[1] ? 0 : 1
-      };
+      // A concept and nothing else. It used to carry two more things and both
+      // were removed for the same reason: they moved a field the user had not
+      // touched. The median amount filled in a figure nobody had checked, and
+      // the usual payer changed who was paying behind the back of somebody who
+      // had already chosen.
+      return { concept: bucket.concept };
     });
 }
 
