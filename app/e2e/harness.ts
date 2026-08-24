@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import type { Bootstrap, Entry } from '../src/api/types'
+import type { Bootstrap, Entry, Fixed } from '../src/api/types'
 
 /**
  * Google and the spreadsheet, replaced by doubles.
@@ -86,6 +86,9 @@ export function bootstrap(overrides: Partial<Bootstrap> = {}): Bootstrap {
       { text: 'Tarjeta Viqui', kind: 'method', person: VIQUI },
       { text: 'farmacia', kind: 'concept', person: null },
     ],
+    // No recurring templates by default: the banner has to be absent, not empty,
+    // on every screen that is not about it.
+    fixed: [],
     lastRow: 2298,
     ...overrides,
   }
@@ -211,4 +214,25 @@ export async function signIn(page: Page) {
   await page.getByTestId('google-sign-in').click()
   // The first step is the app: waiting for it is waiting for a loaded ledger.
   await page.getByText('Paso 1 de 3').waitFor()
+}
+
+/** A recurring template, defaulting to the rent: monthly, on the 1st, 700. */
+export function fixed(over: Partial<Fixed> = {}): Fixed {
+  return {
+    row: 2,
+    concept: 'alquiler',
+    amount: 700,
+    day: 1,
+    payer: VIQUI,
+    months: 1,
+    active: true,
+    from: '',
+    last: '',
+    ...over,
+  }
+}
+
+/** The first of the current month, which is always due by definition. */
+export function firstOfThisMonth(): string {
+  return `${TODAY.slice(0, 7)}-01`
 }

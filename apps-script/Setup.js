@@ -47,14 +47,26 @@ function setupSpreadsheet() {
     report.push('Config: created — fill in oauth_client_id and the two emails');
   }
 
-  if (ss.getSheetByName(FIXED_SHEET)) {
-    report.push('Fijos: already there, left alone');
+  var existingFixed = ss.getSheetByName(FIXED_SHEET);
+  if (existingFixed) {
+    // `desde` and `último` arrived after the tab did. Headers and notes only —
+    // never a data cell, and never `último` itself, which is the app's record of
+    // what has already been dealt with.
+    if (!String(existingFixed.getRange(1, 7).getValue()).trim()) {
+      existingFixed.getRange(1, 7, 1, 2)
+        .setValues([[FIXED_HEADERS[6], FIXED_HEADERS[7]]])
+        .setFontWeight('bold');
+      annotateFixed_(existingFixed);
+      report.push('Fijos: already there — added the `desde` and `último` headers');
+    } else {
+      report.push('Fijos: already there, left alone');
+    }
   } else {
     var fixed = ss.insertSheet(FIXED_SHEET);
-    fixed.getRange(1, 1, 1, 6)
-      .setValues([['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']])
-      .setFontWeight('bold');
-    report.push('Fijos: created — empty, fill it in when phase 2 lands');
+    fixed.getRange(1, 1, 1, FIXED_COLS).setValues([FIXED_HEADERS]).setFontWeight('bold');
+    annotateFixed_(fixed);
+    fixed.setColumnWidth(1, 220);
+    report.push('Fijos: created — ' + FIXED_HEADERS.join(' | '));
   }
 
   if (ss.getSheetByName(SUGGESTIONS_SHEET)) {
@@ -275,4 +287,24 @@ function dumpLedgerShape() {
 
   console.log(lines.join('\n'));
   return lines.join('\n');
+}
+
+/**
+ * The notes are the documentation, the way they are on Sugerencias.
+ *
+ * This tab is edited in a browser by two people who will never read this file,
+ * and the columns that can be got wrong silently are `periodicidad` — a word
+ * that is not on the list stops a row being proposed at all — and `último`,
+ * which is the app's own bookkeeping and not a field to fill in by hand.
+ */
+function annotateFixed_(sheet) {
+  sheet.getRange(1, 2).setNote('Vacío = te lo pregunta cada vez (la luz, el agua).');
+  sheet.getRange(1, 3).setNote('Día del mes. 31 en un mes de 30 cae el último día.');
+  sheet.getRange(1, 4).setNote('Vacío = quien tenga el móvil en ese momento.');
+  sheet.getRange(1, 5).setNote(
+    'mensual, bimestral, trimestral, cuatrimestral, semestral o anual. Vacío = mensual.');
+  sheet.getRange(1, 6).setNote('Vacío o sí = activo. Cualquier otra cosa lo desactiva.');
+  sheet.getRange(1, 7).setNote(
+    'Desde cuándo cuenta la periodicidad. Solo importa si no es mensual.');
+  sheet.getRange(1, 8).setNote('Lo escribe la app: el último vencimiento resuelto. No lo edites.');
 }

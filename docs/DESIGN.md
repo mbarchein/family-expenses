@@ -157,8 +157,7 @@ ever needed, they append at the end with no migration.
 
 ## 4. Interface
 
-Five screens — **Añadir**, **Gastos**, **Diferencia**, **Sitios**, **Fijos** —
-plus settings.
+Five screens — **Añadir**, **Gastos**, **Diferencia**, **Sitios**, **Fijos**.
 
 ### Añadir — three steps
 
@@ -420,9 +419,47 @@ browser test that walks forty metres up the street is what caught it.
 
 ### Fijos
 
-Recurring templates. They **propose, they do not post**: because some entries
-are pasted from bank statements, posting automatically would duplicate them. On
-the due date a prompt appears and one tap confirms, amends the amount, or skips.
+Recurring templates: the rent, the light, the insurance. They **propose, they do
+not post** — some rows in this ledger are pasted from a bank statement, so an app
+that posted them by itself would write the rent twice into a ledger where a row
+can only be voided, never removed.
+
+The tab is the list and the editor: what they are, how often, on which day, whose
+card, and whether they are switched on. `importe` left empty means *ask me every
+time*, which is the light and the water. `persona` left empty means whoever is
+holding the phone. It is a tab and not a corner of another screen because an
+editor needs a door that is there when the list is empty — the proposals appear
+only when something is owed, so they could never be the way in to creating the
+first one.
+
+**What is due appears on the first step of Añadir**, as one line saying how many,
+with the detail behind a tap. Not the list itself: that screen already carries
+the keypad, the amount, the payer and the day, and a list that grows with what is
+owed would push the keypad off the bottom — the mistake that screen has now made
+in four different ways.
+
+Confirming loads the expense into the three-step flow at the **review** step and
+writes nothing until it is saved there, through the same append, the same queue
+and the same client-generated id as an expense typed by hand. A template with no
+amount lands on the keypad instead, with the concept, the day and the payer
+already filled in. Skipping records the period as dealt with without writing
+anything: confirmed and skipped are the same fact as far as *do not propose it
+again* goes.
+
+Two things guard against the duplicate. The `último` column, written by the app,
+is the record of what has been settled. And the app checks the entries it already
+holds for something that looks like this expense in this month — folded, and by
+month rather than day, because a statement says "RECIBO ALQUILER" on the 2nd for
+a rent due on the 1st. That one is a **warning and not a block**: too eager costs
+a line nobody needed, too strict costs the rent twice.
+
+**Which periods a template owes is computed in the app**, not the backend —
+`app/src/lib/fixed.ts`. All the risk here is calendar arithmetic: a day 31 in
+February, an anchor two months out of phase, six months nobody opened the app.
+Apps Script has no test runner and this has twenty-two unit tests. Missed periods
+are all proposed, oldest first, because the ledger wants each row with its own
+date; a ceiling of twenty-four stops an anchor typed as 2014 from producing a
+screen nobody can use.
 
 ## 5. Architecture
 
@@ -536,7 +573,8 @@ names.
 
 **Tests.** Vitest over the pieces that cannot be wrong: the C/D column reader,
 the transfer splitter, the concept matcher, the distance between two points on
-the ground, the icon a concept is given, and the totals over the list.
+the ground, the icon a concept is given, the totals over the list, and which
+periods a recurring expense owes.
 
 Playwright over the bundle in a browser, at the size of a phone, with Google and
 the backend replaced by doubles — `app/e2e/`. It exists because of what it
@@ -569,7 +607,7 @@ All development runs against a **copy** of the spreadsheet.
    formula fill-down, Google sign-in, keypad entry screen, recent list, and the
    balance read from column E. *Useful daily from here on.*
 2. **Edit without fear, and split.** Editing and voiding by clearing, the
-   transfer splitter, and recurring templates prompting on their due date.
+   transfer splitter, and recurring templates prompting on their due date. *Done.*
 3. **Make it fly.** Offline queue, computed chips, installable PWA, a direct
    "new expense" shortcut from the icon, and the concept remembered per place.
 4. **Extras.** Search across the whole history, per-concept summaries, receipt

@@ -35,12 +35,25 @@ export interface Draft {
    * intention, and only the intention decides what is on screen.
    */
   pickDate: boolean
+  /**
+   * Set when this entry came from a recurring template, so that saving it can
+   * also record that the period is dealt with.
+   *
+   * On the draft rather than in a variable because a confirmation is three taps
+   * long — propose, review, save — and the phone can lock in the middle of it.
+   * Losing it would leave the expense apuntado and the period still owed, which
+   * proposes the rent again tomorrow.
+   */
+  fixed: { row: number; due: string } | null
 }
 
 const KEY = 'current'
 
 export function emptyDraft(payer: 0 | 1): Draft {
-  return { step: 0, date: todayIso(), typed: '', payer, concept: '', note: '', pickDate: false }
+  return {
+    step: 0, date: todayIso(), typed: '', payer, concept: '', note: '',
+    pickDate: false, fixed: null,
+  }
 }
 
 export interface DraftStore {
@@ -68,7 +81,7 @@ export function useDraft(defaultPayer: 0 | 1): DraftStore {
       // field existed has it missing, and `undefined` reaching a boolean is how
       // a screen ends up in a state its own types say is impossible.
       if (stored && typeof stored.typed === 'string') {
-        setDraft({ ...stored, pickDate: stored.pickDate === true })
+        setDraft({ ...stored, pickDate: stored.pickDate === true, fixed: stored.fixed ?? null })
       }
       setReady(true)
     })()

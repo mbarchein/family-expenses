@@ -1,5 +1,5 @@
 import { ApiError } from './types'
-import type { ApiAction, Bootstrap, Entry } from './types'
+import type { ApiAction, Bootstrap, Entry, Fixed } from './types'
 import { getIdToken, invalidateToken } from '../auth/google'
 
 const API_URL = import.meta.env.VITE_API_URL as string
@@ -51,4 +51,9 @@ export const api = {
   update: (entry: Omit<Entry, 'row' | 'voided'>) => call<Entry>('update', entry),
   voidEntry: (id: string) => call<Entry>('voidEntry', { id }),
   assignId: (row: number) => call<Entry>('assignId', { row }),
+  saveFixed: (fixed: Omit<Fixed, 'last'>) => call<{ row: number }>('saveFixed', fixed),
+  /** Marks a template dealt with up to `due` — confirmed and skipped are the
+   *  same fact as far as "do not propose it again" goes. */
+  fixedDone: (row: number, due: string) =>
+    call<{ row: number; last: string }>('fixedDone', { row, due }),
 }

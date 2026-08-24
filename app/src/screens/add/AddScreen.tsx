@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { T } from '../../i18n/strings'
 import { parseAmount } from '../../lib/money'
 import { useDraft } from '../../store/draft'
 import type { Ledger } from '../../store/ledger'
+import { FixedBanner, FixedDue } from '../../components/FixedDue'
+import { alreadyThere, whatIsDue, type Due } from '../../lib/fixed'
+import { todayIso } from '../../lib/dates'
+import { typedFromAmount } from '../../lib/money'
 import { usePlaces } from '../../store/places'
 import { StepAmount } from './StepAmount'
 import { StepDetails } from './StepDetails'
@@ -41,6 +45,14 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
   // avoid. The screen that suggests by proximity does its own reading.
   const { locateNow, knows, rememberAt } = usePlaces()
   const [place, setPlace] = useState<PlaceState>({ kind: 'off' })
+  const [showDue, setShowDue] = useState(false)
+
+  // What the recurring templates owe, worked out here rather than in the
+  // backend: it is calendar arithmetic, and this side has a test runner.
+  const due = useMemo(
+    () => whatIsDue(ledger.fixed, todayIso()),
+    [ledger.fixed],
+  )
 
   const step = draft.step
 
@@ -106,6 +118,38 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
     setPlace({ kind: 'on', fix, known: knows(fix, draft.concept.trim()) })
   }
 
+  /**
+   * Confirming a proposal loads it into this flow rather than posting it.
+   *
+   * Straight to the review step when the amount is known, because there is
+   * nothing left to type and the review is where a row about to be written gets
+   * looked at. To the keypad when it is not — the light, the water — with the
+   * concept, the day and the payer already filled in.
+   *
+   * `fixed` rides along on the draft so that saving can also record the period
+   * as dealt with. See `store/draft.ts` for why it is stored rather than held.
+   */
+  function confirm(item: Due) {
+    const known = item.amount !== null && item.amount > 0
+    setShowDue(false)
+    patch({
+      typed: known ? typedFromAmount(item.amount!) : '',
+      date: item.due,
+      pickDate: true,
+      payer: item.payer ?? draft.payer,
+      concept: item.concept,
+      note: '',
+      fixed: { row: item.row, due: item.due },
+      step: known ? 2 : 0,
+    })
+    // The history has to grow with the step, or back from a proposed review
+    // would leave the app instead of returning to the keypad.
+    if (known) {
+      history.pushState({ step: 1 }, '')
+      history.pushState({ step: 2 }, '')
+    }
+  }
+
   function forward() {
     if (step === 0) {
       if (amount <= 0) return setProblem(T.add.needAmount)
@@ -139,6 +183,15 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
       payer: draft.payer,
       note: draft.note,
     })
+
+    // After the expense, never before: the entry is the thing that matters and
+    // it goes through the queue, while this is only the note that stops the
+    // period being proposed again. If it fails the proposal comes back, which
+    // is safe — by then the expense is in the list the duplicate warning reads.
+    if (draft.fixed) {
+      const settling = draft.fixed
+      void ledger.settleFixed(settling.row, settling.due).catch(() => {})
+    }
 
     reset()
     setPlace({ kind: 'off' })
@@ -188,6 +241,8 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
         </div>
       </header>
 
+      {step === 0 && <FixedBanner count={due.length} onOpen={() => setShowDue(true)} />}
+
       {step === 0 && (
         <StepAmount draft={draft} people={people} patch={patch} onNext={forward} />
       )}
@@ -207,6 +262,16 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
           onEdit={target => history.go(target - step)}
           onSave={save}
           onDiscard={() => { reset(); setPlace({ kind: 'off' }); rewind() }}
+        />
+      )}
+
+      {showDue && (
+        <FixedDue
+          due={due}
+          warn={item => alreadyThere(ledger.entries, item)}
+          onConfirm={confirm}
+          onSkip={item => { void ledger.settleFixed(item.row, item.due) }}
+          onClose={() => setShowDue(false)}
         />
       )}
 

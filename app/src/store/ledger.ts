@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api/client'
-import { ApiError, type Bootstrap, type Entry } from '../api/types'
+import { ApiError, type Bootstrap, type Entry, type Fixed } from '../api/types'
 import { idb } from './db'
 import { enqueue, flush, pendingCount, pendingOps, type QueuedEntry } from './queue'
 
@@ -16,6 +16,12 @@ export interface Ledger {
   editEntry: (entry: QueuedEntry) => Promise<void>
   voidEntry: (id: string) => Promise<void>
   claimRow: (row: number) => Promise<void>
+  /** The recurring templates as the sheet has them. */
+  fixed: Fixed[]
+  saveFixed: (fixed: Omit<Fixed, 'last'>) => Promise<void>
+  /** Records that a due date has been dealt with, confirmed or skipped.
+   *  Deliberately not queued — see the comment where it is implemented. */
+  settleFixed: (row: number, due: string) => Promise<void>
   refresh: () => Promise<void>
 }
 
@@ -115,6 +121,27 @@ export function useLedger(): Ledger {
     void refresh()
   }, [refresh])
 
+  const saveFixed = useCallback(async (fixed: Omit<Fixed, 'last'>) => {
+    await api.saveFixed(fixed)
+    await refresh()
+  }, [refresh])
+
+  /**
+   * Not queued, and that is a decision rather than an omission.
+   *
+   * The expense itself goes through the queue, because losing one is losing
+   * money. This is only the note that says "do not propose that period again",
+   * and if it fails the proposal comes back — which is annoying and safe, and
+   * the duplicate warning catches it, since by then the expense is in the list
+   * the warning reads. Queueing it would mean the two halves of one tap landing
+   * out of order, which is how a period gets marked settled for an expense that
+   * never made it.
+   */
+  const settleFixed = useCallback(async (row: number, due: string) => {
+    await api.fixedDone(row, due)
+    await refresh()
+  }, [refresh])
+
   const claimRow = useCallback(async (row: number) => {
     // Deliberately not queued: giving a legacy row an id is only useful with the
     // sheet in front of us, and an offline attempt would have nothing to
@@ -130,6 +157,9 @@ export function useLedger(): Ledger {
     editEntry: entry => mutate('update', entry),
     voidEntry,
     claimRow,
+    fixed: data?.fixed ?? [],
+    saveFixed,
+    settleFixed,
     refresh,
   }
 }

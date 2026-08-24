@@ -14,6 +14,7 @@ export const T = {
     list: 'Gastos',
     balance: 'Diferencia',
     places: 'Sitios',
+    fixed: 'Fijos',
   },
 
   add: {
@@ -53,6 +54,37 @@ export const T = {
     // tile, and only one of them is yours.
     mine: 'elegido',
     guessed: 'propuesto',
+  },
+
+  fixed: {
+    tab: 'Fijos',
+    // The banner on the first step. Plural because one is the common case and
+    // "1 fijos" is the kind of detail that makes an app feel unfinished.
+    due: (n: number) => (n === 1 ? 'Hay 1 fijo vencido' : `Hay ${n} fijos vencidos`),
+    title: 'Fijos vencidos',
+    close: 'Cerrar',
+    skip: 'Saltar',
+    // Shown on a proposal whose expense looks like it is already apuntado —
+    // pegged from the bank, most likely.
+    already: 'Puede que ya esté apuntado este mes',
+    ask: 'Te pregunta el importe',
+    every: (months: number) => months === 1
+      ? 'Cada mes'
+      : months === 12 ? 'Cada año' : `Cada ${months} meses`,
+    empty: 'Todavía no hay ningún fijo',
+    emptyHow:
+      'Un fijo es un gasto que se repite: el alquiler, la luz, el seguro. La app te ' +
+      'lo propone el día que toca y tú confirmas, cambias el importe o lo saltas.',
+    add: 'Nuevo fijo',
+    inactive: 'Desactivado',
+    everyLabel: 'Cada cuánto',
+    dayLabel: 'Día del mes',
+    amountLabel: 'Importe fijo',
+    amountAsk: 'Preguntar cada vez',
+    payerAny: 'Quien lo apunte',
+    activeLabel: 'Activo',
+    save: 'Guardar fijo',
+    needConcept: 'Pon un concepto',
   },
 
   places: {

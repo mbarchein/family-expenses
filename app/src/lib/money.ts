@@ -30,3 +30,20 @@ export function displayTyped(typed: string): string {
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
   return cents === undefined ? grouped : `${grouped},${cents}`
 }
+
+/**
+ * The keypad string for an amount that came from somewhere else — a recurring
+ * template's fixed price.
+ *
+ * The inverse of `parseAmount`, and it has to be, because everything downstream
+ * of the keypad reads `typed` rather than a number: dropping 700 straight into
+ * the draft as a number would show "0" on the screen and save nothing. Whole
+ * euros keep no decimals, since "700" is what somebody would have typed.
+ */
+export function typedFromAmount(amount: number): string {
+  if (!Number.isFinite(amount) || amount <= 0) return ''
+  const cents = Math.round(amount * 100)
+  const whole = Math.floor(cents / 100)
+  const rest = cents % 100
+  return rest === 0 ? String(whole) : `${whole},${String(rest).padStart(2, '0')}`
+}

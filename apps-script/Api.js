@@ -36,7 +36,9 @@ var ACTIONS = {
   append: handleAppend_,
   update: handleUpdate_,
   voidEntry: handleVoid_,
-  assignId: handleAssignId_
+  assignId: handleAssignId_,
+  saveFixed: handleSaveFixed_,
+  fixedDone: handleFixedDone_
 };
 
 function doPost(e) {
@@ -101,6 +103,9 @@ function handleBootstrap_(payload, user) {
     entries: tail.entries,
     frequent: frequentConcepts_(tail.entries),
     suggestions: readSuggestions_().items,
+    // The templates as they are, not what they owe: which periods are due is
+    // worked out in the app, where the calendar arithmetic has tests.
+    fixed: readFixed_().items,
     lastRow: tail.lastRow
   };
 }
@@ -119,4 +124,12 @@ function handleVoid_(payload, user) {
 
 function handleAssignId_(payload, user) {
   return assignId_(readConfig_(), payload, user);
+}
+
+function handleSaveFixed_(payload) {
+  return saveFixed_(payload);
+}
+
+function handleFixedDone_(payload) {
+  return setFixedDone_(payload);
 }
