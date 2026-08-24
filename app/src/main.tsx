@@ -3,11 +3,15 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { Boundary } from './components/Boundary'
 import { PRIVACY, TERMS, type LegalDocument } from './i18n/legal'
+import { watchForFaults } from './lib/progress'
 import { keepUpToDate } from './pwa'
 import { LegalScreen } from './screens/LegalScreen'
 import './index.css'
 
 keepUpToDate()
+// Before anything else renders, so an exception on the way in is reported by
+// the splash rather than swallowed into a console nobody can open on a phone.
+watchForFaults()
 
 /**
  * Two paths that are not the app.

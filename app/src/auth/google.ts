@@ -10,6 +10,8 @@
  * the email against the spreadsheet's own sharing list.
  */
 
+import { fault, report } from '../lib/progress'
+
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string
 const GSI_SRC = 'https://accounts.google.com/gsi/client'
 
@@ -184,9 +186,8 @@ function initialise() {
  */
 const SILENT_TIMEOUT_MS = 8_000
 
-async function requestToken(): Promise<string> {
-  await loadGsi()
-  initialise()
+function requestToken(): Promise<string> {
+  report('google')
 
   return new Promise<string>((resolve, reject) => {
     let settled = false
@@ -198,33 +199,57 @@ async function requestToken(): Promise<string> {
       resolve(token)
     }
 
-    /** No credential is coming. Hand the screen its sign-in button. */
-    const giveUp = () => {
+    /** No credential is coming. Hand the screen its sign-in button, and say why
+     *  where the splash can show it. */
+    const giveUp = (why: string) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
       if (deliver === handOver) deliver = null
+      fault(why)
       onNeedsInteraction?.()
       reject(new Error('interaction required'))
     }
 
     deliver = handOver
-    // Armed before the prompt is opened, so that a listener called synchronously
-    // — which is what the stubbed One Tap in the tests does — finds it there.
-    const timer = setTimeout(giveUp, SILENT_TIMEOUT_MS)
+    // Armed before Google is even fetched, and that is the point. The deadline
+    // used to start after `await loadGsi()`, so a script request that hung
+    // rather than failing — a captive portal, a DNS that never answers, a
+    // connection dropped without being closed — hung the whole app in a place no
+    // timeout was watching: neither `onload` nor `onerror` is guaranteed to
+    // fire, and nothing else was ever going to settle that await.
+    const timer = setTimeout(() => giveUp('Google no ha contestado a tiempo'), SILENT_TIMEOUT_MS)
 
-    google.accounts.id.prompt((notification: PromptNotification) => {
-      // A prompt that cannot display itself is not an error — it usually means
-      // the browser has no Google session, or One Tap is suppressed. The app
-      // shows its own sign-in button instead of leaving a dead screen. The two
-      // pre-FedCM moments are still handled because the browsers that lack
-      // FedCM still report them; the deadline above covers the ones that do not.
-      if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.()) return giveUp()
-      // Dismissal is also fired straight after a credential is handed over,
-      // with that reason, so it cannot be treated as a failure on its own.
-      if (notification.isDismissedMoment?.()
-          && notification.getDismissedReason?.() !== 'credential_returned') giveUp()
-    })
+    loadGsi().then(
+      () => {
+        if (settled) return
+        initialise()
+        prompt(giveUp)
+      },
+      (error: Error) => giveUp(error.message),
+    )
+  })
+}
+
+/**
+ * The silent prompt, and the answers that mean no credential is on its way.
+ *
+ * A prompt that cannot display itself is not an error — it usually means the
+ * browser has no Google session, or One Tap is suppressed. The app shows its own
+ * sign-in button instead of leaving a dead screen. The two pre-FedCM moments are
+ * still handled because the browsers that lack FedCM still report them; the
+ * deadline in the caller covers the ones that do not.
+ */
+function prompt(giveUp: (why: string) => void) {
+  google.accounts.id.prompt((notification: PromptNotification) => {
+    if (notification.isNotDisplayed?.()) return giveUp('One Tap no se ha podido mostrar')
+    if (notification.isSkippedMoment?.()) return giveUp('One Tap se ha saltado')
+    // Dismissal is also fired straight after a credential is handed over, with
+    // that reason, so it cannot be treated as a failure on its own.
+    const reason = notification.getDismissedReason?.()
+    if (notification.isDismissedMoment?.() && reason !== 'credential_returned') {
+      giveUp(`Google ha cerrado la ventana (${reason ?? 'sin motivo'})`)
+    }
   })
 }
 

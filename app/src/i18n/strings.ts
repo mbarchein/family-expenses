@@ -9,6 +9,26 @@
 export const T = {
   appName: 'A medias',
 
+  /**
+   * The splash screen, out loud.
+   *
+   * "Se queda en el splash" was unactionable four times over, because the same
+   * blank screen covered reading IndexedDB, waiting for Google, waiting for the
+   * spreadsheet, and waiting for nothing at all. Each of these names one of
+   * those, so the next report arrives with its own diagnosis in it.
+   */
+  splash: {
+    start: 'Abriendo…',
+    cache: 'Leyendo lo guardado…',
+    queue: 'Enviando lo pendiente…',
+    google: 'Comprobando tu sesión de Google…',
+    sheet: 'Cargando la hoja…',
+    ready: 'Listo',
+    /** Only from a few seconds in: a counter on a fast load is just noise. */
+    waiting: (seconds: number) => `${seconds} s`,
+    fault: 'Último error',
+  },
+
   tabs: {
     add: 'Añadir',
     list: 'Gastos',

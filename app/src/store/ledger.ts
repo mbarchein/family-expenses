@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { T } from '../i18n/strings'
+import { clearFault, fault, report } from '../lib/progress'
 import { ApiError, type Bootstrap, type Entry, type Fixed } from '../api/types'
 import { idb } from './db'
 import { enqueue, flush, pendingCount, pendingOps, type QueuedEntry } from './queue'
@@ -69,13 +70,17 @@ export function useLedger(): Ledger {
     // like a bug and most like a phone being slow.
     if (!painted.current) setStatus('loading')
     try {
+      report('queue')
       await flush()
+      report('sheet')
       const fresh = await api.bootstrap()
       await idb.set('cache', CACHE_KEY, fresh)
       setData(fresh)
       painted.current = true
       setStatus('ready')
       setError(null)
+      report('ready')
+      clearFault()
     } catch (err) {
       handle(err, setStatus, setError, painted.current)
     } finally {
@@ -100,6 +105,7 @@ export function useLedger(): Ledger {
     let cancelled = false
 
     void (async () => {
+      report('cache')
       const cached = await idb.get<Bootstrap>('cache', CACHE_KEY)
       if (cancelled) return
       if (cached) {
@@ -209,6 +215,11 @@ function merge(server: Entry[], local: Map<string, QueuedEntry>, voided: Set<str
 function handle(err: unknown, setStatus: (s: Status) => void, setError: (m: string) => void,
                 painted: boolean) {
   if (err instanceof ApiError) {
+    // Written down whatever happens next, including for the failures the app
+    // copes with silently — the queue will retry, there is a cached ledger on
+    // screen. Those are invisible from outside and are usually the clue to
+    // whatever the user is actually complaining about.
+    fault(`${err.code}: ${err.message}`)
     if (err.code === 'FORBIDDEN') return setStatus('forbidden')
     if (err.code === 'UNAUTHENTICATED') return setStatus('needsAuth')
     // A network failure with a cached bootstrap on screen is not an error the
@@ -230,7 +241,12 @@ function handle(err: unknown, setStatus: (s: Status) => void, setError: (m: stri
     setError(err.message)
     return setStatus('error')
   }
+  // Not recorded as a fault, deliberately: this is the auth layer's own signal
+  // that it is handing over to the button, and it has already written down why
+  // Google did not answer. Overwriting that with the words "interaction
+  // required" throws away the only half of it worth reading.
   if (String(err).includes('interaction required')) return setStatus('needsAuth')
+  fault(String(err))
   setError(String(err))
   setStatus('error')
 }

@@ -8,6 +8,7 @@ import { FixedScreen } from './screens/FixedScreen'
 import { PlacesScreen } from './screens/PlacesScreen'
 import { renderSignInButton, setInteractionHandler, setSignedInHandler } from './auth/google'
 import { PRIVACY, TERMS } from './i18n/legal'
+import { useProgress } from './lib/progress'
 import { useLedger } from './store/ledger'
 
 /** How long the splash is allowed to be the whole app before it admits that
@@ -45,11 +46,9 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [ledger.status])
 
-  if (ledger.status === 'loading') {
-    return stuck
-      ? <Message text={T.errors.stuck} onRetry={() => location.reload()} />
-      : <Splash />
-  }
+  // Stuck or not, the splash is the same screen: it already says what it is
+  // waiting for and what went wrong, and being stuck only adds the way out.
+  if (ledger.status === 'loading') return <Splash stuck={stuck} />
   if (ledger.status === 'forbidden') return <Message text={T.auth.forbidden} />
   // `needsTap` is not allowed to outlive a successful load. It used to be a
   // one-way latch — set when One Tap could not show itself, never cleared — so
@@ -83,29 +82,87 @@ export default function App() {
   )
 }
 
-function Splash() {
+/**
+ * The screen the app spent four bugs hiding behind.
+ *
+ * It says which step it is on, how long that step has been going, and the last
+ * thing that failed — so the answer to "se queda en el splash" is on the splash
+ * rather than in a console that a phone will not open. `Fault` is deliberately
+ * shown here as well as on the error screens: the failures worth reading are
+ * often the ones the app recovered from and carried on past.
+ */
+function Splash({ stuck }: { stuck: boolean }) {
+  const { step, since, fault } = useProgress()
+  const seconds = useSecondsSince(since)
+
   return (
-    <div className="grid h-full place-items-center">
-      <p className="text-sm text-ink-3">{T.appName}</p>
+    <div className="grid h-full place-items-center p-8">
+      <div className="flex max-w-xs flex-col items-center gap-3 text-center">
+        <p className="text-lg font-semibold">{T.appName}</p>
+        <p className="text-sm text-ink-2" role="status" aria-live="polite">
+          {T.splash[step]}
+          {/* Not from the first second: a counter on a load that takes 300ms is
+              a flicker, and on one that takes twenty it is the whole story. */}
+          {seconds >= 3 && <span className="text-ink-3"> {T.splash.waiting(seconds)}</span>}
+        </p>
+        <Fault text={fault} />
+        {stuck && (
+          <>
+            <p className="text-sm text-ink-2">{T.errors.stuck}</p>
+            <Button onClick={() => location.reload()} />
+          </>
+        )}
+      </div>
     </div>
   )
 }
 
+/** The last failure, verbatim and in mono. It is not for the two people using
+ *  the app to understand — it is for them to be able to read it out. */
+function Fault({ text }: { text: string | null }) {
+  if (!text) return null
+  return (
+    <p className="max-w-xs break-words font-mono text-[11px] leading-snug"
+       style={{ color: 'var(--danger)' }}>
+      {T.splash.fault}: {text}
+    </p>
+  )
+}
+
+function Button({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full px-4 py-2 text-sm font-semibold text-white"
+      style={{ background: 'var(--accent)' }}
+    >
+      {T.errors.reload}
+    </button>
+  )
+}
+
+/** Ticks once a second while a step is in flight, and stops mattering the
+ *  moment the step changes because `since` changes with it. */
+function useSecondsSince(since: number): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  // Clamped, because `now` lags a step that has only just started and a
+  // negative count on screen would look like a bug of its own.
+  return Math.max(0, Math.floor((now - since) / 1000))
+}
+
 function Message({ text, onRetry }: { text: string; onRetry?: () => void }) {
+  const { fault } = useProgress()
   return (
     <div className="grid h-full place-items-center p-8">
-      <div className="flex flex-col items-center gap-4">
-        <p className="max-w-xs text-center text-sm text-ink-2">{text}</p>
-        {onRetry && (
-          <button
-            type="button"
-            onClick={onRetry}
-            className="rounded-full px-4 py-2 text-sm font-semibold text-white"
-            style={{ background: 'var(--accent)' }}
-          >
-            {T.errors.reload}
-          </button>
-        )}
+      <div className="flex flex-col items-center gap-4 text-center">
+        <p className="max-w-xs text-sm text-ink-2">{text}</p>
+        <Fault text={fault} />
+        {onRetry && <Button onClick={onRetry} />}
       </div>
     </div>
   )
@@ -115,12 +172,16 @@ function Message({ text, onRetry }: { text: string; onRetry?: () => void }) {
  *  a container it renders into rather than a button of ours. */
 function SignIn() {
   const slot = useRef<HTMLDivElement>(null)
+  const { fault } = useProgress()
   useEffect(() => { if (slot.current) renderSignInButton(slot.current) }, [])
   return (
     <div className="grid h-full place-items-center gap-4 p-8">
       <div className="flex flex-col items-center gap-4">
         <p className="text-lg font-semibold">{T.appName}</p>
         <div ref={slot} />
+        {/* Without this, a blocked or slow accounts.google.com shows an empty
+            space where the button should be and says nothing at all. */}
+        <Fault text={fault} />
         {/* Reachable from inside the app as well as from Google's consent
             screen: whoever reviews those two links tends to look for them
             here too, and they are the only pages a visitor can read without
