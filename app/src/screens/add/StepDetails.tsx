@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { PlaceCards } from '../../components/PlaceCards'
 import { Pills, type Pill } from '../../components/Pills'
 import { T } from '../../i18n/strings'
 import { fuzzyFilter } from '../../lib/fuzzy'
@@ -23,9 +24,12 @@ import type { Bootstrap, Suggestion } from '../../api/types'
  * rather than by whoever is holding the phone. Either person can enter the
  * other's expense, and it is the payer's card that belongs in the note.
  *
- * If a place has been saved where the phone is standing, its concept comes
- * first, marked with a dot. It is a suggestion and not an answer: it fills the
- * field it is a suggestion for when tapped, and nothing at all until then.
+ * Above all of it, when there is a place saved where the phone is standing, the
+ * cards: what has been apuntado at this doorway before, concept and card
+ * together, one tap to fill both. They go at the top because they are the
+ * strongest guess this screen ever gets — somebody in the same shop as last time
+ * is buying the same kind of thing, and no amount of frequency beats being here —
+ * and because they are the only control here that can answer the whole screen.
  */
 export function StepDetails({ draft, data, patch, onNext }: {
   draft: Draft
@@ -55,9 +59,8 @@ export function StepDetails({ draft, data, patch, onNext }: {
    * simply finishes the word.
    */
   const conceptPills = useMemo<Pill[]>(() => {
-    // Where the phone is goes first. It is the strongest guess this screen ever
-    // gets: somebody standing in the same shop as last time is buying the same
-    // kind of thing, and no amount of frequency beats being here.
+    // The places are not in here: they are the cards above, and a concept
+    // offered twice on one screen is two controls for one field.
     const seen = new Set<string>()
     const all: Pill[] = []
     const add = (pill: Pill) => {
@@ -66,9 +69,6 @@ export function StepDetails({ draft, data, patch, onNext }: {
       all.push(pill)
     }
 
-    for (const place of nearby) {
-      add({ key: place.concept, label: place.concept, pinned: true, here: true })
-    }
     for (const item of mine.filter(item => item.kind === 'concept')) {
       add({ key: item.text, label: item.text, pinned: true })
     }
@@ -77,7 +77,7 @@ export function StepDetails({ draft, data, patch, onNext }: {
     }
 
     return fuzzyFilter(all, draft.concept, pill => pill.label)
-  }, [nearby, mine, data.frequent, draft.concept])
+  }, [mine, data.frequent, draft.concept])
 
   /**
    * One row for the note, the payment methods first and then the suggested
@@ -87,20 +87,11 @@ export function StepDetails({ draft, data, patch, onNext }: {
    */
   const notePills = useMemo<Pill[]>(() => {
     const rank = { method: 0, note: 1, concept: 2 }
-    const pills = mine
+    return mine
       .filter(item => item.kind === 'method' || item.kind === 'note')
       .sort((a, b) => rank[a.kind] - rank[b.kind])
       .map(item => ({ key: item.text, label: item.text, pinned: true }))
-
-    // The card used at this place last time, first. A shop tends to be paid for
-    // the same way, and this row is the one that becomes column `observaciones`.
-    const remembered = nearby.find(place => place.note)?.note
-    if (!remembered) return pills
-    return [
-      { key: remembered, label: remembered, pinned: true, here: true },
-      ...pills.filter(pill => pill.key !== remembered),
-    ]
-  }, [mine, nearby])
+  }, [mine])
 
   // One group, tight. The concept and the payment method are two halves of the
   // same question — what was this — and putting the spare height between them
@@ -110,6 +101,20 @@ export function StepDetails({ draft, data, patch, onNext }: {
   return (
     <>
       <div className="flex flex-col gap-2">
+        {/* One tap for the pair. Tapping the same card again clears both, the
+            way the chips clear the one field they own: a card that could only
+            ever be turned on would need a third control to undo it. */}
+        <PlaceCards
+          places={nearby}
+          concept={draft.concept}
+          note={draft.note}
+          onPick={place => patch(
+            place.concept === draft.concept && place.note === draft.note
+              ? { concept: '', note: '' }
+              : { concept: place.concept, note: place.note },
+          )}
+        />
+
         {/* Sets the concept and nothing else. This used to set the payer too, so
             tapping a chip changed who was paying — silently, and over a choice
             just made. A suggestion may fill in the field it is a suggestion

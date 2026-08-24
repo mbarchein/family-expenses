@@ -56,26 +56,81 @@ test.beforeEach(async ({ page }) => {
 test.describe('with the location allowed', () => {
   test.use({ permissions: ['geolocation'], geolocation: DOOR })
 
-  test('a saved place offers its concept back, first', async ({ page }) => {
+  test('a saved place comes back as a card that fills the concept and the card', async ({ page }) => {
     const calls = await stubApi(page)
     await signIn(page)
 
     // A concept that is in neither list, so finding it later can only mean the
     // place produced it.
+    await reachDetails(page)
+    await page.getByRole('textbox', { name: 'Concepto' }).fill('ferretería')
+    await page.getByRole('button', { name: 'Tarjeta BBVA' }).click()
+    await next(page)
+    await savePlace(page)
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+    await reachDetails(page)
+    const cards = page.getByRole('group', { name: 'Aquí has apuntado' })
+    const card = cards.getByRole('button').first()
+    // The card prints both halves of what it is about to fill in, and how far
+    // away the doorway is.
+    await expect(card).toContainText('ferretería')
+    await expect(card).toContainText('Tarjeta BBVA')
+    await expect(card).toContainText('m de aquí')
+
+    // One tap, both fields.
+    await card.click()
+    await expect(page.getByRole('textbox', { name: 'Concepto' })).toHaveValue('ferretería')
+    await expect(card).toHaveAttribute('aria-pressed', 'true')
+    await next(page)
+    await expect(page.getByText('Tarjeta BBVA')).toBeVisible()
+
+    // And the one thing that must never happen: no coordinate ever left the
+    // device. Nothing sent to the backend contains the place.
+    expect(JSON.stringify(calls)).not.toContain('37.17')
+    expect(JSON.stringify(calls)).not.toContain('-3.59')
+  })
+
+  test('tapping the card again clears both fields', async ({ page }) => {
+    await stubApi(page)
+    await signIn(page)
+
     await reachReview(page, 'ferretería')
     await savePlace(page)
     await page.getByRole('button', { name: 'Guardar' }).click()
     await expect(page.getByText('Paso 1 de 3')).toBeVisible()
 
     await reachDetails(page)
-    // First, because standing where you stood last time beats any frequency.
-    const concepts = page.getByRole('group', { name: 'Conceptos frecuentes' })
-    await expect(concepts.getByRole('button').first()).toHaveText('ferretería')
+    const card = page.getByRole('group', { name: 'Aquí has apuntado' }).getByRole('button').first()
+    await card.click()
+    await expect(page.getByRole('textbox', { name: 'Concepto' })).toHaveValue('ferretería')
+    await card.click()
+    await expect(page.getByRole('textbox', { name: 'Concepto' })).toHaveValue('')
+  })
 
-    // And the one thing that must never happen: no coordinate ever left the
-    // device. Nothing sent to the backend contains the place.
-    expect(JSON.stringify(calls)).not.toContain('37.17')
-    expect(JSON.stringify(calls)).not.toContain('-3.59')
+  test('two things apuntados at one doorway are two cards, and still fit', async ({ page }) => {
+    // A place is a location *and* a concept: the pharmacy and the supermarket in
+    // the same square are two places. Also the height check — a row of cards
+    // that grew downwards would push the keyboard and the button off a phone.
+    await stubApi(page)
+    await signIn(page)
+
+    for (const concept of ['ferretería', 'estanco']) {
+      await reachReview(page, concept)
+      await savePlace(page)
+      await page.getByRole('button', { name: 'Guardar' }).click()
+      await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+    }
+
+    await reachDetails(page)
+    const cards = page.getByRole('group', { name: 'Aquí has apuntado' })
+    await expect(cards.getByRole('button')).toHaveCount(2)
+
+    const overflows = await page.evaluate(
+      () => document.scrollingElement!.scrollHeight > window.innerHeight + 1,
+    )
+    expect(overflows).toBe(false)
   })
 
   test('the switch off means nothing is saved', async ({ page }) => {
@@ -127,7 +182,7 @@ test.describe('with the location allowed', () => {
     await reachDetails(page)
 
     await expect(page.getByRole('button', { name: 'farmacia' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'ferretería' })).toHaveCount(0)
+    await expect(page.getByRole('group', { name: 'Aquí has apuntado' })).toHaveCount(0)
 
     // Still saved, though — it is out of range, not forgotten.
     await page.getByRole('button', { name: 'Sitios' }).click()
@@ -166,6 +221,7 @@ test.describe('with the location not allowed', () => {
 
     const concepts = page.getByRole('group', { name: 'Conceptos frecuentes' })
     await expect(concepts.getByRole('button').first()).toHaveText('farmacia')
+    await expect(page.getByRole('group', { name: 'Aquí has apuntado' })).toHaveCount(0)
   })
 
   test('a refusal is said out loud rather than going quiet', async ({ page }) => {

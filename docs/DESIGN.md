@@ -197,14 +197,23 @@ filter would not: a thumb on a phone drops letters. There is no second input and
 no second piece of state — the query and the concept are the same string, so
 tapping a match just finishes the word. See `app/src/lib/fuzzy.ts`.
 
-- Chips of frequent concepts, ranked by **frequency × recency** over the
-  household's own history. Nothing to configure.
+- Above everything, when there is a place saved within fifteen metres of where
+  the phone is standing, **cards**: what has been apuntado at this doorway
+  before, one per place — see **Sitios**. They are at the top because they are
+  the strongest guess this screen ever gets (somebody in the same shop as last
+  time is buying the same kind of thing, and no amount of frequency beats being
+  here) and because they are the only control here that can answer the whole
+  screen: one tap fills the concept *and* the payment method.
 
-  Ahead of all of them, marked with a dot, the concept of any place saved within
-  fifteen metres of where the phone is standing — see **Sitios**. It is the
-  strongest guess this screen ever gets: somebody in the same shop as last time
-  is buying the same kind of thing, and no amount of frequency beats being here.
-  It is still only a chip, filled in by a tap like any other.
+  A card and not a chip for exactly that reason. The rule everywhere else is
+  that a suggestion fills the field it is a suggestion for and no others; a card
+  is a suggestion for the pair, so it prints the pair on its face along with how
+  far away the doorway is. Nothing lands in a field that was not on screen
+  before it was touched, and tapping the card again clears both.
+- Chips of frequent concepts, ranked by **frequency × recency** over the
+  household's own history. Nothing to configure. The places are deliberately not
+  in this row as well: a concept offered twice on one screen is two controls for
+  one field.
 
   **A chip carries the concept and nothing else.** It used to carry two more
   things, and both were removed for the same reason: a suggestion may fill in
@@ -317,6 +326,11 @@ A place is a location *and* a concept, not a location with a concept attached.
 The pharmacy and the supermarket in the same square are two places, and both are
 offered when you stand between them. Merging them would mean choosing which one
 to lose.
+
+What a place lends back is a card at the top of the second step, not a chip in
+the row — see **Añadir**. It carries the concept and the payment method saved
+with it, because at a given shop it tends to be the same card, and both are
+printed on it.
 
 **Fifteen metres**, and the number is load-bearing in both directions. The shop
 next door is fifteen metres away, so a radius wide enough to always match would

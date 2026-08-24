@@ -59,6 +59,7 @@ export const T = {
     denied: 'Sin permiso de ubicación. Se lo puedes dar en los ajustes del navegador.',
     unavailable: 'No se ha podido saber dónde estás',
     here: 'Aquí',
+    hereRow: 'Aquí has apuntado',
     distance: (metres: number) => `A ${metres} m de aquí`,
     accuracy: (metres: number) => `±${metres} m`,
     savedOn: (date: string) => `Guardado el ${date}`,
