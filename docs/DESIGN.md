@@ -176,8 +176,26 @@ Who paid is on this screen rather than with the concept because the payment
 methods on the next one are filtered by it — a card belongs to whoever holds it,
 so the payer has to be settled before there is a list to offer.
 
-**2. What it was, and how it was paid for.** The concept field with its chips
-directly beneath it, and one row of pills for `observaciones`.
+**2. What it was, and how it was paid for.** The chips, then the field, then one
+row of pills for `observaciones` — all three tight together, because the concept
+and the payment method are two halves of one question and spreading them apart
+made them read as two screens stacked on one. The spare height goes below all of
+it, which is where the on-screen keyboard appears.
+
+**The chips are above the field, and the field searches them.** The chips are
+the fast path and typing is the fallback, so the fast path goes where the eye
+lands first; and when the keyboard opens it covers everything *below* the
+focused field, so anything still useful has to be above it. Nothing is focused
+on arrival, for the same reason: landing with the keyboard already up hides the
+chips behind it and makes tapping one cost an extra gesture.
+
+The search is a subsequence match over both lists — the concepts written down in
+`Sugerencias` and the ones the history threw up — scored so that a run of
+adjacent letters and a match at the start of a word beat scattered hits, and a
+short entry beats a long one. `sper` finds `supermercado`, which a substring
+filter would not: a thumb on a phone drops letters. There is no second input and
+no second piece of state — the query and the concept are the same string, so
+tapping a match just finishes the word. See `app/src/lib/fuzzy.ts`.
 
 - Chips of frequent concepts, ranked by **frequency × recency** over the
   household's own history. Nothing to configure.

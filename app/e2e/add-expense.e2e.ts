@@ -78,6 +78,31 @@ test('back walks the steps, and the last one back leaves the flow alone', async 
   await expect(page.locator('output')).toContainText('10')
 })
 
+test('the field searches the chips, and nothing is focused on arrival', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+
+  await typeAmount(page, '10')
+  await next(page)
+
+  // Landing with the keyboard already up would hide the chips behind it and
+  // make the common case — tap one, move on — cost an extra gesture.
+  await expect(page.getByRole('textbox', { name: 'Concepto' })).not.toBeFocused()
+  await expect(page.getByRole('button', { name: 'gasolina' })).toBeVisible()
+
+  // A dropped letter still finds it: 'sper' is a subsequence of 'super', which
+  // is the difference between this and a substring filter.
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('sper')
+
+  await expect(page.getByRole('button', { name: 'super', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'gasolina' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'comedor' })).toHaveCount(0)
+
+  // Tapping the match finishes the word rather than adding a second field.
+  await page.getByRole('button', { name: 'super', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Concepto' })).toHaveValue('super')
+})
+
 test('a chip sets the concept and leaves the payer alone', async ({ page }) => {
   // It used to set the payer as well, to whoever pays that concept most often,
   // so tapping a chip changed who was paying — silently, and over a choice the

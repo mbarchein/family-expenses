@@ -18,11 +18,14 @@ export interface Pill {
  * one value, so there has to be a way back to none of them without reaching for
  * the text field.
  */
-export function Pills({ items, active, onPick, label }: {
+export function Pills({ items, active, onPick, label, size = 'md' }: {
   items: Pill[]
   active: string
   onPick: (key: string) => void
   label: string
+  /** `lg` for the row that is the main way through a screen — a thumb aiming at
+   *  a concept deserves more than a 13px pill. */
+  size?: 'md' | 'lg'
 }) {
   if (!items.length) return null
   return (
@@ -41,8 +44,9 @@ export function Pills({ items, active, onPick, label }: {
             type="button"
             onClick={() => onPick(on ? '' : item.key)}
             aria-pressed={on}
-            className="shrink-0 snap-start whitespace-nowrap rounded-full border px-3 py-1.5
-                       text-[13px] focus-visible:outline focus-visible:outline-2"
+            className={'shrink-0 snap-start whitespace-nowrap rounded-full border' +
+              ' focus-visible:outline focus-visible:outline-2' +
+              (size === 'lg' ? ' px-4 py-2.5 text-[15px]' : ' px-3 py-1.5 text-[13px]')}
             style={on
               ? {
                   background: 'var(--accent)',
