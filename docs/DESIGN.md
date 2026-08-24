@@ -95,10 +95,15 @@ The entire history lives in **a single tab**. Its current shape:
    corrupts everything below it; clearing it lets the balance correct itself —
    the cumulative sums simply skip the empty cells — leaves the formula
    untouched, and keeps a record of what was voided.
-5. **Rows without an `id` are respected.** Entries pasted by hand from a bank
+5. **`observaciones` holds the payment method.** Picking one on the entry
+   screen is what writes that column; there is no other source for it. It
+   records *how* the money left, which the ledger could not say before, and
+   deliberately not *who* — that is what the column the amount sits in is for,
+   and a second copy is a second thing that can disagree.
+6. **Rows without an `id` are respected.** Entries pasted by hand from a bank
    statement are read and counted, but not editable from the phone until an id
    is assigned — one tap.
-6. **Only the tail is read.** The last few months, plus the final `diferencia`
+7. **Only the tail is read.** The last few months, plus the final `diferencia`
    cell.
 
 ### New tabs
@@ -123,6 +128,25 @@ renamed without breaking anything. No name is hardcoded anywhere.
 
 **`Fijos`** — templates for recurring entries (concept, amount, day, person,
 period, active). They are not ledger rows until confirmed.
+
+**`Sugerencias`** — the lists the phone offers, three columns:
+
+| texto | tipo | ámbito |
+| --- | --- | --- |
+| Efectivo | `medio` | *(empty)* |
+| Tarjeta Viqui | `medio` | Viqui |
+| farmacia | `concepto` | *(empty)* |
+
+`tipo` is `concepto`, `observacion` or `medio`. `ámbito` is empty for both of
+them, or one person's name as it appears in `Config`. Accents and capitals are
+forgiven on both columns, because nobody remembers whether they wrote
+"observación" or "observacion" and a row that is silently ignored is a bug the
+app gets blamed for. A scope naming neither person is treated as belonging to
+both and counted by `sanityCheck`, on the same reasoning: showing one suggestion
+to one person too many is a smaller failure than a row that vanishes.
+
+The `medio` rows are what fills column `observaciones` — see below. They are
+scoped by person because a card belongs to whoever holds it.
 
 ### What the app will not add
 
@@ -152,7 +176,21 @@ The amount field has focus on open. No menus first.
   right. The figure is on the receipt in the other hand; it gets typed.
 - Payer: two buttons, preselected to whoever has the app open.
 - Date: `Hoy` / `Ayer` / `Otra fecha`. Always editable, free when it is today.
+- One row of pills for `observaciones`, holding the payment methods first and
+  then the suggested observations, both filtered by **who is paying** rather
+  than by who is holding the phone. They share one row because that column holds
+  one value: two rows feeding one field would be two controls contradicting each
+  other. Tapping the active pill clears it.
 - Save.
+
+The whole screen fits without scrolling, and that is a constraint rather than a
+preference. The first version was a vertical stack of nine blocks of equal
+weight, with the keypad below the concept field and the two rows of segmented
+controls and the save button below the keypad — so on a phone the two
+most-used controls in the app were off the bottom. The column is now the height
+of the viewport, every row is one line tall, and the keypad takes whatever is
+left over. The pill rows scroll sideways for the same reason: a row that can
+only ever be one line tall cannot push anything else off the screen.
 
 Short path: open → type amount → tap chip → save.
 

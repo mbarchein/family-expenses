@@ -12,6 +12,7 @@
 
 var CONFIG_SHEET = 'Config';
 var FIXED_SHEET = 'Fijos';
+var SUGGESTIONS_SHEET = 'Sugerencias';
 
 /** Fixed positions in the ledger. Only the two amount columns are configurable,
  *  because only those differ between households. */
@@ -119,4 +120,71 @@ function columnLetterToIndex_(letter) {
 /** The inverse, for messages. Single letters only, like the check above. */
 function columnIndexToLetter_(index) {
   return String.fromCharCode(64 + index);
+}
+
+/**
+ * The Sugerencias tab: the lists the phone offers, edited by hand.
+ *
+ * Three columns, and their headers are in Spanish for the same reason Config's
+ * keys are — this tab is opened and filled in by the two people using the app,
+ * so it is interface rather than schema.
+ *
+ *   texto    what the button says
+ *   tipo     concepto | observacion | medio
+ *   ámbito   empty for both of them, or one person's name
+ *
+ * Accents and capitals are forgiven on the two classifying columns. Nobody is
+ * going to remember whether they wrote "observación" or "observacion", and a
+ * row that is silently ignored is a bug the app gets blamed for.
+ */
+function readSuggestions_() {
+  var cached = readSuggestions_.cache_;
+  if (cached) return cached;
+
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SUGGESTIONS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) {
+    readSuggestions_.cache_ = { items: [], unknownKind: 0, unknownScope: 0 };
+    return readSuggestions_.cache_;
+  }
+
+  var names = readConfig_().people.map(function (person) { return fold_(person.name); });
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+  var result = { items: [], unknownKind: 0, unknownScope: 0 };
+
+  rows.forEach(function (row) {
+    var text = String(row[0] == null ? '' : row[0]).trim();
+    if (!text) return;
+
+    var kind = SUGGESTION_KINDS[fold_(row[1])];
+    if (!kind) {
+      result.unknownKind++;
+      return;
+    }
+
+    var scope = fold_(row[2]);
+    var person = scope ? names.indexOf(scope) : -1;
+    if (scope && person === -1) result.unknownScope++;
+
+    // Anything naming neither person belongs to both, and that includes a typo
+    // rather than only an empty cell. Showing one suggestion to one person too
+    // many is a smaller failure than a row that disappears without saying why;
+    // sanityCheck() counts them so the typo is still findable.
+    result.items.push({ text: text, kind: kind, person: person === -1 ? null : person });
+  });
+
+  readSuggestions_.cache_ = result;
+  return result;
+}
+
+var SUGGESTION_KINDS = {
+  'concepto': 'concept', 'conceptos': 'concept',
+  'observacion': 'note', 'observaciones': 'note',
+  'medio': 'method', 'medios': 'method', 'medio de pago': 'method'
+};
+
+/** Lowercased and stripped of accents, for comparing what somebody typed by
+ *  hand against a value the code knows. */
+function fold_(value) {
+  return String(value == null ? '' : value).trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }

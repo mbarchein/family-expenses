@@ -57,6 +57,28 @@ function setupSpreadsheet() {
     report.push('Fijos: created — empty, fill it in when phase 2 lands');
   }
 
+  if (ss.getSheetByName(SUGGESTIONS_SHEET)) {
+    report.push('Sugerencias: already there, left alone');
+  } else {
+    var suggestions = ss.insertSheet(SUGGESTIONS_SHEET);
+    // Two payment methods to start with, because an empty tab does not explain
+    // its own shape and these two are what the selector needs to appear at all.
+    suggestions.getRange(1, 1, 3, 3).setValues([
+      ['texto', 'tipo', 'ámbito'],
+      ['Efectivo', 'medio', ''],
+      ['Tarjeta', 'medio', '']
+    ]);
+    suggestions.getRange(1, 1, 1, 3).setFontWeight('bold');
+    // The notes are the documentation. This tab is edited in the browser by two
+    // people who will not be reading the source, and a wrong `tipo` is the one
+    // mistake here that makes a row vanish.
+    suggestions.getRange(1, 2).setNote('concepto, observacion o medio');
+    suggestions.getRange(1, 3).setNote(
+      'Vacío = para los dos. O el nombre de una persona, tal como está en Config.');
+    suggestions.setColumnWidth(1, 260);
+    report.push('Sugerencias: created — texto | tipo | ámbito, with two payment methods');
+  }
+
   var idHeader = ledger.getRange(1, COL_ID);
   var current = String(idHeader.getValue() || '');
   if (!current) {
@@ -141,6 +163,20 @@ function sanityCheck() {
   if (!sheet.getRange(last, COL_BALANCE).getFormula()) {
     lines.push('*** ' + columnIndexToLetter_(COL_BALANCE) + last + ' holds no formula —' +
       ' the balance is read from that cell alone. Run dumpLedgerShape(). ***');
+  }
+
+  var suggestions = readSuggestions_();
+  var counts = { concept: 0, note: 0, method: 0 };
+  suggestions.items.forEach(function (item) { counts[item.kind]++; });
+  lines.push('Sugerencias:      ' + counts.method + ' medios, ' + counts.concept +
+    ' conceptos, ' + counts.note + ' observaciones');
+  if (suggestions.unknownKind) {
+    lines.push('*** ' + suggestions.unknownKind + ' row(s) in Sugerencias have a `tipo` that is' +
+      ' none of concepto/observacion/medio, and are ignored ***');
+  }
+  if (suggestions.unknownScope) {
+    lines.push('*** ' + suggestions.unknownScope + ' row(s) in Sugerencias name an `ámbito` that is' +
+      ' neither person, and are being shown to both ***');
   }
 
   var withoutId = 0;

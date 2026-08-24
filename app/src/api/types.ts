@@ -14,12 +14,21 @@ export interface Person {
   color: string
 }
 
+/** A row of the Sugerencias tab, already scoped. `person` is null when the row
+ *  is for both of them. */
+export interface Suggestion {
+  text: string
+  kind: 'concept' | 'note' | 'method'
+  person: 0 | 1 | null
+}
+
 export interface Bootstrap {
   user: { email: string; name: string }
   config: { people: [Person, Person]; meIndex: number }
   balance: number
   entries: Entry[]
   frequent: { concept: string; payer: 0 | 1 }[]
+  suggestions: Suggestion[]
   lastRow: number
 }
 

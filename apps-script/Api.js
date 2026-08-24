@@ -96,6 +96,7 @@ function handleBootstrap_(payload, user) {
     balance: tail.balance,
     entries: tail.entries,
     frequent: frequentConcepts_(tail.entries),
+    suggestions: readSuggestions_().items,
     lastRow: tail.lastRow
   };
 }

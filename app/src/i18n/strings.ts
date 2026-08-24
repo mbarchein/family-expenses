@@ -24,6 +24,8 @@ export const T = {
     today: 'Hoy',
     yesterday: 'Ayer',
     otherDate: 'Otra fecha',
+    conceptRow: 'Conceptos frecuentes',
+    noteRow: 'Medio de pago y observaciones',
     savedUndo: 'Guardado',
     undo: 'Deshacer',
     needAmount: 'Pon un importe',

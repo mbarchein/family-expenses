@@ -87,7 +87,10 @@ and press **Ejecutar**. Google asks for authorization the first time; the
 screen that warns the app is unverified is expected — it is your own script,
 and **Configuración avanzada → Ir a (nombre)** gets past it.
 
-It creates the `Config` and `Fijos` tabs and writes the `id` header in column G.
+It creates the `Config`, `Fijos` and `Sugerencias` tabs and writes the `id`
+header in column G. `Sugerencias` arrives with two payment methods in it, so the
+row of pills on the entry screen has something to show; fill in the rest by hand
+whenever you like — the app reads it on every open.
 It never overwrites a `Config` that already exists, so it is safe to re-run.
 
 Then run `backfillIds`. It gives every existing row an identifier, which is what

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Chips, type Chip } from '../components/Chips'
+import { useMemo, useState } from 'react'
+import { Pills, type Pill } from '../components/Pills'
 import { Keypad } from '../components/Keypad'
 import { Segmented } from '../components/Segmented'
 import { T } from '../i18n/strings'
@@ -8,34 +8,82 @@ import { todayIso, yesterdayIso } from '../lib/dates'
 import type { Ledger } from '../store/ledger'
 
 /**
- * The landing screen.
+ * The landing screen, and the only one that has to work one-handed while the
+ * other hand is holding a receipt.
  *
- * Everything here has a default that is right most of the time: today, the
- * person holding the phone, and — once a chip is tapped — the concept and the
- * payer that concept usually has. The amount is always typed. Typing it and
- * tapping a chip is a complete expense; the rest of the controls exist for the
- * minority of entries that need them.
+ * It is laid out to fit without scrolling rather than to read well as a
+ * document, and that is a deliberate reversal. The first version was a single
+ * vertical stack of nine blocks of equal weight: the keypad sat below the
+ * concept field and two rows of segmented controls, and the save button below
+ * the keypad, so on a phone the two most-used controls in the app were off the
+ * bottom of the screen. Now the column is the height of the viewport, the
+ * keypad takes whatever is left over, and nothing below the amount moves.
+ *
+ * Everything has a default that is right most of the time: today, and the
+ * person holding the phone. The amount is always typed — no control fills it
+ * in, because a figure that appears without being typed is a figure nobody
+ * checked.
  */
 export function AddScreen({ ledger }: { ledger: Ledger }) {
-  const me = ledger.data?.config.meIndex ?? -1
-  const people = ledger.data?.config.people
+  const data = ledger.data
+  const me = data?.config.meIndex ?? -1
+  const people = data?.config.people
+  // Memoised for their identity, not their cost: `?? []` hands back a new array
+  // on every render, and a new array in a dependency list is a useMemo that
+  // never gets to remember anything.
+  const frequent = useMemo(() => data?.frequent ?? [], [data])
+  const suggestions = useMemo(() => data?.suggestions ?? [], [data])
 
   const [typed, setTyped] = useState('')
   const [concept, setConcept] = useState('')
+  const [note, setNote] = useState('')
   const [payer, setPayer] = useState<0 | 1>(me === 1 ? 1 : 0)
   const [date, setDate] = useState(todayIso())
   const [problem, setProblem] = useState<string | null>(null)
   const [justSaved, setJustSaved] = useState<string | null>(null)
 
+  // Filtered by who is paying rather than by who is holding the phone: either
+  // person can enter the other's expense, and it is the payer's card that
+  // belongs in the note.
+  const mine = useMemo(
+    () => suggestions.filter(item => item.person === null || item.person === payer),
+    [suggestions, payer],
+  )
+
+  /** Curated concepts first, then whatever the history threw up, deduplicated. */
+  const conceptPills = useMemo<Pill[]>(() => {
+    const pinned = mine.filter(item => item.kind === 'concept')
+    const seen = new Set(pinned.map(item => item.text.toLowerCase()))
+    return [
+      ...pinned.map(item => ({ key: item.text, label: item.text, pinned: true })),
+      ...frequent
+        .filter(chip => !seen.has(chip.concept.toLowerCase()))
+        .map(chip => ({ key: chip.concept, label: chip.concept })),
+    ]
+  }, [mine, frequent])
+
+  /**
+   * One row for the note, holding the payment methods and then the suggested
+   * observations. They share it because column `observaciones` holds a single
+   * value: two rows feeding one field would be two controls contradicting each
+   * other.
+   */
+  const notePills = useMemo<Pill[]>(() => {
+    const rank = { method: 0, note: 1, concept: 2 }
+    return mine
+      .filter(item => item.kind === 'method' || item.kind === 'note')
+      .sort((a, b) => rank[a.kind] - rank[b.kind])
+      .map(item => ({ key: item.text, label: item.text, pinned: true }))
+  }, [mine])
+
   if (!people) return null
   const readOnly = me === -1
+  const kind = dateKind(date)
 
-  // A chip sets the concept and the payer, never the amount. It used to fill
-  // in the median of what that concept usually cost, which is a figure nobody
-  // checked appearing in the field that must not be wrong.
-  function pickChip(chip: Chip) {
-    setConcept(chip.concept)
-    setPayer(chip.payer)
+  function pickConcept(key: string) {
+    setConcept(key)
+    const chip = frequent.find(item => item.concept === key)
+    if (chip) setPayer(chip.payer)
   }
 
   async function save() {
@@ -44,10 +92,11 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
     if (!concept.trim()) return setProblem(T.add.needConcept)
 
     const id = crypto.randomUUID()
-    await ledger.addEntry({ id, date, concept: concept.trim(), amount, payer, note: '' })
+    await ledger.addEntry({ id, date, concept: concept.trim(), amount, payer, note })
 
     setTyped('')
     setConcept('')
+    setNote('')
     setDate(todayIso())
     setProblem(null)
     setJustSaved(id)
@@ -57,22 +106,32 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 p-4">
-      <output className="py-1 text-center font-mono text-5xl font-semibold tabular tracking-tight">
-        <span className="text-2xl text-ink-3">€ </span>{displayTyped(typed)}
-      </output>
-
-      <Chips chips={ledger.data?.frequent ?? []} active={concept} onPick={pickChip} />
-
-      <input
-        value={concept}
-        onChange={event => setConcept(event.target.value)}
-        placeholder={T.add.conceptPlaceholder}
-        aria-label={T.add.concept}
-        enterKeyHint="done"
-        className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink
-                   placeholder:text-ink-3 focus-visible:outline focus-visible:outline-2"
+    <div className="relative flex h-full flex-col gap-2 p-4">
+      <Segmented
+        value={kind}
+        onChange={next => setDate(next === 'today' ? todayIso() : next === 'yesterday' ? yesterdayIso() : date)}
+        options={[
+          { label: T.add.today, value: 'today' },
+          { label: T.add.yesterday, value: 'yesterday' },
+          { label: T.add.otherDate, value: 'other' },
+        ]}
+        compact
       />
+
+      {kind === 'other' && (
+        <input
+          type="date"
+          value={date}
+          max={todayIso()}
+          onChange={event => setDate(event.target.value)}
+          aria-label={T.add.otherDate}
+          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
+        />
+      )}
+
+      <output className="tabular text-center font-mono text-[2.75rem] font-semibold leading-tight tracking-tight">
+        {displayTyped(typed)}<span className="pl-1 text-2xl text-ink-3">€</span>
+      </output>
 
       <Segmented
         value={String(payer)}
@@ -83,30 +142,31 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
         ]}
       />
 
-      <Segmented
-        value={dateKind(date)}
-        onChange={kind => setDate(kind === 'today' ? todayIso() : kind === 'yesterday' ? yesterdayIso() : date)}
-        options={[
-          { label: T.add.today, value: 'today' },
-          { label: T.add.yesterday, value: 'yesterday' },
-          { label: T.add.otherDate, value: 'other' },
-        ]}
+      <input
+        value={concept}
+        onChange={event => setConcept(event.target.value)}
+        placeholder={T.add.conceptPlaceholder}
+        aria-label={T.add.concept}
+        enterKeyHint="done"
+        className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink
+                   placeholder:text-ink-2 focus-visible:outline focus-visible:outline-2"
       />
 
-      {dateKind(date) === 'other' && (
-        <input
-          type="date"
-          value={date}
-          max={todayIso()}
-          onChange={event => setDate(event.target.value)}
-          aria-label={T.add.otherDate}
-          className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink"
-        />
+      <Pills items={conceptPills} active={concept} onPick={pickConcept} label={T.add.conceptRow} />
+      <Pills items={notePills} active={note} onPick={setNote} label={T.add.noteRow} />
+
+      {/* The keypad takes whatever height is left, so it is generous on a big
+          phone and still whole on a small one. min-h-0 is what lets it be
+          squeezed rather than pushing the save button off the bottom. */}
+      <div className="min-h-0 flex-1">
+        <Keypad value={typed} onChange={setTyped} />
+      </div>
+
+      {problem && (
+        <p role="alert" className="text-center text-sm" style={{ color: 'var(--danger)' }}>
+          {problem}
+        </p>
       )}
-
-      <Keypad value={typed} onChange={setTyped} />
-
-      {problem && <p role="alert" className="text-sm" style={{ color: 'var(--danger)' }}>{problem}</p>}
 
       <button
         type="button"
@@ -119,10 +179,17 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
         {T.add.save}
       </button>
 
-      {readOnly && <p className="text-center text-sm text-ink-2">{T.auth.noColumn}</p>}
+      {readOnly && <p className="text-center text-xs text-ink-2">{T.auth.noColumn}</p>}
 
+      {/* Floating rather than part of the column: a banner that reflows the
+          layout moves the save button out from under a thumb already on its
+          way down to it. */}
       {justSaved && (
-        <div className="flex items-center justify-between rounded-lg bg-surface-2 px-3 py-2 text-sm">
+        <div
+          className="absolute inset-x-4 bottom-4 flex items-center justify-between rounded-xl
+                     border border-line px-3 py-2.5 text-sm shadow-lg"
+          style={{ background: 'var(--surface-2)' }}
+        >
           <span>{T.add.savedUndo}</span>
           <button
             type="button"
