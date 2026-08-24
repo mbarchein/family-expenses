@@ -29,7 +29,11 @@ export const ICONS = {
   senal: <><path d="M5 19v-3M10 19v-7M15 19v-11M20 19v-15" /></>,
   casa: <><path d="M4 11 12 4l8 7" /><path d="M6 10.5V20h12v-9.5" /><path d="M10 20v-5h4v5" /></>,
   escudo: <><path d="M12 3.5 5 6v6c0 4 3 7 7 8.5 4-1.5 7-4.5 7-8.5V6l-7-2.5Z" /></>,
-  plato: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /></>,
+  // A fork and a knife rather than the plate this was: a plate seen from above
+  // is two concentric circles, and two concentric circles at 24 px are a target,
+  // a doughnut or a button — anything but lunch. Cutlery is the sign everybody
+  // already reads, and it is straight lines.
+  cubiertos: <><path d="M5 3.5v5a2 2 0 0 0 4 0v-5" /><path d="M7 3.5v5" /><path d="M7 10.5v10" /><path d="M16.5 20.5v-9" /><path d="M16.5 11.5V3.5l2 3.2a3 3 0 0 1-2 4.8Z" /></>,
   taza: <><path d="M5 8h11v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V8Z" /><path d="M16 9.5h1.5a2.5 2.5 0 0 1 0 5H16" /><path d="M4 21h13" /></>,
   camiseta: <><path d="M9 4 4.5 6.5 6 10l2-1v11h8V9l2 1 1.5-3.5L15 4a4 4 0 0 1-6 0Z" /></>,
   regalo: <><rect x="3.5" y="8.5" width="17" height="11.5" rx="1.5" /><path d="M3.5 12.5h17M12 8.5V20" /><path d="M12 8.5S10.5 4 8 4a2 2 0 0 0 0 4.5M12 8.5S13.5 4 16 4a2 2 0 0 1 0 4.5" /></>,
