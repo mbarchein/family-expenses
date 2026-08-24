@@ -31,6 +31,26 @@ describe('splitTransfer', () => {
     expect(residual).toBe(0)
   })
 
+  it('does not invent a leftover when the halves land on whole cents', () => {
+    // One cent away from the case above, and the one the euro arithmetic got
+    // wrong: (3000 - 1850.88) / 2 is exactly 574.56, but 574.56 * 100 is
+    // 57455.999999999993, so flooring the euros reported 574.55 and two cents
+    // outstanding that were never there.
+    const { shares, residual } = splitTransfer(3000, 1850.88)
+    expect(shares).toEqual([574.56, 2425.44])
+    expect(residual).toBe(0)
+    expect(after(1850.88, shares)).toBe(0)
+  })
+
+  it('treats the balance as the cents the sheet displays', () => {
+    // What column E actually hands over after a couple of thousand additions.
+    // The sheet shows 1.435,94 €, so that is what has to be split.
+    const raw = splitTransfer(2000, 1435.9399999997404)
+    expect(raw).toEqual(splitTransfer(2000, 1435.94))
+    expect(raw.shares).toEqual([282.03, 1717.97])
+    expect(raw.residual).toBe(0)
+  })
+
   it('splits down the middle when nobody is ahead', () => {
     expect(splitTransfer(600, 0)).toEqual({ shares: [300, 300], residual: 0 })
   })

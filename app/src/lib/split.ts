@@ -29,30 +29,49 @@ export interface Split {
 }
 
 export function splitTransfer(total: number, difference: number): Split {
-  const gap = Math.abs(difference)
-  const ahead = difference > 0 ? 0 : 1
+  const transfer = cents(total)
+  const signed = cents(difference)
+  const gap = Math.abs(signed)
+  const ahead = signed > 0 ? 0 : 1
   const behind = ahead === 0 ? 1 : 0
   const shares: [number, number] = [0, 0]
 
-  if (gap >= total) {
-    shares[behind] = round2(total)
+  if (gap >= transfer) {
+    shares[behind] = transfer
   } else {
-    shares[ahead] = floor2((total - gap) / 2)
+    // An odd number of cents has no halfway point, and this is where it is
+    // dropped: on integers, so it is dropped once and on purpose.
+    shares[ahead] = Math.floor((transfer - gap) / 2)
     // The other share is the remainder rather than the same division run twice,
     // so the two always add up to exactly the transfer that was typed.
-    shares[behind] = round2(total - shares[ahead])
+    shares[behind] = transfer - shares[ahead]
   }
 
   // Computed the way the spreadsheet computes it, not derived from the algebra
   // above: if the two ever disagree, this is the one that matches what the
   // sheet will show tomorrow.
-  return { shares, residual: round2(difference + shares[0] - shares[1]) }
+  const residual = signed + shares[0] - shares[1]
+
+  return {
+    shares: [shares[0] / 100, shares[1] / 100],
+    residual: residual / 100
+  }
 }
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100
-}
-
-function floor2(value: number): number {
-  return Math.floor(value * 100) / 100
+/**
+ * Money as the whole number of cents it is. Everything above runs on these.
+ *
+ * The previous version divided and floored the euro figures directly, and
+ * `Math.floor(value * 100)` is a trap: 574.56 * 100 is 57455.999999999993, so
+ * flooring it drops a cent that was never in dispute — and then the screen
+ * reports two cents outstanding that do not exist. Inventing a leftover is the
+ * same sin as hiding one.
+ *
+ * Rounding on the way in is also what keeps the app agreeing with the sheet.
+ * The balance cell arrives as 1435.9399999997404 after two thousand additions
+ * while the spreadsheet displays 1.435,94 €. Cents are the authority; the extra
+ * digits are an artefact of the sum, not information.
+ */
+function cents(value: number): number {
+  return Math.round(value * 100)
 }
