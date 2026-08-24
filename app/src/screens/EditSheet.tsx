@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Segmented } from '../components/Segmented'
 import { T } from '../i18n/strings'
 import { formatShortDate, todayIso } from '../lib/dates'
@@ -19,6 +19,7 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
   const [date, setDate] = useState(entry.date)
   const [note, setNote] = useState(entry.note)
   const [busy, setBusy] = useState(false)
+  const titleId = useId()
 
   async function save() {
     const amount = parseAmount(typed)
@@ -37,16 +38,28 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={T.edit.title}
+      aria-labelledby={titleId}
       className="fixed inset-0 z-10 flex items-end bg-black/40"
       onClick={event => { if (event.target === event.currentTarget) onClose() }}
     >
       <div className="max-h-[90dvh] w-full overflow-y-auto rounded-t-2xl bg-surface p-4"
            style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
-        <div className="mb-3 flex items-center justify-between">
-          <button type="button" onClick={onClose} className="text-sm text-ink-2">{T.edit.cancel}</button>
-          <button type="button" onClick={remove} disabled={busy}
-                  className="text-sm font-semibold" style={{ color: 'var(--danger)' }}>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          {/* The title moved into the space the cancel link left behind, and it
+              is what names the dialog now — one name rather than a visible one
+              and a different invisible one. */}
+          <h2 id={titleId} className="text-sm font-semibold">{T.edit.title}</h2>
+          {/* Outlined rather than filled: this is the one control here that
+              cannot be undone, so it has to look like a button without looking
+              like the thing to press. */}
+          <button
+            type="button"
+            onClick={remove}
+            disabled={busy}
+            className="shrink-0 rounded-full border px-4 py-2 text-sm font-semibold
+                       disabled:opacity-40"
+            style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+          >
             {T.list.void}
           </button>
         </div>
@@ -97,15 +110,29 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
             className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm placeholder:text-ink-3"
           />
 
-          <button
-            type="button"
-            onClick={save}
-            disabled={busy}
-            className="rounded-xl py-3.5 font-bold disabled:opacity-40"
-            style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
-          >
-            {T.edit.save}
-          </button>
+          {/* Cancel next to save, at the size of a button and not a link in the
+              corner. Saving is twice the width: they are both ways out of this
+              screen, and only one of them is the one being looked for. */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="flex-1 rounded-xl border border-line py-3.5 font-semibold
+                         text-ink-2 disabled:opacity-40"
+            >
+              {T.edit.cancel}
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={busy}
+              className="flex-[2] rounded-xl py-3.5 font-bold disabled:opacity-40"
+              style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+            >
+              {T.edit.save}
+            </button>
+          </div>
 
           <p className="text-center text-[11px] text-ink-3">
             {entry.row ? `Fila ${entry.row}` : T.sync.pending(1)}

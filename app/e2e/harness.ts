@@ -94,7 +94,7 @@ export function bootstrap(overrides: Partial<Bootstrap> = {}): Bootstrap {
   }
 }
 
-function entry(fields: Omit<Entry, 'note' | 'voided'> & Partial<Entry>): Entry {
+export function entry(fields: Omit<Entry, 'note' | 'voided'> & Partial<Entry>): Entry {
   return { note: '', voided: false, ...fields }
 }
 
