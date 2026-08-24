@@ -38,8 +38,6 @@ export const T = {
     discard: 'Descartar este gasto',
     conceptRow: 'Conceptos frecuentes',
     noteRow: 'Medio de pago y observaciones',
-    savedUndo: 'Guardado',
-    undo: 'Deshacer',
     needAmount: 'Pon un importe',
     needConcept: 'Pon un concepto',
   },

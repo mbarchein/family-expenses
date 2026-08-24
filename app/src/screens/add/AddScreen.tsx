@@ -35,7 +35,6 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
   const me = data?.config.meIndex ?? -1
   const { draft, ready, patch, reset } = useDraft(me === 1 ? 1 : 0)
   const [problem, setProblem] = useState<string | null>(null)
-  const [justSaved, setJustSaved] = useState<string | null>(null)
 
   // No `locate`: this only ever writes a place, and reading the GPS on the way
   // into a flow that may never ask for one is exactly what the option exists to
@@ -148,10 +147,6 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
     // left behind us for the back button to wander into. `go` and not two
     // `back()` calls, and never `go(0)` — that one reloads the page.
     rewind()
-    setJustSaved(id)
-    // Long enough to catch the "wrong person" reflex, short enough that the
-    // banner is gone by the next time the app is opened.
-    window.setTimeout(() => setJustSaved(current => (current === id ? null : current)), 6000)
   }
 
   // `justify-between` distributes the spare height between the rows and no child
@@ -160,7 +155,7 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
   // digits floating inside them, and given to a spacer it produced a 500px hole
   // in the middle of an otherwise dense step.
   return (
-    <div className="relative flex h-full flex-col justify-between gap-2 p-4">
+    <div className="flex h-full flex-col justify-between gap-2 p-4">
       <header className="flex items-center gap-2">
         {/* A slot of a fixed size, empty on the first step rather than absent.
             The arrow used to be swapped for a narrower spacer, which changed the
@@ -221,25 +216,6 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
         </p>
       )}
 
-      {/* Floating rather than part of the column: a banner that reflows the
-          layout moves the button out from under a thumb already on its way. */}
-      {justSaved && (
-        <div
-          className="absolute inset-x-4 bottom-4 flex items-center justify-between rounded-xl
-                     border border-line px-3 py-2.5 text-sm shadow-lg"
-          style={{ background: 'var(--surface-2)' }}
-        >
-          <span>{T.add.savedUndo}</span>
-          <button
-            type="button"
-            className="font-semibold"
-            style={{ color: 'var(--accent)' }}
-            onClick={() => { void ledger.voidEntry(justSaved); setJustSaved(null) }}
-          >
-            {T.add.undo}
-          </button>
-        </div>
-      )}
     </div>
   )
 }

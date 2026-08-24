@@ -233,6 +233,13 @@ three-step flow needs and a one-screen form did not.
 The review exists because of what saving does. The row cannot be taken back out
 of the spreadsheet, only voided — so a glance before writing is worth a tap.
 
+There is deliberately nothing after saving: no banner, no "Deshacer". One was
+there and it earned nothing. A confirmation nobody reads is a confirmation that
+covers the button underneath it, and undoing an expense is not urgent enough to
+need its own six-second window — the row is in **Gastos**, at the top, with
+"Anular" on it, which is where somebody who wants to undo something an hour
+later would look anyway. This screen returns to step one and says nothing.
+
 **The device's back button walks back through the steps.** Each step forward is
 a history entry, so back means "the previous view" rather than "close the app
 halfway through typing". The on-screen arrow calls `history.back()` and nothing
@@ -447,8 +454,7 @@ All development runs against a **copy** of the spreadsheet.
 2. **Edit without fear, and split.** Editing and voiding by clearing, the
    transfer splitter, and recurring templates prompting on their due date.
 3. **Make it fly.** Offline queue, computed chips, installable PWA, a direct
-   "new expense" shortcut from the icon, undo after saving, and the concept
-   remembered per place.
+   "new expense" shortcut from the icon, and the concept remembered per place.
 4. **Extras.** Search across the whole history, per-concept summaries, receipt
    photos to Drive, CSV export.
 
