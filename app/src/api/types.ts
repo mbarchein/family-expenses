@@ -19,7 +19,7 @@ export interface Bootstrap {
   config: { people: [Person, Person]; meIndex: number }
   balance: number
   entries: Entry[]
-  frequent: { concept: string; amount: number; payer: 0 | 1 }[]
+  frequent: { concept: string; payer: 0 | 1 }[]
   lastRow: number
 }
 

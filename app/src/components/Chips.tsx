@@ -1,8 +1,5 @@
-import { formatEur } from '../lib/money'
-
 export interface Chip {
   concept: string
-  amount: number
   payer: 0 | 1
 }
 
@@ -29,9 +26,6 @@ export function Chips({ chips, active, onPick }: {
               : { background: 'var(--surface-2)', color: 'var(--ink-2)', borderColor: 'transparent' }}
           >
             {chip.concept}
-            {chip.amount > 0 && (
-              <span className="ml-1.5 font-mono opacity-60">{formatEur(chip.amount)}</span>
-            )}
           </button>
         )
       })}

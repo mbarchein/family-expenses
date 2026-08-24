@@ -142,8 +142,14 @@ The amount field has focus on open. No menus first.
 
 - Numeric keypad with the amount set large.
 - Chips of frequent concepts, ranked by **frequency × recency** over the user's
-  own history. Each chip remembers its usual amount and who usually pays it.
-  Nothing to configure.
+  own history. A chip carries the concept and who usually pays it. Nothing to
+  configure.
+
+  **A chip does not carry an amount.** It used to: the median of what that
+  concept had cost before, filled into the field on a tap. That was dropped
+  because an amount which appears without being typed is an amount nobody
+  checked, in the one field of this app that is not allowed to be approximately
+  right. The figure is on the receipt in the other hand; it gets typed.
 - Payer: two buttons, preselected to whoever has the app open.
 - Date: `Hoy` / `Ayer` / `Otra fecha`. Always editable, free when it is today.
 - Save.
@@ -220,6 +226,15 @@ expired session, the row waits in the queue.
 | Local state | IndexedDB with an outbound queue |
 | Backend | `apps-script/`, deployed with `clasp` |
 | Hosting | Vercel, at gafa.terragiro.es |
+
+**Updating.** The app checks for a new version every time it becomes visible,
+not only when the page navigates. That distinction is the whole point: a service
+worker looks for an update on navigation, and an installed PWA resumed from the
+home screen never navigates, so a phone would keep the version it was installed
+with indefinitely. When a new worker takes over, the page reloads there and
+then rather than offering a banner — at the moment of opening there is nothing
+on screen to lose, and a saved expense is already in the queue in IndexedDB.
+See `app/src/pwa.ts`.
 
 **Cache headers.** `app/vercel.json` sets two, and the reasons cannot live
 beside them: Vercel validates that file against a strict schema and rejects any

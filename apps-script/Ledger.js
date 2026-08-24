@@ -290,11 +290,10 @@ function frequentConcepts_(entries) {
     var weight = Math.pow(0.5, Math.max(0, ageDays) / HALF_LIFE_DAYS);
 
     var bucket = byKey[key] || (byKey[key] = {
-      concept: entry.concept, score: 0, amounts: [], payers: [0, 0]
+      concept: entry.concept, score: 0, payers: [0, 0]
     });
     bucket.concept = entry.concept;   // keep the most recent spelling
     bucket.score += weight;
-    bucket.amounts.push(entry.amount);
     bucket.payers[entry.payer]++;
   });
 
@@ -303,21 +302,15 @@ function frequentConcepts_(entries) {
     .sort(function (a, b) { return b.score - a.score; })
     .slice(0, 8)
     .map(function (bucket) {
+      // No amount. A chip used to carry the median of what that concept
+      // usually cost, and the screen filled it in on a tap. It was removed on
+      // purpose: an amount that appears without being typed is an amount
+      // nobody checked, and the two people here type the figure off a receipt
+      // anyway. The chip is a concept and nothing else.
       return {
         concept: bucket.concept,
-        amount: median_(bucket.amounts),
         payer: bucket.payers[0] >= bucket.payers[1] ? 0 : 1
       };
     });
 }
 
-/** Median rather than mean: one 300 € supermarket run at Christmas should not
- *  become the amount suggested every Tuesday. */
-function median_(values) {
-  var sorted = values.slice().sort(function (a, b) { return a - b; });
-  var middle = Math.floor(sorted.length / 2);
-  var value = sorted.length % 2
-    ? sorted[middle]
-    : (sorted[middle - 1] + sorted[middle]) / 2;
-  return Math.round(value * 100) / 100;
-}

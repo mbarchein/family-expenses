@@ -13,6 +13,10 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       registerType: 'autoUpdate',
+      // src/pwa.ts registers the worker, so the plugin must not inject a second
+      // registration of its own: two of them race and only one is the one that
+      // checks for a new version when the app is opened.
+      injectRegister: false,
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
       },

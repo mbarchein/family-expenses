@@ -11,10 +11,10 @@ import type { Ledger } from '../store/ledger'
  * The landing screen.
  *
  * Everything here has a default that is right most of the time: today, the
- * person holding the phone, and — once a chip is tapped — the amount and payer
- * that concept usually carries. Typing an amount and tapping a chip is a
- * complete expense; the rest of the controls exist for the minority of entries
- * that need them.
+ * person holding the phone, and — once a chip is tapped — the concept and the
+ * payer that concept usually has. The amount is always typed. Typing it and
+ * tapping a chip is a complete expense; the rest of the controls exist for the
+ * minority of entries that need them.
  */
 export function AddScreen({ ledger }: { ledger: Ledger }) {
   const me = ledger.data?.config.meIndex ?? -1
@@ -30,10 +30,12 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
   if (!people) return null
   const readOnly = me === -1
 
+  // A chip sets the concept and the payer, never the amount. It used to fill
+  // in the median of what that concept usually cost, which is a figure nobody
+  // checked appearing in the field that must not be wrong.
   function pickChip(chip: Chip) {
     setConcept(chip.concept)
     setPayer(chip.payer)
-    if (!typed && chip.amount > 0) setTyped(String(chip.amount).replace('.', ','))
   }
 
   async function save() {
