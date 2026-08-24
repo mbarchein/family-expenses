@@ -38,14 +38,16 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
 
-      # The build needs the two variables to exist, not to be right: Vite
-      # inlines them at build time and an undefined one becomes the string
-      # "undefined" in the bundle rather than a failure anyone would notice.
-      # Real values live in Vercel; these are here so the build is exercised.
+      # The build needs these to exist, not to be right: Vite inlines them at
+      # build time and an undefined one becomes the string "undefined" in the
+      # bundle rather than a failure anyone would notice. The real values reach
+      # the deploy from Actions variables; these are here so the build is
+      # exercised.
       - run: npm run build
         env:
           VITE_API_URL: https://example.invalid/exec
           VITE_GOOGLE_CLIENT_ID: ci.apps.googleusercontent.com
+          VITE_CONTACT_EMAIL: ci@example.invalid
 
   backend:
     runs-on: ubuntu-latest

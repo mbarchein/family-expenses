@@ -25,15 +25,18 @@ locals {
     VERCEL_PROJECT_ID = vercel_project.app.id
   }
 
-  # Also read by deploy.yml, but these come out of the manual half and are
-  # empty until someone has walked through DEPLOY.md 1-6.
-  manual_variables = {
+  # Also read by deploy.yml, and all of them optional in the same sense: not
+  # created while empty. The first four are empty until somebody has walked
+  # through DEPLOY.md 1-6; the last is empty until somebody decides which
+  # address the legal pages should point at.
+  optional_variables = {
     SCRIPT_ID     = var.apps_script_id
     DEPLOYMENT_ID = var.apps_script_deployment_id
 
     # Inlined into the bundle by Vite at build time.
     VITE_API_URL          = var.apps_script_exec_url
     VITE_GOOGLE_CLIENT_ID = var.google_oauth_client_id
+    VITE_CONTACT_EMAIL    = var.contact_email
   }
 
   # An empty one is not created at all, and that is the whole point. GitHub
@@ -45,12 +48,16 @@ locals {
   # deployment and publish a bundle with that placeholder inlined as the API
   # URL.
   #
+  # VITE_CONTACT_EMAIL is deliberately NOT one of the values deploy.yml's
+  # preflight insists on. A missing contact address makes the legal pages say so
+  # in as many words; it is not a reason to refuse to publish the app.
+  #
   # The filter runs over the input variables alone, never over the derived ones:
   # for_each needs its keys at plan time, and VERCEL_PROJECT_ID is not known
   # until the project exists.
   variables = merge(
     local.derived_variables,
-    { for name, value in local.manual_variables : name => value if value != "" }
+    { for name, value in local.optional_variables : name => value if value != "" }
   )
 
   secrets = {

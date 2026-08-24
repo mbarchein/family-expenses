@@ -16,6 +16,11 @@ apps_script_exec_url      = "https://script.google.com/macros/s/XXXXXXXX/exec"
 apps_script_id            = ""
 apps_script_deployment_id = ""
 
+# Printed on /privacy and /terms-and-conditions. Public by nature — it is on
+# the page — so it is an Actions variable rather than a secret, like the OAuth
+# client id and the backend URL. Leave it empty and both pages say so.
+contact_email = ""
+
 # The whole contents of ~/.clasprc.json. Use a heredoc and paste the file
 # verbatim — its own double quotes, its newlines, everything. Escaping that JSON
 # into a quoted HCL string by hand is an afternoon lost to backslashes, and

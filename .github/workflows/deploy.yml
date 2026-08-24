@@ -57,6 +57,10 @@ jobs:
           DEPLOYMENT_ID: ${{ vars.DEPLOYMENT_ID }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          # Printed on the two legal pages. Absent, they say so rather than
+          # showing a gap — which is why preflight does not gate on it: a
+          # missing contact address is not a reason to refuse to publish.
+          VITE_CONTACT_EMAIL: ${{ vars.VITE_CONTACT_EMAIL }}
         run: |
           vercel=true
           clasp=true
@@ -120,6 +124,10 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          # Printed on the two legal pages. Absent, they say so rather than
+          # showing a gap — which is why preflight does not gate on it: a
+          # missing contact address is not a reason to refuse to publish.
+          VITE_CONTACT_EMAIL: ${{ vars.VITE_CONTACT_EMAIL }}
 
       - run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
         env:

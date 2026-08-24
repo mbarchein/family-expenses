@@ -14,10 +14,21 @@
  * would be describing a different application.
  */
 
-/** The one thing that has to be filled in by hand before Google reads the page:
- *  an address someone can actually write to. Publishing a personal address is
- *  not a decision code should make on its own. */
-const CONTACTO = 'PENDIENTE: pon aquí una dirección de contacto'
+/**
+ * The address the two pages point at, supplied by CI at build time.
+ *
+ * Not hardcoded, and not because it is likely to change: because it is a
+ * personal email address that ends up on a public page, and a repository is a
+ * poor place to keep one. It reaches the bundle exactly the way the backend URL
+ * and the OAuth client id do — an Actions variable that Terraform owns, so
+ * there is one place per value rather than two that can disagree.
+ *
+ * The fallback is deliberately loud. A privacy policy with no way to contact
+ * anybody is not a privacy policy and Google will say so, and an empty gap on a
+ * page nobody reads twice would be easy to miss for months.
+ */
+const CONTACTO = (import.meta.env.VITE_CONTACT_EMAIL as string) ||
+  'PENDIENTE — falta configurar VITE_CONTACT_EMAIL'
 
 export interface LegalSection {
   title: string

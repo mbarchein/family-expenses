@@ -90,6 +90,12 @@ variable "apps_script_deployment_id" {
   type        = string
 }
 
+variable "contact_email" {
+  description = "Address the /privacy and /terms-and-conditions pages point at. Public by nature: it is printed on both. Leave empty and the pages say the contact is missing."
+  type        = string
+  default     = ""
+}
+
 variable "clasprc_json" {
   description = "Contents of ~/.clasprc.json after `clasp login`. Holds a refresh token."
   type        = string

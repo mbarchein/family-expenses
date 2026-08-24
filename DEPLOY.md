@@ -168,7 +168,7 @@ you, stop here — everything downstream assumes these are right.
 
 ```bash
 cd infra
-cp terraform.tfvars.example terraform.tfvars   # the four values from above, plus the three tokens
+cp terraform.tfvars.example terraform.tfvars   # the four values from above, the three tokens, the contact address
 cp backend.hcl.example backend.hcl             # R2 bucket and endpoint
 make init
 make plan                                      # read it before applying
@@ -189,6 +189,11 @@ Two things worth knowing before the first `apply`:
   moment it lands, checks or no checks, racing the workflow that does gate on
   them. Terraform leaves it disconnected by not declaring it; connecting it
   later in the dashboard undoes that silently.
+- **`contact_email` is printed on the two legal pages** — /privacy and
+  /terms-and-conditions, which Google's consent screen has to link to. It is a
+  variable rather than a secret for the same reason the OAuth client id is: it
+  is on the page. Leave it empty and both pages say the contact is missing,
+  which is a thing Google will notice before you do.
 - **The four values from the manual half can be left empty, and the apply still
   works.** Their Actions variables are simply not created while they are — see
   the comment in `infra/github.tf`, because the reason is not obvious. So this
