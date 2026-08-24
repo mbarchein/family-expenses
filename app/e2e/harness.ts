@@ -52,8 +52,10 @@ export function bootstrap(overrides: Partial<Bootstrap> = {}): Bootstrap {
       // No keyword matches this one, so it is the tile inside the grid that
       // falls back to an initial — and the one the icon menu is tested on.
       { concept: 'chuches' },
+      { concept: 'agua' },
+      { concept: 'seguro' },
       { concept: 'pan' },
-      // Outside the grid, for the test that typing reaches past the six.
+      // Outside the grid, for the test that typing reaches past the last tile.
       { concept: 'lo del jueves' },
     ],
     suggestions: [

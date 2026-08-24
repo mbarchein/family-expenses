@@ -344,7 +344,7 @@ test('a browser that will not open its calendar shows the field instead', async 
   await expect(page.getByRole('button', { name: 'Otra fecha' })).toHaveText('10 ago')
 })
 
-test('the concepts are six tiles that do not scroll', async ({ page }) => {
+test('the concepts are eight tiles that do not scroll', async ({ page }) => {
   // The row this replaced held every concept and scrolled sideways, so anything
   // past the third was invisible until somebody thought to swipe. A fast path
   // that has to be discovered is not a fast path.
@@ -355,8 +355,8 @@ test('the concepts are six tiles that do not scroll', async ({ page }) => {
   await next(page)
 
   const grid = page.getByRole('group', { name: 'Conceptos frecuentes' })
-  // Eight concepts are on offer in the fixture; six is the grid.
-  await expect(grid.getByRole('button')).toHaveCount(6)
+  // Ten concepts are on offer in the fixture; eight is the grid.
+  await expect(grid.getByRole('button')).toHaveCount(8)
 
   const overflow = await grid.evaluate(element => ({
     sideways: element.scrollWidth > element.clientWidth + 1,
@@ -364,7 +364,7 @@ test('the concepts are six tiles that do not scroll', async ({ page }) => {
   }))
   expect(overflow).toEqual({ sideways: false, down: false })
 
-  // Two rows of three would have been the other way round; this is three of two.
+  // Two columns, four rows — three columns would truncate a long concept.
   const columns = await grid.evaluate(
     element => getComputedStyle(element).gridTemplateColumns.split(' ').length,
   )
@@ -401,7 +401,12 @@ test('an icon can be given to a concept, and taken back', async ({ page }) => {
   const tile = page.getByRole('button', { name: 'chuches' })
   await expect(tile).toContainText('C')
 
-  await page.getByRole('button', { name: 'Iconos' }).click()
+  // Found by its name and not its label: the control is a cog now, so the word
+  // "Iconos" is only its accessible name. A test that looked for text would have
+  // gone green on a button nobody blind could find.
+  const cog = page.getByRole('button', { name: 'Iconos' })
+  await expect(cog).toBeEmpty()
+  await cog.click()
   const menu = page.getByRole('dialog')
   // Every concept on offer is listed, and the row says whether its icon was
   // chosen or merely proposed.
@@ -433,9 +438,9 @@ test('an icon can be given to a concept, and taken back', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'chuches' })).toContainText('C')
 })
 
-test('typing reaches a concept that is not one of the six', async ({ page }) => {
+test('typing reaches a concept that is not one of the eight', async ({ page }) => {
   // The search runs before the cut, not after it. Otherwise typing would only
-  // reorder the tiles already on screen and the seventh concept would be
+  // reorder the tiles already on screen and the ninth concept would be
   // unreachable except by spelling it out in full.
   await stubApi(page)
   await signIn(page)

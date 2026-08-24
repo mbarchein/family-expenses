@@ -220,17 +220,19 @@ tapping a match just finishes the word. See `app/src/lib/fuzzy.ts`.
   is a suggestion for the pair, so it prints the pair on its face along with how
   far away the doorway is. Nothing lands in a field that was not on screen
   before it was touched, and tapping the card again clears both.
-- **Six tiles**, two by three, ranked by **frequency × recency** over the
-  household's own history with the written-down ones first. Nothing to configure.
-  The places are deliberately not among them: a concept offered twice on one
-  screen is two controls for one field.
+- **Eight tiles**, two across and four down, ranked by **frequency × recency**
+  over the household's own history with the written-down ones first. Nothing to
+  configure. The places are deliberately not among them: a concept offered twice
+  on one screen is two controls for one field.
 
-  Six, and it does not scroll. The row this replaced held every concept and
+  Eight, and it does not scroll. The row this replaced held every concept and
   scrolled sideways, so anything past the third was invisible until somebody
   thought to swipe — a fast path that has to be discovered is not a fast path.
-  Six is what fits at a size a thumb hits without aiming, and the search reaches
-  everything else: the cut to six happens *after* the filter, so typing gets to
-  the seventh concept instead of only reordering the six on screen.
+  Six at first, reasoned from the space the on-screen keyboard needs; eight
+  because somebody looked at it on the phone and four rows fit. Two columns
+  either way: three truncates "lavandería y luz". The search reaches everything
+  else, because the cut to eight happens *after* the filter — typing gets to the
+  ninth concept instead of only reordering the eight on screen.
 
   Rectangular rather than pill-shaped because a rectangle holds two things: an
   icon and a label on one line, at a readable size.
@@ -252,7 +254,11 @@ tapping a match just finishes the word. See `app/src/lib/fuzzy.ts`.
   than no icon at all.
 
   The **Iconos** menu sits beside the grid it changes, because choosing an icon
-  anywhere else is choosing blind. It lists every concept the app knows with the
+  anywhere else is choosing blind. Its way in is a cog, not the word: on a row
+  whose whole point is that the tiles are read as pictures, a word is the one
+  thing that reads as content. The cog is drawn where it is used rather than
+  added to the set — the set is what the picker offers for a *concept*, and
+  nobody buys a cogwheel. It lists every concept the app knows with the
   icon it currently shows and whether that was *elegido* or *propuesto* — so the
   list doubles as the answer to "why has that got a basket on it". Choices are
   per device, in IndexedDB: the sheet is the ledger, and this is a preference
@@ -524,11 +530,6 @@ in, and the sheet is shared with the two of them and nobody else. What is left:
 - **The app still writes to the copy.** Switching it to the real ledger is
   `DEPLOY.md` §9, and it is a deliberate last step: everything gets tried on the
   copy first, and the copy stays afterwards for the same reason.
-- **`e2e` is not a required check yet.** `infra/github.tf` lists it among the
-  contexts branch protection waits for, but that needs a `terraform apply` to
-  take effect. It is not urgent: `deploy` triggers on `verify` completing
-  successfully, so a red browser suite already stops a release — what is missing
-  is only the block on merging a pull request.
 - **Review who has access to the spreadsheet, periodically.** Drive governs
   authorization now, so anyone with edit permission could post from the app.
 - **Two gaps left open on purpose.** `app/e2e/` is outside `tsc -b` and

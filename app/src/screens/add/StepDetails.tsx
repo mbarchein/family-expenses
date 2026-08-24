@@ -12,13 +12,16 @@ import type { Draft } from '../../store/draft'
 import type { Bootstrap, Suggestion } from '../../api/types'
 
 /**
- * Six tiles, two by three.
+ * Eight tiles, two across and four down.
  *
- * Not a number to raise casually: it is what fits at a size a thumb hits without
- * aiming, and every extra row comes out of the space the keyboard needs. Nine
- * was the alternative and it truncates "lavandería y luz".
+ * Six at first, on the reasoning that every extra row comes out of the space the
+ * on-screen keyboard needs. Eight because somebody looked at it on the phone and
+ * four rows fit: eyes beat arithmetic about a layout, which is the third time
+ * this screen has taught that lesson. Still two columns — three would truncate
+ * "lavandería y luz" — and the browser test that fails if anything scrolls off
+ * the bottom is what keeps the next raise honest.
  */
-const TILES = 6
+const TILES = 8
 
 /**
  * Step two: what it was, and how it was paid for.
@@ -154,19 +157,27 @@ export function StepDetails({ draft, data, patch, onNext }: {
             tapping a chip changed who was paying — silently, and over a choice
             just made. A suggestion may fill in the field it is a suggestion
             for, and no others. */}
-        <div className="flex items-baseline gap-3">
+        <div className="flex items-center gap-3">
           <p className="flex-1 text-xs font-semibold text-ink-2">{T.add.conceptRow}</p>
           {/* The way in to the icons, next to the icons. A preference nobody
               visits on purpose does not deserve a tab, and choosing an icon
               anywhere other than in front of the grid it changes is choosing
-              blind. */}
+              blind.
+
+              A cog and not the word "Iconos": on a row whose whole point is that
+              the tiles are read as pictures, a word is the one thing that reads
+              as content. Its name is still "Iconos" — the label moved out of
+              sight, not out of existence. The negative margins keep a 32px tap
+              target from making this row taller than the text beside it. */}
           <button
             type="button"
             onClick={() => setMenu(true)}
-            className="text-xs font-semibold focus-visible:outline focus-visible:outline-2"
+            aria-label={T.icons.menu}
+            className="-my-1.5 -mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-full
+                       focus-visible:outline focus-visible:outline-2"
             style={{ color: 'var(--accent)' }}
           >
-            {T.icons.menu}
+            <CogIcon />
           </button>
         </div>
 
@@ -223,5 +234,29 @@ export function StepDetails({ draft, data, patch, onNext }: {
         {T.add.next}
       </button>
     </>
+  )
+}
+
+/**
+ * A cogwheel: hub, rim, and eight teeth poking out of the rim.
+ *
+ * Drawn here rather than added to the icon set, and that is the point — the set
+ * in `Icon.tsx` is what the picker offers for a *concept*, and a cog is not
+ * something anybody buys. Chrome and content do not share a drawer, the same
+ * way the back chevron lives beside the header it belongs to.
+ *
+ * Circles and straight teeth instead of a cog outline: a real gear silhouette is
+ * forty numbers of path data that nobody can check by reading, and this survives
+ * being small, which is the only test that matters.
+ */
+function CogIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"
+         className="h-5 w-5" fill="none" stroke="currentColor"
+         strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 4V2.6M12 20v1.4M20 12h1.4M2.6 12H4M17.66 17.66l.99.99M5.35 5.35l.99.99M17.66 6.34l.99-.99M5.35 18.65l.99-.99" />
+    </svg>
   )
 }
