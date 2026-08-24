@@ -571,7 +571,14 @@ keeps running last week's app forever. `/assets/(.*)` is served `immutable` for
 a year, because those filenames are content hashes and a new build produces new
 names.
 
-**Tests.** Vitest over the pieces that cannot be wrong: the C/D column reader,
+**Tests.** `node --test` over the backend, against forty lines of fake Sheets in
+`apps-script/test/`. It says something the rest of the suite cannot: the browser
+tests stub the API, so a backend that throws — or answers a shape the app does
+not expect — is green all the way to somebody's phone. It found `último` being
+written as text and read back as empty, which would have proposed every recurring
+expense again for ever.
+
+Vitest over the pieces that cannot be wrong: the C/D column reader,
 the transfer splitter, the concept matcher, the distance between two points on
 the ground, the icon a concept is given, the totals over the list, and which
 periods a recurring expense owes.

@@ -304,9 +304,24 @@ function parseDate_(value) {
   return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 }
 
+/**
+ * A cell as `yyyy-MM-dd`, whether the cell is a date or the text of one.
+ *
+ * It used to be `instanceof Date` and nothing else, which was true of every cell
+ * it read — the ledger's own dates are dates. Then the app started writing
+ * `último` back into the Fijos tab as *text*, deliberately, so that Sheets could
+ * not reformat a value the app compares as a string. Reading it with the old
+ * rule gave '' back, and an empty `último` means "never settled": every
+ * recurring expense would have been proposed again for ever, one row per month,
+ * and the tests that cover that logic all run on the app's side of the wire
+ * where the value is already a string.
+ */
 function formatDate_(value) {
-  if (!(value instanceof Date)) return '';
-  return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  var text = String(value == null ? '' : value).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
 }
 
 /**

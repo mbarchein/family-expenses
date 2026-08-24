@@ -85,9 +85,17 @@ jobs:
         with:
           node-version: 24
 
-      # Apps Script has no build and no test runner reachable from CI — it only
-      # runs inside Google. Parsing every file is the one thing that can be
-      # checked here, and it catches the mistake that actually happens: a typo
-      # pushed with clasp, discovered by a phone that suddenly cannot save.
+      # Parsing every file catches the mistake that happens most: a typo pushed
+      # with clasp, discovered by a phone that suddenly cannot save.
       - name: Parse the Apps Script sources
         run: for file in apps-script/*.js; do node --check "$file"; done
+
+      # And then run it. This used to say Apps Script had no test runner
+      # reachable from CI, which was true of Google's runtime and not of the
+      # code: the sources are plain JavaScript, so forty lines of fakes make
+      # `handleBootstrap_` callable in Node. What that covers is the gap the
+      # browser tests structurally cannot — they stub the API, so a backend
+      # that throws, or answers a shape the app does not expect, stays green
+      # all the way to somebody's phone.
+      - name: Run the Apps Script sources against fake sheets
+        run: node --test "apps-script/test/*.test.js"

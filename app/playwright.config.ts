@@ -27,6 +27,17 @@ export default defineConfig({
 
   reporter: 'list',
 
+  // Sixty seconds a test, where the default is thirty. Not because anything here
+  // is slow on a runner — the whole suite takes twenty-five seconds in CI — but
+  // because the container this is written in cannot reach accounts.google.com, so
+  // every page load waits out the GSI script's own timeout first. Five tests that
+  // reload the page sat at twenty-seven seconds and went red the moment two of
+  // them ran at once, which is a test suite that reports the machine's load
+  // rather than the code. The assertions keep their own five-second timeouts, and
+  // those are what catch a real failure; this ceiling only stops a slow machine
+  // from looking like a broken app.
+  timeout: 60_000,
+
   use: {
     baseURL: 'http://localhost:4173',
     browserName: 'chromium',

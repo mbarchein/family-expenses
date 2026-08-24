@@ -168,6 +168,11 @@ export const T = {
 
   errors: {
     generic: 'Algo ha salido mal',
+    crashed: 'La app se ha atascado',
+    reload: 'Volver a cargar',
+    // True, and the thing worth knowing at that moment: an expense that was
+    // saved is in the outbound queue before the screen repaints.
+    queueSafe: 'Lo que ya habías guardado no se ha perdido.',
     network: 'No se ha podido conectar',
     configMissing: 'Falta configuración en la hoja. Mira la pestaña Config.',
   },

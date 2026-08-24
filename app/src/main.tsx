@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { Boundary } from './components/Boundary'
 import { PRIVACY, TERMS, type LegalDocument } from './i18n/legal'
 import { keepUpToDate } from './pwa'
 import { LegalScreen } from './screens/LegalScreen'
@@ -32,6 +33,8 @@ const legal = legalDocument(window.location.pathname)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {legal ? <LegalScreen doc={legal} /> : <App />}
+    <Boundary>
+      {legal ? <LegalScreen doc={legal} /> : <App />}
+    </Boundary>
   </StrictMode>,
 )
