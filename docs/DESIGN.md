@@ -443,6 +443,32 @@ Rejected for friction: talking to the Sheets API straight from the browser. That
 scope is "sensitive" to Google, requires app verification, and shows a warning
 screen on entry.
 
+### Staying signed in
+
+The token is kept in `localStorage` until it expires, and that is the difference
+between an app that opens on the keypad and one that asks who you are every time.
+It used to live in a variable, so every cold start began with no credential and
+had to get a fresh one out of Google before it could ask for anything — and the
+silent path that does that is the least reliable thing here: it wants a live
+Google session, an un-suppressed One Tap, and a browser willing to run it. When
+it failed, the app showed a login screen. Now a token inside its hour is simply
+still there, and opening the app twice in an afternoon involves Google not at
+all.
+
+Three things make the *renewal* silent too, when the hour is up. `auto_select`,
+so a single matching session needs no tap. A `login_hint` from the last address
+this device accepted, because with several Google accounts on a phone
+`auto_select` has to choose and shows a chooser instead of choosing. And
+`use_fedcm_for_prompt`, which is the one that matters most as time passes: the
+old One Tap is an iframe from accounts.google.com, third-party by definition, and
+a browser that has stopped carrying third-party cookies turns it off without
+saying so. FedCM is the browser's own identity API and the supported replacement.
+
+A rejected token is deleted rather than kept, so a cold start cannot hand the
+backend the very credential it just refused — the sharing list can change under a
+token that is still within its hour, and that is a `UNAUTHENTICATED` the app has
+to take as final.
+
 ### Identity and authorization
 
 Google Sign-In requesting **identity only** (email and name), never permission

@@ -22,7 +22,54 @@ interface Cached {
   expiresAt: number
 }
 
-let cached: Cached | null = null
+const TOKEN_KEY = 'a-medias:token'
+
+/**
+ * The token survives the app being closed, and that is the fix to "why does it
+ * ask me who I am every time I open it".
+ *
+ * It used to live in this variable and nowhere else, so every cold start began
+ * with no credential and had to get a new one out of Google before the app could
+ * ask for anything. That silent path is the least reliable thing in the whole
+ * app — it needs a live Google session, an un-suppressed One Tap and a browser
+ * willing to run it — and when it failed, which was often, the answer was a
+ * login screen. Now a token that has not expired is simply still there: opening
+ * the app twice in an afternoon does not involve Google at all.
+ *
+ * `localStorage` rather than IndexedDB because this one has to be readable
+ * *synchronously* before the first request goes out, and it is one short string.
+ * It is a bearer credential sitting on the phone, which is worth saying out
+ * loud: identity only, no scope over anything, expires within the hour, and on
+ * the same device that already holds the whole ledger cache. Section 12 of the
+ * privacy policy has promised exactly this since it was written — "tu perfil,
+ * para no pedirte la sesión cada vez" — so this is the code catching up with
+ * the document.
+ */
+function load(): Cached | null {
+  try {
+    const raw = localStorage.getItem(TOKEN_KEY)
+    if (!raw) return null
+    const stored = JSON.parse(raw) as Cached
+    return typeof stored?.token === 'string' && typeof stored.expiresAt === 'number'
+      ? stored
+      : null
+  } catch {
+    // Unreadable or not ours. A missing token costs a sign-in; a thrown
+    // exception here would cost the whole app.
+    return null
+  }
+}
+
+function store(value: Cached | null) {
+  try {
+    if (value) localStorage.setItem(TOKEN_KEY, JSON.stringify(value))
+    else localStorage.removeItem(TOKEN_KEY)
+  } catch {
+    // Private mode, or a full quota. The token stays in memory for this session.
+  }
+}
+
+let cached: Cached | null = load()
 let pending: Promise<string> | null = null
 let onNeedsInteraction: (() => void) | null = null
 let onSignedIn: (() => void) | null = null
@@ -59,6 +106,9 @@ export async function getIdToken(): Promise<string> {
  *  credential forever. */
 export function invalidateToken() {
   cached = null
+  // From disk too, or the next cold start would hand the backend the very
+  // credential it has just refused.
+  store(null)
 }
 
 /**
@@ -76,6 +126,7 @@ export function invalidateToken() {
 function receive(response: { credential: string }) {
   const claims = decodeJwt(response.credential)
   cached = { token: response.credential, expiresAt: claims.exp * 1000 }
+  store(cached)
   if (claims.email) rememberEmail(claims.email)
 
   const waiting = deliver
@@ -90,6 +141,7 @@ function receive(response: { credential: string }) {
 function initialise() {
   if (initialised) return
   initialised = true
+  const known = cachedEmail()
   google.accounts.id.initialize({
     client_id: CLIENT_ID,
     callback: receive,
@@ -99,6 +151,17 @@ function initialise() {
     auto_select: true,
     itp_support: true,
     cancel_on_tap_outside: false,
+    // Through the browser's own identity API rather than an iframe from
+    // accounts.google.com. That iframe is third-party by definition, and a
+    // browser that has stopped carrying third-party cookies — which is where
+    // they are all going — turns the silent path off without saying so. FedCM
+    // is the supported replacement and the reason this app can sign somebody
+    // back in at all once the old path is gone.
+    use_fedcm_for_prompt: true,
+    // Which account, when the phone is signed in to several. Without it
+    // `auto_select` has to pick, and a chooser is what it shows instead of
+    // picking. The address comes from the last token this device accepted.
+    ...(known ? { login_hint: known } : {}),
   })
 }
 

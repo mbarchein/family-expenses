@@ -185,10 +185,6 @@ test('a half-typed expense survives the app being reloaded', async ({ page }) =>
   await expect.poll(() => storedDraft(page).then(draft => draft?.concept ?? null)).toBe('super')
 
   await page.reload()
-  // The double always refuses One Tap, so a fresh load always needs the button.
-  // The real thing signs a returning user back in without one; what is being
-  // tested here is what survives the reload, not how it gets past the door.
-  await page.getByTestId('google-sign-in').click()
 
   await expect(page.getByText('Paso 2 de 3')).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Concepto' })).toHaveValue('super')
@@ -425,7 +421,6 @@ test('an icon can be given to a concept, and taken back', async ({ page }) => {
 
   // It survives the app reloading itself, which is what the store is for.
   await page.reload()
-  await page.getByTestId('google-sign-in').click()
   await expect(page.getByText('Paso 2 de 3')).toBeVisible()
   await expect(page.getByRole('button', { name: 'chuches' }).locator('svg')).toHaveCount(1)
 
