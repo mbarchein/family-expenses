@@ -221,6 +221,16 @@ expired session, the row waits in the queue.
 | Backend | `apps-script/`, deployed with `clasp` |
 | Hosting | Vercel, at gafa.terragiro.es |
 
+**Cache headers.** `app/vercel.json` sets two, and the reasons cannot live
+beside them: Vercel validates that file against a strict schema and rejects any
+property it does not know, so a `comment` key inside a header entry fails the
+build — which is exactly how it failed, in one second, the first time the deploy
+was ever configured enough to run. The reasons, then, are here. `/sw.js` is
+served `max-age=0, must-revalidate`, because a service worker cached by a phone
+keeps running last week's app forever. `/assets/(.*)` is served `immutable` for
+a year, because those filenames are content hashes and a new build produces new
+names.
+
 **Tests.** Vitest over the two pieces that cannot be wrong: the C/D column
 reader and the transfer splitter. A Playwright smoke test over adding an
 expense.
