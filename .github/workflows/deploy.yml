@@ -233,3 +233,34 @@ jobs:
           # a new one would hand out a different URL and leave both phones
           # talking to a version nobody updates again.
           npx --yes @google/clasp@2 deploy --deploymentId "$DEPLOYMENT_ID" --description "$GITHUB_SHA"
+
+      # The check that would have caught the failure this was written after.
+      #
+      # A push and a deploy both reported success while the deployment itself was
+      # answering something that is not this app — the phone got
+      # `TypeError: Failed to fetch`, which is all a browser will say when the
+      # answer has no CORS headers, and the app was unopenable for a day. Nothing
+      # in CI had looked at the URL the app actually posts to.
+      #
+      # So: ask the deployment who it is, from outside, over the public internet,
+      # exactly as the phone does. `doGet` returns a constant and needs no
+      # credential, which is what makes it usable as a smoke test. A login page,
+      # an authorization prompt, a 404 or an HTML error page all fail this, and
+      # the body is printed so the next person reads the reason rather than
+      # guessing at it.
+      - name: Check the deployment answers as itself
+        env:
+          EXEC_URL: ${{ vars.VITE_API_URL }}
+        run: |
+          answer=$(curl -sS -L --max-time 45 "$EXEC_URL" || true)
+          printf 'The deployment says: %s\n' "$(printf '%s' "$answer" | head -c 400)"
+          if printf '%s' "$answer" | grep -q '"service":"a-medias"'; then
+            echo "::notice::The deployment answers as itself."
+            exit 0
+          fi
+          echo "::error::$EXEC_URL did not answer as this app. The phone will get" \
+               "'Failed to fetch' from this. If the body above is HTML: a login page means the" \
+               "deployment is not published for «cualquier persona»; «Se necesita autorización»" \
+               "means the owner must authorize the current version; a 404 means this URL is not" \
+               "that deployment any more. See DEPLOY.md."
+          exit 1
