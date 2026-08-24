@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { bootstrap, signIn, stubApi, stubGoogle } from './harness'
+import { bootstrap, signIn, storedDraft, stubApi, stubGoogle } from './harness'
 
 test.beforeEach(async ({ page }) => {
   await stubGoogle(page)
@@ -154,6 +154,10 @@ test('a half-typed expense survives the app being reloaded', async ({ page }) =>
   await typeAmount(page, '41,2')
   await next(page)
   await page.getByRole('button', { name: 'super', exact: true }).click()
+
+  // Wait for the write instead of assuming it. This is the whole point of the
+  // test: what is on disk when the page goes away is what comes back.
+  await expect.poll(() => storedDraft(page).then(draft => draft?.concept ?? null)).toBe('super')
 
   await page.reload()
   // The double always refuses One Tap, so a fresh load always needs the button.

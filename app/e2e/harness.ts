@@ -119,6 +119,32 @@ export async function stubApi(page: Page, data: Bootstrap = bootstrap()): Promis
   return calls
 }
 
+/**
+ * The draft as it exists on disk, or null.
+ *
+ * The app writes it without awaiting — a keypad that waited for IndexedDB
+ * before repainting would feel like it was thinking — so a test that reloads
+ * has to wait for the write rather than assume it happened. On a slow machine
+ * the write always wins; on a fast one the reload does, which is how this
+ * arrived as a test that passed locally and failed in CI.
+ */
+export function storedDraft(page: Page): Promise<Record<string, unknown> | null> {
+  return page.evaluate(() => new Promise<Record<string, unknown> | null>(resolve => {
+    const request = indexedDB.open('a-medias')
+    request.onsuccess = () => {
+      try {
+        const get = request.result.transaction('draft', 'readonly').objectStore('draft').get('current')
+        get.onsuccess = () => resolve(get.result ?? null)
+        get.onerror = () => resolve(null)
+      } catch {
+        // No store yet: opening without a version can create an empty database.
+        resolve(null)
+      }
+    }
+    request.onerror = () => resolve(null)
+  }))
+}
+
 /** Signs in the only way that works without a human: through the button. */
 export async function signIn(page: Page) {
   await page.goto('/')
