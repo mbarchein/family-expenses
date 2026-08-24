@@ -5,6 +5,7 @@ import { AddScreen } from './screens/AddScreen'
 import { BalanceScreen } from './screens/BalanceScreen'
 import { ListScreen } from './screens/ListScreen'
 import { renderSignInButton, setInteractionHandler } from './auth/google'
+import { PRIVACY, TERMS } from './i18n/legal'
 import { useLedger } from './store/ledger'
 
 export default function App() {
@@ -64,6 +65,14 @@ function SignIn() {
       <div className="flex flex-col items-center gap-4">
         <p className="text-lg font-semibold">{T.appName}</p>
         <div ref={slot} />
+        {/* Reachable from inside the app as well as from Google's consent
+            screen: whoever reviews those two links tends to look for them
+            here too, and they are the only pages a visitor can read without
+            an account. */}
+        <p className="flex gap-4 text-xs text-ink-2">
+          <a href="/privacy" className="underline">{PRIVACY.title}</a>
+          <a href="/terms-and-conditions" className="underline">{TERMS.title}</a>
+        </p>
       </div>
     </div>
   )
