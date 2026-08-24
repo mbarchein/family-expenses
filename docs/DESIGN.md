@@ -176,6 +176,16 @@ Who paid is on this screen rather than with the concept because the payment
 methods on the next one are filtered by it — a card belongs to whoever holds it,
 so the payer has to be settled before there is a list to offer.
 
+`Otra fecha` is both the button and the answer: tapping it opens the device's own
+calendar straight away, and the segment then wears the day that came back —
+"10 ago", with the year added only when it is not this one. The field the
+calendar belongs to is clipped to a transparent pixel and not removed, because
+`showPicker` throws on an element that is not rendered; where it throws anyway —
+an unsupported browser, or a gesture the browser declined to count — the field is
+shown instead, which is worse but still a way to choose a day. There was a
+visible field before, below the row: a second control saying what the segment
+beside it already said, plus a tap to get at it.
+
 **2. What it was, and how it was paid for.** The chips, then the field, then one
 row of pills for `observaciones` — all three tight together, because the concept
 and the payment method are two halves of one question and spreading them apart

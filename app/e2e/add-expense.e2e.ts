@@ -236,11 +236,56 @@ test('the header stays put when the step changes', async ({ page }) => {
   await expect(back).not.toContainText('←')
 })
 
-test('another date can actually be chosen', async ({ page }) => {
-  // It could not. Which segment was lit was worked out from the date itself, so
-  // "Otra fecha" was on only when the date was already neither today nor
-  // yesterday — and choosing it set the date to the date it already had.
-  // Nothing lit up, no picker appeared, and there was no way to reach it at all.
+/**
+ * The native calendar cannot be driven by a test — it is the operating
+ * system's, not the page's. What can be driven is everything around it: that
+ * tapping the segment asks for it, that the day it returns lands on the button,
+ * and that a browser which refuses to open it still lets a day be chosen.
+ */
+async function watchPicker(page: Page, behaviour: 'open' | 'throw' = 'open') {
+  await page.addInitScript(mode => {
+    const calls: string[] = []
+    Object.assign(window, { __pickers: calls })
+    HTMLInputElement.prototype.showPicker = function () {
+      calls.push(this.type)
+      if (mode === 'throw') throw new Error('no picker here')
+    }
+  }, behaviour)
+  return () => page.evaluate(() => (window as unknown as { __pickers: string[] }).__pickers)
+}
+
+/**
+ * How wide the date field is drawn.
+ *
+ * Not `toBeHidden`: the field is clipped to a transparent pixel rather than
+ * removed, because `showPicker` throws on an element that is not rendered — and
+ * a transparent pixel is "visible" as far as Playwright is concerned. Its width
+ * is what separates a field nobody can see from a field on the screen.
+ */
+function fieldWidth(page: Page): Promise<number> {
+  return page.locator('input[type="date"]')
+    .boundingBox().then(box => box?.width ?? 0)
+}
+
+/** Whatever the native calendar would have returned, returned. */
+async function pickDay(page: Page, iso: string) {
+  await page.locator('input[type="date"]').evaluate((element, value) => {
+    const input = element as HTMLInputElement
+    // Through the prototype setter and with an event: React tracks the value it
+    // last rendered, and assigning to `.value` alone tells it nothing.
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!
+      .set!.call(input, value)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+  }, iso)
+}
+
+test('the button opens the calendar and then wears the day it returned', async ({ page }) => {
+  // Two bugs, one after the other. "Otra fecha" could not be chosen at all,
+  // because which segment was lit was worked out from the date itself. Then it
+  // could, but it revealed a date field below the row — a second control saying
+  // what the segment beside it already said, plus a tap to get at it.
+  const pickers = await watchPicker(page)
   const calls = await stubApi(page)
   await signIn(page)
 
@@ -248,11 +293,15 @@ test('another date can actually be chosen', async ({ page }) => {
   await other.click()
   await expect(other).toHaveAttribute('aria-pressed', 'true')
 
-  const field = page.getByLabel('Otra fecha')
-  await expect(field).toBeVisible()
-  await field.fill('2026-08-10')
-  // Still on screen after a day was picked: a hand-picked day stays hand-picked.
-  await expect(other).toHaveAttribute('aria-pressed', 'true')
+  // The calendar was asked for, and no field appeared to ask for it again.
+  expect(await pickers()).toEqual(['date'])
+  expect(await fieldWidth(page)).toBeLessThanOrEqual(1)
+
+  await pickDay(page, '2026-08-10')
+  // The answer is on the control that asked the question.
+  await expect(other).toHaveText('10 ago')
+  // And its name is still what it does, not what it says.
+  await expect(other).toHaveAttribute('aria-label', 'Otra fecha')
 
   await typeAmount(page, '12')
   await next(page)
@@ -263,14 +312,34 @@ test('another date can actually be chosen', async ({ page }) => {
   await expect.poll(() => calls.find(call => call.action === 'append')?.payload.date).toBe('2026-08-10')
 })
 
-test('the day goes back to today, and the picker goes away with it', async ({ page }) => {
+test('the day goes back to today, and the button says so again', async ({ page }) => {
+  await watchPicker(page)
+  await stubApi(page)
+  await signIn(page)
+
+  const other = page.getByRole('button', { name: 'Otra fecha' })
+  await other.click()
+  await pickDay(page, '2026-08-10')
+  await expect(other).toHaveText('10 ago')
+
+  await page.getByRole('button', { name: 'Hoy' }).click()
+  await expect(page.getByRole('button', { name: 'Hoy' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(other).toHaveText('Otra fecha')
+})
+
+test('a browser that will not open its calendar shows the field instead', async ({ page }) => {
+  // `showPicker` is refused where it is unsupported, and by a browser that did
+  // not count the tap as a gesture. A day still has to be choosable: a control
+  // that quietly does nothing is the one outcome that cannot be allowed, and it
+  // is what this app shipped for a day when the segment could not be lit at all.
+  await watchPicker(page, 'throw')
   await stubApi(page)
   await signIn(page)
 
   await page.getByRole('button', { name: 'Otra fecha' }).click()
-  await expect(page.getByLabel('Otra fecha')).toBeVisible()
 
-  await page.getByRole('button', { name: 'Hoy' }).click()
-  await expect(page.getByLabel('Otra fecha')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Hoy' })).toHaveAttribute('aria-pressed', 'true')
+  const field = page.locator('input[type="date"]')
+  expect(await fieldWidth(page)).toBeGreaterThan(100)
+  await field.fill('2026-08-10')
+  await expect(page.getByRole('button', { name: 'Otra fecha' })).toHaveText('10 ago')
 })

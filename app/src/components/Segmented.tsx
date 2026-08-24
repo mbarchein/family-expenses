@@ -2,6 +2,10 @@ interface Option {
   label: string
   value: string
   tone?: 'accent' | 'person-1' | 'person-2'
+  /** For the segment whose label is the answer rather than the question — the
+   *  day one, which reads "10 ago" once a day has been chosen. Without it the
+   *  only name the control has is a date, and what it does stops being sayable. */
+  ariaLabel?: string
 }
 
 export function Segmented({ options, value, onChange, compact }: {
@@ -22,6 +26,7 @@ export function Segmented({ options, value, onChange, compact }: {
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
+            aria-label={option.ariaLabel}
             aria-pressed={on}
             className={'flex-1 rounded-lg border px-1 font-semibold' +
               ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2' +
