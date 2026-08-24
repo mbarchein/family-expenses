@@ -24,12 +24,23 @@ export interface Draft {
   payer: 0 | 1
   concept: string
   note: string
+  /**
+   * Whether the day is being chosen by hand.
+   *
+   * It has to be stored rather than worked out from `date`, and that is the bug
+   * this field exists for: "Otra fecha" was derived — the segment was on when
+   * the date was neither today nor yesterday — so choosing it changed nothing,
+   * the segment never lit up, and the day picker never appeared. A date of today
+   * chosen by hand and today by default are the same date and a different
+   * intention, and only the intention decides what is on screen.
+   */
+  pickDate: boolean
 }
 
 const KEY = 'current'
 
 export function emptyDraft(payer: 0 | 1): Draft {
-  return { step: 0, date: todayIso(), typed: '', payer, concept: '', note: '' }
+  return { step: 0, date: todayIso(), typed: '', payer, concept: '', note: '', pickDate: false }
 }
 
 export interface DraftStore {
@@ -53,7 +64,12 @@ export function useDraft(defaultPayer: 0 | 1): DraftStore {
       // A stored draft from an older shape is not worth migrating: the worst
       // case is one expense typed twice, and guessing at half a record is how
       // an amount ends up attached to the wrong concept.
-      if (stored && typeof stored.typed === 'string') setDraft(stored)
+      // `pickDate` normalised rather than trusted: a draft stored before the
+      // field existed has it missing, and `undefined` reaching a boolean is how
+      // a screen ends up in a state its own types say is impossible.
+      if (stored && typeof stored.typed === 'string') {
+        setDraft({ ...stored, pickDate: stored.pickDate === true })
+      }
       setReady(true)
     })()
     return () => { cancelled = true }

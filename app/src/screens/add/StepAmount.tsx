@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Keypad } from '../../components/Keypad'
 import { Segmented } from '../../components/Segmented'
 import { T } from '../../i18n/strings'
@@ -19,15 +20,13 @@ export function StepAmount({ draft, people, patch, onNext }: {
   patch: (fields: Partial<Draft>) => void
   onNext: () => void
 }) {
-  const kind = dateKind(draft.date)
+  const kind = dateKind(draft)
 
   return (
     <>
       <Segmented
         value={kind}
-        onChange={next => patch({
-          date: next === 'today' ? todayIso() : next === 'yesterday' ? yesterdayIso() : draft.date,
-        })}
+        onChange={next => patch(dateFor(next))}
         options={[
           { label: T.add.today, value: 'today' },
           { label: T.add.yesterday, value: 'yesterday' },
@@ -37,14 +36,7 @@ export function StepAmount({ draft, people, patch, onNext }: {
       />
 
       {kind === 'other' && (
-        <input
-          type="date"
-          value={draft.date}
-          max={todayIso()}
-          onChange={event => patch({ date: event.target.value })}
-          aria-label={T.add.otherDate}
-          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-        />
+        <DayPicker date={draft.date} onPick={date => patch({ date })} />
       )}
 
       <div className="flex items-center justify-center py-2">
@@ -76,8 +68,52 @@ export function StepAmount({ draft, people, patch, onNext }: {
   )
 }
 
-function dateKind(date: string): 'today' | 'yesterday' | 'other' {
-  if (date === todayIso()) return 'today'
-  if (date === yesterdayIso()) return 'yesterday'
+/**
+ * The day, chosen by hand.
+ *
+ * It opens its own picker on arrival. Reaching it already costs a tap on "Otra
+ * fecha", and a native date field that has to be tapped a second time to show a
+ * calendar is the one control on this screen nobody would find on purpose.
+ * `showPicker` throws where it is unsupported or outside a gesture, and a field
+ * that can still be tapped is a fine outcome, so the failure is ignored.
+ */
+function DayPicker({ date, onPick }: { date: string; onPick: (date: string) => void }) {
+  const field = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    try {
+      field.current?.showPicker()
+    } catch {
+      // Tapping the field still works.
+    }
+  }, [])
+
+  return (
+    <input
+      ref={field}
+      type="date"
+      value={date}
+      max={todayIso()}
+      onChange={event => onPick(event.target.value)}
+      aria-label={T.add.otherDate}
+      className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
+    />
+  )
+}
+
+/** Which segment is lit. `pickDate` first: a hand-picked today is still a
+ *  hand-picked day, and the picker has to stay on screen. */
+function dateKind(draft: Draft): 'today' | 'yesterday' | 'other' {
+  if (draft.pickDate) return 'other'
+  if (draft.date === todayIso()) return 'today'
+  if (draft.date === yesterdayIso()) return 'yesterday'
   return 'other'
+}
+
+/** Choosing a segment sets the day, except for the one whose whole purpose is
+ *  to leave the day to the user. */
+function dateFor(kind: string): Partial<Draft> {
+  if (kind === 'today') return { date: todayIso(), pickDate: false }
+  if (kind === 'yesterday') return { date: yesterdayIso(), pickDate: false }
+  return { pickDate: true }
 }

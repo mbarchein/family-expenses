@@ -235,3 +235,42 @@ test('the header stays put when the step changes', async ({ page }) => {
   await expect(back.locator('svg')).toBeVisible()
   await expect(back).not.toContainText('←')
 })
+
+test('another date can actually be chosen', async ({ page }) => {
+  // It could not. Which segment was lit was worked out from the date itself, so
+  // "Otra fecha" was on only when the date was already neither today nor
+  // yesterday — and choosing it set the date to the date it already had.
+  // Nothing lit up, no picker appeared, and there was no way to reach it at all.
+  const calls = await stubApi(page)
+  await signIn(page)
+
+  const other = page.getByRole('button', { name: 'Otra fecha' })
+  await other.click()
+  await expect(other).toHaveAttribute('aria-pressed', 'true')
+
+  const field = page.getByLabel('Otra fecha')
+  await expect(field).toBeVisible()
+  await field.fill('2026-08-10')
+  // Still on screen after a day was picked: a hand-picked day stays hand-picked.
+  await expect(other).toHaveAttribute('aria-pressed', 'true')
+
+  await typeAmount(page, '12')
+  await next(page)
+  await page.getByRole('button', { name: 'super', exact: true }).click()
+  await next(page)
+  await page.getByRole('button', { name: 'Guardar' }).click()
+
+  await expect.poll(() => calls.find(call => call.action === 'append')?.payload.date).toBe('2026-08-10')
+})
+
+test('the day goes back to today, and the picker goes away with it', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+
+  await page.getByRole('button', { name: 'Otra fecha' }).click()
+  await expect(page.getByLabel('Otra fecha')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Hoy' }).click()
+  await expect(page.getByLabel('Otra fecha')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Hoy' })).toHaveAttribute('aria-pressed', 'true')
+})
