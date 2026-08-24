@@ -1,16 +1,16 @@
 /**
  * A very small IndexedDB wrapper.
  *
- * Three stores, key/value semantics, no dependency. localStorage would have been
+ * Four stores, key/value semantics, no dependency. localStorage would have been
  * simpler, but it is synchronous and shared with the rest of the origin — a
  * queue that has to survive the app being killed mid-save while the phone is in
  * a supermarket basement deserves the real thing.
  */
 
 const DB_NAME = 'a-medias'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
-export type StoreName = 'queue' | 'cache' | 'draft'
+export type StoreName = 'queue' | 'cache' | 'draft' | 'places'
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -26,6 +26,9 @@ function open(): Promise<IDBDatabase> {
       // the version it arrived in, so an upgrade from any earlier version lands
       // in the same place and nothing already stored is touched.
       if (!db.objectStoreNames.contains('draft')) db.createObjectStore('draft')
+      // Added in version 3. Places never leave the device, which is the point of
+      // keeping them here and not in the spreadsheet.
+      if (!db.objectStoreNames.contains('places')) db.createObjectStore('places')
     }
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)

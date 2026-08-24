@@ -149,13 +149,27 @@ export const PRIVACY: LegalDocument = {
     {
       title: '12. Almacenamiento en el navegador',
       body:
-        'La aplicación usa el almacenamiento local del navegador para dos cosas: la cola de ' +
-        'gastos pendientes de subir, para que puedas apuntar sin cobertura, y tu perfil, para ' +
-        'no pedirte la sesión cada vez. No usamos cookies de seguimiento ni publicitarias. ' +
-        'Borrar los datos del sitio en tu navegador lo borra todo.',
+        'La aplicación usa el almacenamiento local del navegador para cuatro cosas: la cola ' +
+        'de gastos pendientes de subir, para que puedas apuntar sin cobertura; el gasto que ' +
+        'estás escribiendo, para no perderlo si se cierra la app; los sitios que hayas ' +
+        'guardado (ver el punto 13); y tu perfil, para no pedirte la sesión cada vez. No ' +
+        'usamos cookies de seguimiento ni publicitarias. Borrar los datos del sitio en tu ' +
+        'navegador lo borra todo.',
     },
     {
-      title: '13. Cambios',
+      title: '13. Ubicación',
+      body:
+        'La aplicación puede pedirte permiso para saber dónde estás, y solo cuando pulsas ' +
+        '«Guardar este sitio» al apuntar un gasto. Sirve para una cosa: reconocer que ' +
+        'estás en un sitio que ya guardaste y proponerte el mismo concepto. Las ' +
+        'coordenadas se guardan únicamente en el almacenamiento de tu navegador, en tu ' +
+        'dispositivo: no se envían a ningún servidor, no se escriben en la hoja de cálculo ' +
+        'y la otra persona de la casa no las ve. Puedes borrar cada sitio desde la ' +
+        'pantalla «Sitios», y retirar el permiso en los ajustes de tu navegador. Si no ' +
+        'concedes el permiso, el resto de la aplicación funciona igual.',
+    },
+    {
+      title: '14. Cambios',
       body:
         'Si esta política cambia, cambiará esta página, y la fecha de arriba lo dirá.',
     },

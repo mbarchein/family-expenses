@@ -4,6 +4,7 @@ import { T } from './i18n/strings'
 import { AddScreen } from './screens/add/AddScreen'
 import { BalanceScreen } from './screens/BalanceScreen'
 import { ListScreen } from './screens/ListScreen'
+import { PlacesScreen } from './screens/PlacesScreen'
 import { renderSignInButton, setInteractionHandler, setSignedInHandler } from './auth/google'
 import { PRIVACY, TERMS } from './i18n/legal'
 import { useLedger } from './store/ledger'
@@ -37,6 +38,7 @@ export default function App() {
         {tab === 'add' && <AddScreen ledger={ledger} />}
         {tab === 'list' && <ListScreen ledger={ledger} />}
         {tab === 'balance' && <BalanceScreen ledger={ledger} />}
+        {tab === 'places' && <PlacesScreen />}
       </main>
 
       {ledger.pending > 0 && (

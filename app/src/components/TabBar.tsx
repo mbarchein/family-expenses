@@ -1,9 +1,9 @@
 import { T } from '../i18n/strings'
 
-export type Tab = 'add' | 'list' | 'balance'
+export type Tab = 'add' | 'list' | 'balance' | 'places'
 
 export function TabBar({ tab, onChange }: { tab: Tab; onChange: (tab: Tab) => void }) {
-  const tabs: Tab[] = ['add', 'list', 'balance']
+  const tabs: Tab[] = ['add', 'list', 'balance', 'places']
   return (
     <nav className="flex border-t border-line bg-surface" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {tabs.map(name => (

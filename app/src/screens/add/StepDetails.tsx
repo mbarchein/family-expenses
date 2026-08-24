@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Pills, type Pill } from '../../components/Pills'
 import { T } from '../../i18n/strings'
 import { fuzzyFilter } from '../../lib/fuzzy'
+import { usePlaces, type RememberResult } from '../../store/places'
 import type { Draft } from '../../store/draft'
 import type { Bootstrap, Suggestion } from '../../api/types'
 
@@ -21,6 +22,10 @@ import type { Bootstrap, Suggestion } from '../../api/types'
  * Both rows are filtered by whoever is paying, chosen on the previous screen,
  * rather than by whoever is holding the phone. Either person can enter the
  * other's expense, and it is the payer's card that belongs in the note.
+ *
+ * If a place has been saved where the phone is standing, its concept comes
+ * first, marked with a dot. It is a suggestion and not an answer: it fills the
+ * field it is a suggestion for when tapped, and nothing at all until then.
  */
 export function StepDetails({ draft, data, patch, onNext }: {
   draft: Draft
@@ -28,6 +33,10 @@ export function StepDetails({ draft, data, patch, onNext }: {
   patch: (fields: Partial<Draft>) => void
   onNext: () => void
 }) {
+  const { nearby, remember } = usePlaces()
+  const [saving, setSaving] = useState(false)
+  const [outcome, setOutcome] = useState<RememberResult | 'needsConcept' | null>(null)
+
   const mine = useMemo(
     () => (data.suggestions ?? []).filter(
       (item: Suggestion) => item.person === null || item.person === draft.payer,
@@ -45,16 +54,29 @@ export function StepDetails({ draft, data, patch, onNext }: {
    * simply finishes the word.
    */
   const conceptPills = useMemo<Pill[]>(() => {
-    const pinned = mine.filter(item => item.kind === 'concept')
-    const seen = new Set(pinned.map(item => item.text.toLowerCase()))
-    const all: Pill[] = [
-      ...pinned.map(item => ({ key: item.text, label: item.text, pinned: true })),
-      ...data.frequent
-        .filter(chip => !seen.has(chip.concept.toLowerCase()))
-        .map(chip => ({ key: chip.concept, label: chip.concept })),
-    ]
+    // Where the phone is goes first. It is the strongest guess this screen ever
+    // gets: somebody standing in the same shop as last time is buying the same
+    // kind of thing, and no amount of frequency beats being here.
+    const seen = new Set<string>()
+    const all: Pill[] = []
+    const add = (pill: Pill) => {
+      if (seen.has(pill.label.toLowerCase())) return
+      seen.add(pill.label.toLowerCase())
+      all.push(pill)
+    }
+
+    for (const place of nearby) {
+      add({ key: place.concept, label: place.concept, pinned: true, here: true })
+    }
+    for (const item of mine.filter(item => item.kind === 'concept')) {
+      add({ key: item.text, label: item.text, pinned: true })
+    }
+    for (const chip of data.frequent) {
+      add({ key: chip.concept, label: chip.concept })
+    }
+
     return fuzzyFilter(all, draft.concept, pill => pill.label)
-  }, [mine, data.frequent, draft.concept])
+  }, [nearby, mine, data.frequent, draft.concept])
 
   /**
    * One row for the note, the payment methods first and then the suggested
@@ -64,11 +86,20 @@ export function StepDetails({ draft, data, patch, onNext }: {
    */
   const notePills = useMemo<Pill[]>(() => {
     const rank = { method: 0, note: 1, concept: 2 }
-    return mine
+    const pills = mine
       .filter(item => item.kind === 'method' || item.kind === 'note')
       .sort((a, b) => rank[a.kind] - rank[b.kind])
       .map(item => ({ key: item.text, label: item.text, pinned: true }))
-  }, [mine])
+
+    // The card used at this place last time, first. A shop tends to be paid for
+    // the same way, and this row is the one that becomes column `observaciones`.
+    const remembered = nearby.find(place => place.note)?.note
+    if (!remembered) return pills
+    return [
+      { key: remembered, label: remembered, pinned: true, here: true },
+      ...pills.filter(pill => pill.key !== remembered),
+    ]
+  }, [mine, nearby])
 
   // One group, tight. The concept and the payment method are two halves of the
   // same question — what was this — and putting the spare height between them
@@ -112,6 +143,20 @@ export function StepDetails({ draft, data, patch, onNext }: {
         </div>
       </div>
 
+      <SavePlace
+        state={saving ? 'saving' : outcome}
+        onSave={() => {
+          const concept = draft.concept.trim()
+          if (!concept) return setOutcome('needsConcept')
+          setSaving(true)
+          setOutcome(null)
+          void remember(concept, draft.note).then(result => {
+            setSaving(false)
+            setOutcome(result)
+          })
+        }}
+      />
+
       {/* All of the slack, below all of the content. This is the same spacer
           that was wrong on the previous version of this screen and is right
           here: there it opened a hole between two things that belong together,
@@ -128,5 +173,51 @@ export function StepDetails({ draft, data, patch, onNext }: {
         {T.add.next}
       </button>
     </>
+  )
+}
+
+/**
+ * The one control in the app that asks for the location, and it says so.
+ *
+ * Nothing else on any screen reads the GPS unless the permission has already
+ * been given — see `lib/position.ts`. That is the whole shape of this feature:
+ * a phone that knows where it is is useful, and a phone that starts knowing
+ * without being asked is something else.
+ *
+ * It reports what happened in words rather than going quiet. A refused
+ * permission cannot be re-asked for by this app — only in the browser's own
+ * settings — so a button that silently did nothing would be indistinguishable
+ * from a broken one.
+ */
+function SavePlace({ state, onSave }: {
+  state: RememberResult | 'needsConcept' | 'saving' | null
+  onSave: () => void
+}) {
+  const done = state === 'saved' || state === 'again'
+
+  return (
+    <div className="flex flex-col gap-1 pt-1">
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={state === 'saving' || done}
+        className="self-start rounded-full border border-line px-3 py-1.5 text-xs font-semibold
+                   focus-visible:outline focus-visible:outline-2 disabled:opacity-60"
+        style={{ color: done ? 'var(--accent)' : 'var(--ink-2)' }}
+      >
+        {state === 'saving' ? T.places.remembering
+          : state === 'saved' ? T.places.remembered
+          : state === 'again' ? T.places.rememberedAgain
+          : T.places.remember}
+      </button>
+
+      {(state === 'denied' || state === 'unavailable' || state === 'needsConcept') && (
+        <p role="alert" className="text-xs" style={{ color: 'var(--danger)' }}>
+          {state === 'denied' ? T.places.denied
+            : state === 'unavailable' ? T.places.unavailable
+            : T.places.rememberNeedsConcept}
+        </p>
+      )}
+    </div>
   )
 }

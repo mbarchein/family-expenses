@@ -4,6 +4,10 @@ export interface Pill {
   /** Set on the pills that come out of the Sugerencias tab, so a curated entry
    *  reads differently from one the history happened to throw up. */
   pinned?: boolean
+  /** Set on the ones that came from a saved place. The mark is a dot rather
+   *  than a word in the label: the label is the concept, and it is what gets
+   *  searched, written to the sheet and read out by a screen reader. */
+  here?: boolean
 }
 
 /**
@@ -60,6 +64,13 @@ export function Pills({ items, active, onPick, label, size = 'md' }: {
                   borderColor: 'var(--line)',
                 }}
           >
+            {item.here && (
+              <span
+                aria-hidden="true"
+                className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle"
+                style={{ background: on ? 'var(--accent-ink)' : 'var(--accent)' }}
+              />
+            )}
             {item.label}
           </button>
         )

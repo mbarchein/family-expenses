@@ -13,6 +13,7 @@ export const T = {
     add: 'Añadir',
     list: 'Gastos',
     balance: 'Diferencia',
+    places: 'Sitios',
   },
 
   add: {
@@ -41,6 +42,30 @@ export const T = {
     undo: 'Deshacer',
     needAmount: 'Pon un importe',
     needConcept: 'Pon un concepto',
+  },
+
+  places: {
+    // The line that has to be true and has to be visible: nothing here is
+    // uploaded, so nobody has to wonder whether it is.
+    local: 'Los sitios se guardan solo en este dispositivo. No se suben a la hoja.',
+    empty: 'Todavía no has guardado ningún sitio',
+    emptyHow:
+      'Al apuntar un gasto, toca «Guardar este sitio» y la próxima vez que estés ' +
+      'aquí el concepto ya estará esperando.',
+    remember: 'Guardar este sitio',
+    remembering: 'Buscando dónde estás…',
+    remembered: 'Sitio guardado',
+    rememberedAgain: 'Ya lo tenías guardado',
+    rememberNeedsConcept: 'Pon primero el concepto',
+    denied: 'Sin permiso de ubicación. Se lo puedes dar en los ajustes del navegador.',
+    unavailable: 'No se ha podido saber dónde estás',
+    here: 'Aquí',
+    distance: (metres: number) => `A ${metres} m de aquí`,
+    accuracy: (metres: number) => `±${metres} m`,
+    savedOn: (date: string) => `Guardado el ${date}`,
+    uses: (n: number) => (n === 1 ? 'Usado una vez' : `Usado ${n} veces`),
+    forget: 'Borrar',
+    forgetConfirm: '¿Borrar este sitio? Los gastos ya apuntados no se tocan.',
   },
 
   list: {

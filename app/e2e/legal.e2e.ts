@@ -15,7 +15,7 @@ test.describe('the legal pages', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Política de privacidad')
     // The sentence the whole document exists to say.
     await expect(page.getByText('no tiene base de datos ni servidor propio')).toBeVisible()
-    await expect(page.getByRole('heading', { level: 2 })).toHaveCount(13)
+    await expect(page.getByRole('heading', { level: 2 })).toHaveCount(14)
     await expect(page.getByTestId('google-sign-in')).toHaveCount(0)
   })
 

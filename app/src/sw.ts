@@ -18,3 +18,18 @@ precacheAndRoute(self.__WB_MANIFEST)
 
 self.skipWaiting()
 clientsClaim()
+
+/**
+ * Step forward when asked.
+ *
+ * `skipWaiting()` above is called as this worker installs and is normally
+ * enough. It is not enough when another tab of the app is still holding the
+ * previous worker: this one parks in `waiting`, and a version parked in
+ * `waiting` never reaches the phone. `pwa.ts` messages it on every update
+ * check, so the second attempt is not tied to a page ever navigating again.
+ */
+self.addEventListener('message', event => {
+  if ((event.data as { type?: string } | null)?.type === 'SKIP_WAITING') {
+    void self.skipWaiting()
+  }
+})

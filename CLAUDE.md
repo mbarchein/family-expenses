@@ -63,13 +63,21 @@ docs/          DESIGN.md
 There is no local backend. `app` talks to a deployed Apps Script; develop
 against the copy of the spreadsheet, never the live ledger.
 
-## Two more traps
+## Three more traps
 
 - **Never send `application/json` to the backend, and never add a header to a
   request.** Apps Script does not answer OPTIONS, so anything that triggers a
   CORS preflight fails in the browser while working perfectly in curl. Requests
   are `text/plain` with the token in the body. The reasoning is at the top of
   `apps-script/Api.js` and `app/src/api/client.ts`.
+- **Never send a coordinate to the backend.** The places feature stores where
+  the phone was in IndexedDB and nowhere else — not in the request, not in the
+  sheet, and there is no column for it. What reaches the ledger is the concept,
+  exactly as if it had been typed. This is a promise made in as many words on the
+  Sitios screen and in section 13 of the privacy policy, so adding a field
+  "while we are there" breaks a published document and not just a rule. The same
+  goes for reading the position: only the button that says it will asks for the
+  permission, and every other read gives up rather than prompting.
 - **Never round a leftover cent into silence.** A difference that is an odd
   number of cents has no even split; `splitTransfer` reports what will remain
   and the screen says so. The balance is the one number in this app that is not

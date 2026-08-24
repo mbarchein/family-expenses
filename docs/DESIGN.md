@@ -157,8 +157,8 @@ ever needed, they append at the end with no migration.
 
 ## 4. Interface
 
-Four screens — **Añadir**, **Gastos**, **Diferencia**, **Fijos** — plus
-settings.
+Five screens — **Añadir**, **Gastos**, **Diferencia**, **Sitios**, **Fijos** —
+plus settings.
 
 ### Añadir — three steps
 
@@ -199,6 +199,12 @@ tapping a match just finishes the word. See `app/src/lib/fuzzy.ts`.
 
 - Chips of frequent concepts, ranked by **frequency × recency** over the
   household's own history. Nothing to configure.
+
+  Ahead of all of them, marked with a dot, the concept of any place saved within
+  fifteen metres of where the phone is standing — see **Sitios**. It is the
+  strongest guess this screen ever gets: somebody in the same shop as last time
+  is buying the same kind of thing, and no amount of frequency beats being here.
+  It is still only a chip, filled in by a tap like any other.
 
   **A chip carries the concept and nothing else.** It used to carry two more
   things, and both were removed for the same reason: a suggestion may fill in
@@ -263,6 +269,40 @@ The running total, large, named for whoever is ahead. Below it the splitter:
 enter how much is going into the joint account and the app proposes each
 person's share to land on zero.
 
+### Sitios
+
+The places saved on this phone, and the concept spent at each. It exists so the
+guessing on the second step is inspectable: a screen that offers a concept
+because of where you are standing has to have somewhere that says which places
+it knows, how good the fix was when each was saved, how far away each one is
+right now, and how to delete one. A suggestion with no visible cause is magic,
+and magic that fills in the wrong concept is indistinguishable from a bug.
+
+**The coordinates never leave the device.** They are in IndexedDB, they are not
+sent to the backend, they are not written to the spreadsheet, and there is no
+column for them — what reaches the ledger is the concept, exactly as if it had
+been typed. The other person in the house cannot see them. The first line of the
+screen says so, and section 13 of the privacy policy says it again.
+
+Saving one is always a deliberate tap on "Guardar este sitio", which is the only
+thing in the app that asks for the location permission. Every other read is
+guarded by a permission check that gives up rather than prompting, so somebody
+who never uses places is never asked — see `app/src/lib/position.ts`.
+
+A place is a location *and* a concept, not a location with a concept attached.
+The pharmacy and the supermarket in the same square are two places, and both are
+offered when you stand between them. Merging them would mean choosing which one
+to lose.
+
+**Fifteen metres**, and the number is load-bearing in both directions. The shop
+next door is fifteen metres away, so a radius wide enough to always match would
+match the wrong shop; and an indoor fix is often worse than fifteen metres, so
+the accuracy of each fix is stored and shown rather than hidden — a place that
+never matches is then explained by a number instead of being a mystery. The fix
+itself is never read from the cache, and that is the line to leave alone: it was
+a minute of cache to begin with, which is eighty metres of walking, and the
+browser test that walks forty metres up the street is what caught it.
+
 ### Fijos
 
 Recurring templates. They **propose, they do not post**: because some entries
@@ -319,14 +359,29 @@ expired session, the row waits in the queue.
 | Backend | `apps-script/`, deployed with `clasp` |
 | Hosting | Vercel, at gafa.terragiro.es |
 
-**Updating.** The app checks for a new version every time it becomes visible,
-not only when the page navigates. That distinction is the whole point: a service
-worker looks for an update on navigation, and an installed PWA resumed from the
-home screen never navigates, so a phone would keep the version it was installed
-with indefinitely. When a new worker takes over, the page reloads there and
-then rather than offering a banner — at the moment of opening there is nothing
-on screen to lose, and a saved expense is already in the queue in IndexedDB.
-See `app/src/pwa.ts`.
+**Updating.** Opening the app is what picks up a new version, and three separate
+things have to happen for that — each of which used to have a way of not
+happening. See `app/src/pwa.ts`.
+
+1. *Look.* A service worker only checks for a new version of itself when the
+   page navigates, and an installed PWA resumed from the home screen never
+   navigates — so a phone kept the version it was installed with indefinitely.
+   The check hangs off the document becoming visible and off `pageshow`, the
+   second for a resume out of the back/forward cache where a visibility change
+   is not guaranteed.
+2. *Take over.* The worker calls `skipWaiting()` as it installs, but it still
+   parks in `waiting` when another tab is holding the old one — and a version
+   parked in `waiting` never arrives. Every check now also messages a waiting
+   worker to step forward, which `app/src/sw.ts` answers.
+3. *Reload.* Two independent signals, because neither is reliable everywhere:
+   `controllerchange` on the container, and the arriving worker reaching
+   `activated`. Whichever comes first wins; a guard makes the other a no-op, and
+   the same guard stops a first install from reloading for nothing.
+
+The reload is immediate rather than a banner to dismiss: at the moment of
+opening there is nothing on screen to lose, the draft is in IndexedDB after
+every keystroke, and a saved expense is in the outbound queue before the screen
+repaints.
 
 **Cache headers.** `app/vercel.json` sets two, and the reasons cannot live
 beside them: Vercel validates that file against a strict schema and rejects any
@@ -338,8 +393,9 @@ keeps running last week's app forever. `/assets/(.*)` is served `immutable` for
 a year, because those filenames are content hashes and a new build produces new
 names.
 
-**Tests.** Vitest over the two pieces that cannot be wrong: the C/D column
-reader and the transfer splitter.
+**Tests.** Vitest over the pieces that cannot be wrong: the C/D column reader,
+the transfer splitter, the concept matcher, and the distance between two points
+on the ground.
 
 Playwright over the bundle in a browser, at the size of a phone, with Google and
 the backend replaced by doubles — `app/e2e/`. It exists because of what it
@@ -374,7 +430,8 @@ All development runs against a **copy** of the spreadsheet.
 2. **Edit without fear, and split.** Editing and voiding by clearing, the
    transfer splitter, and recurring templates prompting on their due date.
 3. **Make it fly.** Offline queue, computed chips, installable PWA, a direct
-   "new expense" shortcut from the icon, undo after saving.
+   "new expense" shortcut from the icon, undo after saving, and the concept
+   remembered per place.
 4. **Extras.** Search across the whole history, per-concept summaries, receipt
    photos to Drive, CSV export.
 
