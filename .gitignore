@@ -7,6 +7,11 @@ prod.env
 .DS_Store
 *.tsbuildinfo
 
+# Playwright
+app/test-results/
+app/playwright-report/
+app/blob-report/
+
 # Terraform
 infra/.terraform/
 infra/*.tfstate

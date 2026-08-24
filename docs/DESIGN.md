@@ -286,8 +286,18 @@ a year, because those filenames are content hashes and a new build produces new
 names.
 
 **Tests.** Vitest over the two pieces that cannot be wrong: the C/D column
-reader and the transfer splitter. A Playwright smoke test over adding an
-expense.
+reader and the transfer splitter.
+
+Playwright over the bundle in a browser, at the size of a phone, with Google and
+the backend replaced by doubles — `app/e2e/`. It exists because of what it
+caught: a screen that scrolled because the layout had been written to read as a
+document, and a sign-in button that could not sign anybody in. Neither was
+visible to a unit test and neither was caught in review. It asserts that the
+entry screen does not scroll, that tapping a chip does not move the payer, that
+the payment methods follow whoever is paying, that saving sends the amount, the
+payer and the method, and that the two legal pages render for a visitor with no
+account. It touches no network and writes to no spreadsheet: a suite that
+appended rows to a real ledger would be a suite nobody dared run twice.
 
 **GitHub Actions.** `verify` runs lint, typecheck, tests and build on every
 push and pull request. `deploy` runs only after it passes, and publishes the

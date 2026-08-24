@@ -107,7 +107,7 @@ resource "github_branch_protection" "main" {
     # The job names inside `verify`, not the workflow. A context that names
     # no real check is never reported, and a branch protection waiting on a
     # check that will never arrive blocks every merge forever.
-    contexts = ["app", "backend"]
+    contexts = ["app", "backend", "e2e"]
   }
 
   # A single operator: requiring another person's review would block the work.

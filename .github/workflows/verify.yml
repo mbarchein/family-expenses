@@ -49,6 +49,34 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ci.apps.googleusercontent.com
           VITE_CONTACT_EMAIL: ci@example.invalid
 
+  # The bundle, in a browser, at the size of a phone. Everything this job has
+  # caught so far was invisible to the other two: a screen that scrolled because
+  # the layout was written for a document, and a sign-in button whose credential
+  # arrived after the request that wanted it had given up. Google and the
+  # backend are stubbed, so it touches no network and writes to no spreadsheet.
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - run: npm ci
+
+      # Chromium alone. Every assertion here is about a phone-shaped viewport,
+      # and three engines would triple the minutes to test the same thing. The
+      # day this app has a Safari-only bug is the day to add webkit.
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
+
   backend:
     runs-on: ubuntu-latest
     steps:
