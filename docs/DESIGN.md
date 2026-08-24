@@ -341,12 +341,18 @@ question does. The strip says **Solo lo filtrado** whenever one is on: three eur
 amounts read as the household's total whatever produced them, and a filtered
 number wearing that look is a wrong number rather than a narrow one.
 
-The year is the honest one. The app holds the last few hundred rows, not the
-whole sheet — see `TAIL_ROWS` — so on a busy ledger the year total is a floor,
-and the strip prints the day it counts from when that is the case rather than
-letting a floor pass for a total. Fixing it properly is a choice between a bigger
-payload on every open and a number computed in the backend that could not follow
-the filter; neither is worth doing before somebody says the floor is not enough.
+The year is a total rather than a floor, and that cost two changes. The window
+the backend sends **reaches back to the first of January of last year** — not a
+row count, which turned "this year" into "since whenever row 1999 was" — with
+`TAIL_MAX_ROWS` as the ceiling on one JSON body. And the list **renders every row
+it is given** with `content-visibility: auto` per day, so the browser skips
+style, layout and paint for the days that are off screen while find-in-page and
+row heights keep working. Where that property is unsupported the list behaves
+exactly as it did before: slower, never wrong.
+
+The strip still prints the day it counts from when the year is incomplete, since
+the ceiling can bite and a ledger can start mid-year — a floor is never allowed
+to pass for a total.
 
 Months are compared as `YYYY-MM` string prefixes rather than as dates: the ledger
 stores days as strings, nothing here needs arithmetic on them, and going through

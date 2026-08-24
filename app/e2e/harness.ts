@@ -126,6 +126,33 @@ export async function stubGoogle(page: Page, email = 'mario@example.invalid') {
   }, fakeCredential(email))
 }
 
+/**
+ * A ledger with a year and a half in it, for the screen that has to render one.
+ *
+ * The window the backend sends reaches back to last January, so on this
+ * household's sheet the list is over a thousand rows rather than the three
+ * hundred it used to be. A fixture of two entries could never have caught what
+ * that does to a phone.
+ */
+export function longLedger(days = 400, perDay = 3): Bootstrap {
+  const entries: Entry[] = []
+  const start = new Date()
+  for (let back = 0; back < days; back++) {
+    const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() - back)
+    for (let n = 0; n < perDay; n++) {
+      entries.push(entry({
+        row: 2298 - entries.length,
+        id: `e${entries.length}`,
+        date: iso(day),
+        concept: n === 0 ? 'super' : `compra ${back}-${n}`,
+        amount: 10 + n,
+        payer: (back + n) % 2 === 0 ? VIQUI : MARIO,
+      }))
+    }
+  }
+  return bootstrap({ entries, lastRow: 2298 })
+}
+
 export interface ApiCall {
   action: string
   payload: Record<string, unknown>

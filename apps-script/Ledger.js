@@ -22,6 +22,46 @@
  * for every real entry and for nothing else, so it defines where the ledger
  * ends.
  */
+/**
+ * Which row the window starts at: whichever reaches further back, a row count or
+ * the first of January of last year.
+ *
+ * The count alone was the rule, and it made one number on screen wrong. The
+ * totals over the list are computed from what the app holds, so a window of the
+ * last few hundred rows turned "this year" into "since whenever row 1999 was" —
+ * on a ledger with a couple of thousand rows, a few months. Reaching back to
+ * last January makes the year a total rather than a floor, and last year with
+ * it, for the price of one extra read of one column.
+ *
+ * The scan is linear from the top and that is deliberate: rows are appended in
+ * the order they are entered, so the days are *nearly* sorted but a back-dated
+ * expense sits later than its date. Taking the first row that is recent enough
+ * cannot miss an older one, and a back-dated row further down is included
+ * anyway — a binary search over almost-sorted data is the kind of clever that
+ * silently drops a row.
+ *
+ * `TAIL_MAX_ROWS` is the ceiling, because one bootstrap is one JSON body on a
+ * phone. When it bites, the year is a floor again — and the app says so on the
+ * strip over the list rather than letting a floor pass for a total.
+ */
+function windowStart_(sheet, last, limit) {
+  var byCount = Math.max(2, last - limit + 1);
+  var ceiling = Math.max(2, last - TAIL_MAX_ROWS + 1);
+  var cutoff = new Date(new Date().getFullYear() - 1, 0, 1);
+
+  var dates = sheet.getRange(2, COL_DATE, last - 1, 1).getValues();
+  var byDate = byCount;
+  for (var i = 0; i < dates.length; i++) {
+    var value = dates[i][0];
+    if (value instanceof Date && value >= cutoff) {
+      byDate = i + 2;
+      break;
+    }
+  }
+
+  return Math.max(Math.min(byCount, byDate), ceiling);
+}
+
 function lastDataRow_(sheet) {
   var bottom = sheet.getRange(sheet.getMaxRows(), COL_DATE);
   var row = bottom.getValue() === ''
@@ -35,7 +75,7 @@ function readTail_(config, limit) {
   var last = lastDataRow_(sheet);
   if (last < 2) return { balance: 0, entries: [], lastRow: last };
 
-  var first = Math.max(2, last - limit + 1);
+  var first = windowStart_(sheet, last, limit);
   var values = sheet.getRange(first, 1, last - first + 1, COL_ID).getValues();
 
   var entries = values.map(function (row, i) {

@@ -65,7 +65,26 @@ export function ListScreen({ ledger }: { ledger: Ledger }) {
       )}
 
       {days.map(day => (
-        <section key={day.date}>
+        <section
+          key={day.date}
+          /* The list is one day per section and every row it is given is in the
+             DOM — which is what lets the browser's own find-in-page work, and
+             what stopped being free when the window grew to reach last January.
+             `content-visibility: auto` is the fix and it is a property rather
+             than a library: the browser skips style, layout and paint for a
+             section that is off screen, which is the expensive part, and does it
+             with rows of any height. `contain-intrinsic-size` is the promise it
+             needs in exchange — an estimate of the height it is skipping, so the
+             scrollbar does not lurch as sections are measured for real. `auto`
+             means the real height replaces the estimate once it is known.
+
+             Where it is unsupported the declaration is ignored and the list
+             behaves exactly as it did before: slower, never wrong. */
+          style={{
+            contentVisibility: 'auto',
+            containIntrinsicSize: `auto ${24 + day.entries.length * 47}px`,
+          }}
+        >
           <h2 className="mt-2 text-[11px] font-bold uppercase tracking-wider text-ink-3">
             {formatDayHeading(day.date)} · {formatEur(day.total)}
           </h2>

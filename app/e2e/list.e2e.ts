@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
-import { LAST_YEAR, PREVIOUS_MONTH, TODAY, signIn, stubApi, stubGoogle, bootstrap } from './harness'
+import {
+  LAST_YEAR, PREVIOUS_MONTH, TODAY, bootstrap, longLedger, signIn, stubApi, stubGoogle,
+} from './harness'
 
 /**
  * The three totals over the list of expenses.
@@ -80,4 +82,30 @@ test('a year the app cannot see all of says so', async ({ page }) => {
   await page.getByRole('button', { name: 'Gastos' }).click()
 
   await expect(page.getByText(/El año cuenta desde el/)).toBeVisible()
+})
+
+test('a year of expenses renders, and every day carries its own containment', async ({ page }) => {
+  // The window reaches back to last January now, so this screen gets more than a
+  // thousand rows. They are all in the DOM on purpose — find-in-page works, and
+  // nothing has to guess a row height — and each day is a section the browser is
+  // allowed to skip while it is off screen. Without that the list was the one
+  // place in the app where a long ledger was felt.
+  await stubApi(page, longLedger(400, 3))
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+
+  const sections = page.locator('main section')
+  await expect(sections).toHaveCount(400)
+
+  // The property, on every one of them, with a size to skip.
+  const containment = await sections.evaluateAll(nodes => nodes.map(node => {
+    const style = getComputedStyle(node)
+    return `${style.contentVisibility}|${style.containIntrinsicSize.includes('px')}`
+  }))
+  expect(new Set(containment)).toEqual(new Set(['auto|true']))
+
+  // And the screen is usable: the first day is on screen, the last is reachable.
+  await expect(sections.first()).toBeInViewport()
+  await sections.last().scrollIntoViewIfNeeded()
+  await expect(sections.last()).toBeInViewport()
 })

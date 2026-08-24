@@ -26,6 +26,10 @@
 /** Rows returned when the app opens. Enough for the list to feel complete
  *  without ever reading a ledger that grows for years. */
 var TAIL_ROWS = 300;
+// The ceiling on one bootstrap. The window normally reaches back to last
+// January so the totals over the list are real; this is what stops a ledger with
+// ten years in it from putting all of them in one JSON body on a phone.
+var TAIL_MAX_ROWS = 1500;
 
 var ACTIONS = {
   bootstrap: handleBootstrap_,
