@@ -22,15 +22,16 @@ export function Keypad({ value, onChange }: {
   }
 
   return (
-    <div className="grid h-full grid-cols-3 grid-rows-4 gap-1.5">
+    <div className="grid grid-cols-3 gap-1.5">
       {KEYS.map(key => (
         <button
           key={key}
           type="button"
           onClick={() => press(key)}
           aria-label={key === '⌫' ? 'Borrar' : key}
-          className="rounded-xl border border-line bg-surface font-mono text-2xl font-medium
-                     text-ink active:opacity-70 focus-visible:outline focus-visible:outline-2"
+          className="rounded-xl border border-line bg-surface py-3 font-mono text-2xl
+                     font-medium text-ink active:opacity-70
+                     focus-visible:outline focus-visible:outline-2"
         >
           {key}
         </button>

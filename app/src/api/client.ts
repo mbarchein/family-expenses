@@ -1,6 +1,6 @@
 import { ApiError } from './types'
 import type { ApiAction, Bootstrap, Entry } from './types'
-import { getIdToken } from '../auth/google'
+import { getIdToken, invalidateToken } from '../auth/google'
 
 const API_URL = import.meta.env.VITE_API_URL as string
 
@@ -34,7 +34,14 @@ async function call<T>(action: ApiAction, payload: unknown = {}): Promise<T> {
   if (!response.ok) throw new ApiError('NETWORK', `HTTP ${response.status}`)
 
   const body = await response.json()
-  if (!body.ok) throw new ApiError(body.error?.code ?? 'INTERNAL', body.error?.message ?? '')
+  if (!body.ok) {
+    // Drop the credential the backend just refused. Without this the same dead
+    // token is handed to every call until it expires on its own, which is the
+    // opposite of what invalidateToken() was written for — it was exported and
+    // never called.
+    if (body.error?.code === 'UNAUTHENTICATED') invalidateToken()
+    throw new ApiError(body.error?.code ?? 'INTERNAL', body.error?.message ?? '')
+  }
   return body.data as T
 }
 

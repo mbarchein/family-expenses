@@ -25,9 +25,19 @@ interface Cached {
 let cached: Cached | null = null
 let pending: Promise<string> | null = null
 let onNeedsInteraction: (() => void) | null = null
+let onSignedIn: (() => void) | null = null
+/** Resolves the request that is waiting for a token, when there is one. */
+let deliver: ((token: string) => void) | null = null
+let initialised = false
 
 export function setInteractionHandler(handler: () => void) {
   onNeedsInteraction = handler
+}
+
+/** Called when a credential arrives with nobody waiting for it — which is what
+ *  happens every time the user signs in by tapping the button. */
+export function setSignedInHandler(handler: () => void) {
+  onSignedIn = handler
 }
 
 export function cachedEmail(): string | null {
@@ -51,31 +61,60 @@ export function invalidateToken() {
   cached = null
 }
 
+/**
+ * Every credential Google hands over arrives here, from either of the two ways
+ * in — and both of them have to work.
+ *
+ * The silent prompt has a request waiting for the token. The button the user
+ * taps does not: its credential arrives long after that request gave up and
+ * rejected, and calling resolve() on a settled promise is silence. That silence
+ * was the whole bug. A valid token sat in `cached`, nothing asked for the
+ * ledger again, the app stayed on the sign-in screen, and the button on it only
+ * ever reopened the account chooser. So a credential with nobody waiting for it
+ * tells the app instead.
+ */
+function receive(response: { credential: string }) {
+  const claims = decodeJwt(response.credential)
+  cached = { token: response.credential, expiresAt: claims.exp * 1000 }
+  if (claims.email) rememberEmail(claims.email)
+
+  const waiting = deliver
+  deliver = null
+  if (waiting) waiting(response.credential)
+  else onSignedIn?.()
+}
+
+/** Once per page. `renderButton` delivers through the callback registered here,
+ *  so the button is dead until this has run — which is why it is not left to
+ *  whichever path happens to reach Google first. */
+function initialise() {
+  if (initialised) return
+  initialised = true
+  google.accounts.id.initialize({
+    client_id: CLIENT_ID,
+    callback: receive,
+    // Returning users are signed back in without a tap. This is the whole
+    // reason the app can promise it opens on the keypad: the session renews
+    // in the background and nobody sees a login screen twice.
+    auto_select: true,
+    itp_support: true,
+    cancel_on_tap_outside: false,
+  })
+}
+
 async function requestToken(): Promise<string> {
   await loadGsi()
+  initialise()
 
   return new Promise<string>((resolve, reject) => {
-    google.accounts.id.initialize({
-      client_id: CLIENT_ID,
-      callback: (response: { credential: string }) => {
-        const claims = decodeJwt(response.credential)
-        cached = { token: response.credential, expiresAt: claims.exp * 1000 }
-        if (claims.email) rememberEmail(claims.email)
-        resolve(response.credential)
-      },
-      // Returning users are signed back in without a tap. This is the whole
-      // reason the app can promise it opens on the keypad: the session renews
-      // in the background and nobody sees a login screen twice.
-      auto_select: true,
-      itp_support: true,
-      cancel_on_tap_outside: false,
-    })
+    deliver = resolve
 
     google.accounts.id.prompt((notification: PromptNotification) => {
       // A prompt that cannot display itself is not an error — it usually means
       // the browser has no Google session, or One Tap is suppressed. The app
       // shows its own sign-in button instead of leaving a dead screen.
       if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.()) {
+        deliver = null
         onNeedsInteraction?.()
         reject(new Error('interaction required'))
       }
@@ -87,6 +126,7 @@ async function requestToken(): Promise<string> {
  *  produce a token; Google requires its own markup for the visible flow. */
 export function renderSignInButton(target: HTMLElement) {
   loadGsi().then(() => {
+    initialise()
     google.accounts.id.renderButton(target, {
       theme: 'outline', size: 'large', shape: 'pill', locale: 'es', width: 260,
     })

@@ -106,7 +106,7 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
   }
 
   return (
-    <div className="relative flex h-full flex-col gap-2 p-4">
+    <div className="relative flex h-full flex-col justify-between gap-2 p-4">
       <Segmented
         value={kind}
         onChange={next => setDate(next === 'today' ? todayIso() : next === 'yesterday' ? yesterdayIso() : date)}
@@ -129,9 +129,18 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
         />
       )}
 
-      <output className="tabular text-center font-mono text-[2.75rem] font-semibold leading-tight tracking-tight">
-        {displayTyped(typed)}<span className="pl-1 text-2xl text-ink-3">€</span>
-      </output>
+      {/* Nothing here grows, and the spare height is spread between the rows by
+          `justify-between` above. Two earlier attempts each gave the slack to
+          one element and each looked broken for it: on the keypad it produced
+          130px keys with the digits floating inside them, and on the amount it
+          produced a 450px hole above a screen that is otherwise dense. Spread
+          out, the same slack reads as breathing room, and on a short phone the
+          gaps close back down to `gap-2` on their own. */}
+      <div className="flex items-center justify-center py-2">
+        <output className="tabular font-mono text-6xl font-semibold leading-none tracking-tight">
+          {displayTyped(typed)}<span className="pl-1.5 align-baseline text-3xl text-ink-3">€</span>
+        </output>
+      </div>
 
       <Segmented
         value={String(payer)}
@@ -155,12 +164,7 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
       <Pills items={conceptPills} active={concept} onPick={pickConcept} label={T.add.conceptRow} />
       <Pills items={notePills} active={note} onPick={setNote} label={T.add.noteRow} />
 
-      {/* The keypad takes whatever height is left, so it is generous on a big
-          phone and still whole on a small one. min-h-0 is what lets it be
-          squeezed rather than pushing the save button off the bottom. */}
-      <div className="min-h-0 flex-1">
-        <Keypad value={typed} onChange={setTyped} />
-      </div>
+      <Keypad value={typed} onChange={setTyped} />
 
       {problem && (
         <p role="alert" className="text-center text-sm" style={{ color: 'var(--danger)' }}>

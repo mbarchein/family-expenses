@@ -4,7 +4,7 @@ import { T } from './i18n/strings'
 import { AddScreen } from './screens/AddScreen'
 import { BalanceScreen } from './screens/BalanceScreen'
 import { ListScreen } from './screens/ListScreen'
-import { renderSignInButton, setInteractionHandler } from './auth/google'
+import { renderSignInButton, setInteractionHandler, setSignedInHandler } from './auth/google'
 import { PRIVACY, TERMS } from './i18n/legal'
 import { useLedger } from './store/ledger'
 
@@ -13,11 +13,22 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('add')
   const [needsTap, setNeedsTap] = useState(false)
 
-  useEffect(() => { setInteractionHandler(() => setNeedsTap(true)) }, [])
+  const refresh = ledger.refresh
+  useEffect(() => {
+    setInteractionHandler(() => setNeedsTap(true))
+    // The other half of the sign-in button. Tapping it produces a credential
+    // that no request is waiting for, so this is what turns it into a loaded
+    // ledger; without it the tap set a token nobody read.
+    setSignedInHandler(() => { setNeedsTap(false); void refresh() })
+  }, [refresh])
 
   if (ledger.status === 'loading') return <Splash />
   if (ledger.status === 'forbidden') return <Message text={T.auth.forbidden} />
-  if (ledger.status === 'needsAuth' || needsTap) return <SignIn />
+  // `needsTap` is not allowed to outlive a successful load. It used to be a
+  // one-way latch — set when One Tap could not show itself, never cleared — so
+  // an app that had signed in perfectly well behind the scenes still showed the
+  // sign-in screen, and the only button on it reopened the account chooser.
+  if (ledger.status === 'needsAuth' || (needsTap && ledger.status !== 'ready')) return <SignIn />
   if (ledger.status === 'error') return <Message text={ledger.error ?? T.errors.generic} />
 
   return (
