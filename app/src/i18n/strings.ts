@@ -42,6 +42,19 @@ export const T = {
     needConcept: 'Pon un concepto',
   },
 
+  icons: {
+    menu: 'Iconos',
+    title: 'Iconos de los conceptos',
+    pick: (concept: string) => `Icono para «${concept}»`,
+    none: 'Sin icono',
+    close: 'Cerrar',
+    back: 'Volver',
+    // Says where the icon came from: a guess and a choice look identical on the
+    // tile, and only one of them is yours.
+    mine: 'elegido',
+    guessed: 'propuesto',
+  },
+
   places: {
     // The line that has to be true and has to be visible: nothing here is
     // uploaded, so nobody has to wonder whether it is.

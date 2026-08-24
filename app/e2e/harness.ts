@@ -42,10 +42,19 @@ export function bootstrap(overrides: Partial<Bootstrap> = {}): Bootstrap {
       entry({ row: 2298, id: 'one', date: '2026-08-23', concept: 'super', amount: 326.72, payer: VIQUI }),
       entry({ row: 2297, id: 'two', date: '2026-08-22', concept: 'gasolina', amount: 60, payer: MARIO }),
     ],
+    // More concepts than the grid has tiles, on purpose: the cut is what the
+    // grid is, and a fixture that fits inside it would never test the cut.
     frequent: [
       { concept: 'super' },
       { concept: 'gasolina' },
       { concept: 'comedor' },
+      { concept: 'luz' },
+      // No keyword matches this one, so it is the tile inside the grid that
+      // falls back to an initial — and the one the icon menu is tested on.
+      { concept: 'chuches' },
+      { concept: 'pan' },
+      // Outside the grid, for the test that typing reaches past the six.
+      { concept: 'lo del jueves' },
     ],
     suggestions: [
       { text: 'Efectivo', kind: 'method', person: null },

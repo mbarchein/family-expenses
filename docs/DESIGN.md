@@ -192,12 +192,12 @@ and the payment method are two halves of one question and spreading them apart
 made them read as two screens stacked on one. The spare height goes below all of
 it, which is where the on-screen keyboard appears.
 
-**The chips are above the field, and the field searches them.** The chips are
+**The tiles are above the field, and the field searches them.** The tiles are
 the fast path and typing is the fallback, so the fast path goes where the eye
 lands first; and when the keyboard opens it covers everything *below* the
 focused field, so anything still useful has to be above it. Nothing is focused
 on arrival, for the same reason: landing with the keyboard already up hides the
-chips behind it and makes tapping one cost an extra gesture.
+tiles behind it and makes tapping one cost an extra gesture.
 
 The search is a subsequence match over both lists — the concepts written down in
 `Sugerencias` and the ones the history threw up — scored so that a run of
@@ -220,10 +220,43 @@ tapping a match just finishes the word. See `app/src/lib/fuzzy.ts`.
   is a suggestion for the pair, so it prints the pair on its face along with how
   far away the doorway is. Nothing lands in a field that was not on screen
   before it was touched, and tapping the card again clears both.
-- Chips of frequent concepts, ranked by **frequency × recency** over the
-  household's own history. Nothing to configure. The places are deliberately not
-  in this row as well: a concept offered twice on one screen is two controls for
-  one field.
+- **Six tiles**, two by three, ranked by **frequency × recency** over the
+  household's own history with the written-down ones first. Nothing to configure.
+  The places are deliberately not among them: a concept offered twice on one
+  screen is two controls for one field.
+
+  Six, and it does not scroll. The row this replaced held every concept and
+  scrolled sideways, so anything past the third was invisible until somebody
+  thought to swipe — a fast path that has to be discovered is not a fast path.
+  Six is what fits at a size a thumb hits without aiming, and the search reaches
+  everything else: the cut to six happens *after* the filter, so typing gets to
+  the seventh concept instead of only reordering the six on screen.
+
+  Rectangular rather than pill-shaped because a rectangle holds two things: an
+  icon and a label on one line, at a readable size.
+
+  **The icons are drawn, in `components/Icon.tsx`.** Not emoji — those arrive in
+  whatever style the platform ships, cannot be recoloured, and make the same
+  concept look like a different app on Android and on iOS. Not an icon font
+  either: that is a request to a host this app does not otherwise talk to, on a
+  screen that has to work in a supermarket basement, and until it arrives every
+  tile shows a blank. Two dozen shapes as paths are a few hundred bytes inside a
+  bundle that is already precached, stroked in `currentColor` so a selected tile
+  inverts its icon with it.
+
+  Which icon a concept gets, in three tries: **what you chose** in the icon menu;
+  then a **guess from the words in it** (`lib/icons.ts`, longest keyword first so
+  `gasolina` is not matched by `gas`); then **nothing**, and the tile shows the
+  concept's initial. That last step is the rule, not a gap: a basket on the
+  electricity bill is a small lie printed on the fast path, every time, and worse
+  than no icon at all.
+
+  The **Iconos** menu sits beside the grid it changes, because choosing an icon
+  anywhere else is choosing blind. It lists every concept the app knows with the
+  icon it currently shows and whether that was *elegido* or *propuesto* — so the
+  list doubles as the answer to "why has that got a basket on it". Choices are
+  per device, in IndexedDB: the sheet is the ledger, and this is a preference
+  about how a button looks, with no wrong answer to make shared.
 
   **A chip carries the concept and nothing else.** It used to carry two more
   things, and both were removed for the same reason: a suggestion may fill in
@@ -442,8 +475,8 @@ a year, because those filenames are content hashes and a new build produces new
 names.
 
 **Tests.** Vitest over the pieces that cannot be wrong: the C/D column reader,
-the transfer splitter, the concept matcher, and the distance between two points
-on the ground.
+the transfer splitter, the concept matcher, the distance between two points on
+the ground, and the icon a concept is given.
 
 Playwright over the bundle in a browser, at the size of a phone, with Google and
 the backend replaced by doubles — `app/e2e/`. It exists because of what it

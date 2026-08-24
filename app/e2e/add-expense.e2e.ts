@@ -343,3 +343,109 @@ test('a browser that will not open its calendar shows the field instead', async 
   await field.fill('2026-08-10')
   await expect(page.getByRole('button', { name: 'Otra fecha' })).toHaveText('10 ago')
 })
+
+test('the concepts are six tiles that do not scroll', async ({ page }) => {
+  // The row this replaced held every concept and scrolled sideways, so anything
+  // past the third was invisible until somebody thought to swipe. A fast path
+  // that has to be discovered is not a fast path.
+  await stubApi(page)
+  await signIn(page)
+
+  await typeAmount(page, '10')
+  await next(page)
+
+  const grid = page.getByRole('group', { name: 'Conceptos frecuentes' })
+  // Eight concepts are on offer in the fixture; six is the grid.
+  await expect(grid.getByRole('button')).toHaveCount(6)
+
+  const overflow = await grid.evaluate(element => ({
+    sideways: element.scrollWidth > element.clientWidth + 1,
+    down: element.scrollHeight > element.clientHeight + 1,
+  }))
+  expect(overflow).toEqual({ sideways: false, down: false })
+
+  // Two rows of three would have been the other way round; this is three of two.
+  const columns = await grid.evaluate(
+    element => getComputedStyle(element).gridTemplateColumns.split(' ').length,
+  )
+  expect(columns).toBe(2)
+})
+
+test('the tiles are drawn icons, and an initial where a guess would be a lie', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+
+  await typeAmount(page, '10')
+  await next(page)
+
+  // Drawn from the set, not an emoji: one family, one weight, and it inverts
+  // with the tile because it is stroked in `currentColor`.
+  await expect(page.getByRole('button', { name: 'gasolina' }).locator('svg')).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'farmacia' }).locator('svg')).toHaveCount(1)
+
+  // And nothing at all where a guess would be a lie: the initial instead.
+  const unknown = page.getByRole('button', { name: 'chuches' })
+  await expect(unknown.locator('svg')).toHaveCount(0)
+  await expect(unknown).toContainText('C')
+})
+
+test('an icon can be given to a concept, and taken back', async ({ page }) => {
+  // The menu exists because the guess is a guess. It is opened from beside the
+  // grid it changes: choosing an icon anywhere else is choosing blind.
+  await stubApi(page)
+  await signIn(page)
+
+  await typeAmount(page, '10')
+  await next(page)
+
+  const tile = page.getByRole('button', { name: 'chuches' })
+  await expect(tile).toContainText('C')
+
+  await page.getByRole('button', { name: 'Iconos' }).click()
+  const menu = page.getByRole('dialog')
+  // Every concept on offer is listed, and the row says whether its icon was
+  // chosen or merely proposed.
+  await expect(menu.getByRole('button', { name: /gasolina/ })).toContainText('propuesto')
+
+  await menu.getByRole('button', { name: /chuches/ }).click()
+  await page.getByRole('button', { name: 'huella', exact: true }).click()
+
+  // Back on the list rather than out of the menu: labelling one concept and
+  // labelling four are the same errand, and "Cerrar" is one tap away.
+  await expect(menu.getByRole('button', { name: /chuches/ })).toContainText('elegido')
+  await page.getByRole('button', { name: 'Cerrar' }).click()
+
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(tile.locator('svg')).toHaveCount(1)
+
+  // It survives the app reloading itself, which is what the store is for.
+  await page.reload()
+  await page.getByTestId('google-sign-in').click()
+  await expect(page.getByText('Paso 2 de 3')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'chuches' }).locator('svg')).toHaveCount(1)
+
+  // And "sin icono" is the way back to the initial — which is not the same as
+  // choosing nothing, since a concept with a keyword would go back to its guess.
+  await page.getByRole('button', { name: 'Iconos' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: /chuches/ }).click()
+  await page.getByRole('button', { name: 'Sin icono' }).click()
+  await page.getByRole('button', { name: 'Cerrar' }).click()
+  await expect(page.getByRole('button', { name: 'chuches' })).toContainText('C')
+})
+
+test('typing reaches a concept that is not one of the six', async ({ page }) => {
+  // The search runs before the cut, not after it. Otherwise typing would only
+  // reorder the tiles already on screen and the seventh concept would be
+  // unreachable except by spelling it out in full.
+  await stubApi(page)
+  await signIn(page)
+
+  await typeAmount(page, '10')
+  await next(page)
+
+  const grid = page.getByRole('group', { name: 'Conceptos frecuentes' })
+  await expect(grid.getByRole('button', { name: 'lo del jueves' })).toHaveCount(0)
+
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('jueves')
+  await expect(grid.getByRole('button', { name: 'lo del jueves' })).toBeVisible()
+})
