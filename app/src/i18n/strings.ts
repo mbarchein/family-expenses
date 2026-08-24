@@ -165,7 +165,6 @@ export const T = {
     voided: 'Anulado',
     legacy: 'Apuntado a mano · toca para poder editarlo',
     totalsRow: 'Resumen',
-    thisYear: 'Año',
     // Said out loud whenever a filter is on: the same three numbers mean
     // something completely different, and nothing else on the strip shows it.
     filtered: 'Solo lo filtrado',

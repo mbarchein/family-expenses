@@ -1,0 +1,128 @@
+import { expect, test } from '@playwright/test'
+import { LAST_YEAR, bootstrap, entry, MARIO, signIn, stubApi, stubGoogle, TODAY } from './harness'
+
+/**
+ * Getting around: five screens, five addresses, and a way back from each.
+ *
+ * The app used to keep the current screen in a variable, so all five shared one
+ * URL and a reload always landed on the keypad. That is worse here than in most
+ * apps: this one reloads itself when a new version is deployed, so it could take
+ * somebody off the screen they were reading with no warning and no way back.
+ */
+
+const SCREENS = [
+  { tab: 'Gastos', path: '/gastos' },
+  { tab: 'Diferencia', path: '/diferencia' },
+  { tab: 'Sitios', path: '/sitios' },
+  { tab: 'Fijos', path: '/fijos' },
+] as const
+
+test.beforeEach(async ({ page }) => {
+  await stubGoogle(page)
+})
+
+// One test per screen rather than one loop through all four: a page load costs
+// seconds in CI, and eight of them in a row is a test that fails on the clock
+// rather than on the app.
+for (const screen of SCREENS) {
+  test(`${screen.tab} has its own address, and comes back after a reload`, async ({ page }) => {
+    await stubApi(page)
+    await signIn(page)
+
+    await page.getByRole('button', { name: screen.tab }).click()
+    await expect(page).toHaveURL(new RegExp(`${screen.path}$`))
+
+    await page.reload()
+    // Still here, named by its own heading rather than by the tab that is lit.
+    await expect(page.getByRole('heading', { name: screen.tab })).toBeVisible()
+    await expect(page).toHaveURL(new RegExp(`${screen.path}$`))
+  })
+}
+
+test('the keypad is the root, and going to it says so', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+
+  await page.getByRole('button', { name: 'Gastos' }).click()
+  await page.getByRole('button', { name: 'Añadir' }).click()
+
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+})
+
+test('the back arrow returns to where you were, from every screen', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+
+  await page.getByRole('button', { name: 'Gastos' }).click()
+  await page.getByRole('button', { name: 'Sitios' }).click()
+  await page.getByRole('button', { name: 'Atrás' }).click()
+
+  await expect(page).toHaveURL(/\/gastos$/)
+  await expect(page.getByRole('heading', { name: 'Gastos' })).toBeVisible()
+})
+
+test('a screen opened cold still has a way out', async ({ page }) => {
+  // Straight to an address with no history behind it — a bookmark, a link, or
+  // the app reopening where it was. `history.back()` would leave the app.
+  await stubApi(page)
+  await stubGoogle(page)
+  await page.goto('/fijos')
+  await page.getByTestId('google-sign-in').click()
+  await expect(page.getByRole('heading', { name: 'Fijos' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Atrás' }).click()
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+})
+
+test('an entry can be abandoned from any step of the flow', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+
+  // Nothing typed yet: there is nothing to cancel, so nothing offers to.
+  await expect(page.getByRole('button', { name: 'Cancelar' })).toHaveCount(0)
+
+  await page.getByRole('button', { name: '2', exact: true }).click()
+  await page.getByRole('button', { name: '3', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Cancelar' })).toBeVisible()
+
+  // And from the second step, where the number is already behind you.
+  await page.getByRole('button', { name: 'Siguiente' }).click()
+  await expect(page.getByText('Paso 2 de 3')).toBeVisible()
+  await page.getByRole('button', { name: 'Cancelar' }).click()
+
+  // Back at the beginning with an empty keypad — not with 23 waiting on it.
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Cancelar' })).toHaveCount(0)
+  await expect(page.locator('output')).not.toContainText('23')
+})
+
+test('a cancelled entry does not come back on the next open', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+
+  await page.getByRole('button', { name: '5', exact: true }).click()
+  await page.getByRole('button', { name: 'Cancelar' }).click()
+  await page.reload()
+
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+  await expect(page.locator('output')).not.toContainText('5')
+})
+
+test('the year is on the rows, the day headings and the totals', async ({ page }) => {
+  // The window reaches back to last January, so scrolling the list crosses a
+  // year. A date without one is not ambiguous there, it is wrong.
+  await stubApi(page, bootstrap({
+    entries: [
+      entry({ row: 2300, id: 'e1', date: TODAY, concept: 'super', amount: 20, payer: MARIO }),
+      entry({ row: 2299, id: 'e2', date: LAST_YEAR, concept: 'seguro', amount: 300, payer: MARIO }),
+    ],
+  }))
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+
+  const year = LAST_YEAR.slice(0, 4)
+  await expect(page.getByRole('heading', { name: new RegExp(year) })).toBeVisible()
+  await expect(page.getByRole('button', { name: new RegExp(`seguro.*${year}`, 's') })).toBeVisible()
+})

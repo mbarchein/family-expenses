@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Segmented } from '../components/Segmented'
 import { Totals } from '../components/Totals'
+import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
 import { formatDayHeading, formatShortDate, todayIso } from '../lib/dates'
 import { formatEur } from '../lib/money'
@@ -9,7 +10,7 @@ import type { Entry } from '../api/types'
 import type { Ledger } from '../store/ledger'
 import { EditSheet } from './EditSheet'
 
-export function ListScreen({ ledger }: { ledger: Ledger }) {
+export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => void }) {
   const people = ledger.data?.config.people
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
@@ -31,6 +32,8 @@ export function ListScreen({ ledger }: { ledger: Ledger }) {
 
   return (
     <div className="flex flex-col gap-3 p-4">
+      <ScreenHeader title={T.tabs.list} onBack={onBack} />
+
       <Segmented
         value={filter}
         onChange={setFilter}
@@ -109,12 +112,18 @@ export function ListScreen({ ledger }: { ledger: Ledger }) {
                     >
                       {entry.concept}
                     </span>
-                    <span className="block text-[11px] text-ink-3">
+                    {/* Who paid and when, on one grey line. The day heading
+                        above says the same date, and that is not a reason to
+                        leave it off a row: rows are read one at a time, get
+                        screenshotted one at a time, and are searched for across
+                        a window that now spans two years. */}
+                    <span className="block truncate text-[11px] text-ink-3">
                       {entry.voided
                         ? T.list.voided
                         : entry.id
                           ? people[entry.payer ?? 0].name
                           : T.list.legacy}
+                      {entry.id && <> · {formatShortDate(entry.date)}</>}
                     </span>
                   </span>
                   <span className="font-mono text-sm tabular">{formatEur(entry.amount)}</span>

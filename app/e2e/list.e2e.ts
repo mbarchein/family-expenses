@@ -11,8 +11,10 @@ import {
  * summary keyed to calendar months otherwise would not.
  */
 
+/** With the year, as the strip now shows it: "ago 2026". Without it, January
+ *  puts "dic" next to a total for a different year and says nothing about it. */
 const month = (iso: string) =>
-  new Intl.DateTimeFormat('es-ES', { month: 'short' })
+  new Intl.DateTimeFormat('es-ES', { month: 'short', year: 'numeric' })
     .format(new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, 1))
     .replace(/\./g, '')
 
@@ -36,7 +38,8 @@ test('the strip totals last month, this month and this year', async ({ page }) =
   await expect(cells.nth(1)).toContainText(month(TODAY))
   await expect(cells.nth(1)).toContainText('386,72')   // 326,72 + 60
 
-  await expect(cells.nth(2)).toContainText('Año')
+  // The year names itself, between two cells that now carry theirs.
+  await expect(cells.nth(2)).toContainText(TODAY.slice(0, 4))
   // Last year's 1000 is excluded either way. Whether last month counts towards
   // this year depends on the day this runs: in January it does not.
   const sameYear = PREVIOUS_MONTH.slice(0, 4) === TODAY.slice(0, 4)

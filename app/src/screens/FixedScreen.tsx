@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Segmented } from '../components/Segmented'
+import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
 import { dueDay } from '../lib/fixed'
 import { todayIso } from '../lib/dates'
@@ -19,7 +20,7 @@ import type { Ledger } from '../store/ledger'
  * rows in `lib/fixed.ts` and shown where it can be acted on, which is the screen
  * where an expense gets apuntado.
  */
-export function FixedScreen({ ledger }: { ledger: Ledger }) {
+export function FixedScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => void }) {
   const people = ledger.data?.config.people
   const [editing, setEditing] = useState<Fixed | null>(null)
 
@@ -28,6 +29,8 @@ export function FixedScreen({ ledger }: { ledger: Ledger }) {
 
   return (
     <div className="flex flex-col gap-3 p-4">
+      <ScreenHeader title={T.tabs.fixed} onBack={onBack} />
+
       {!rows.length && (
         <div className="flex flex-col gap-2 pt-6 text-center">
           <p className="text-sm font-semibold text-ink-2">{T.fixed.empty}</p>

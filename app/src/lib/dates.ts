@@ -16,8 +16,17 @@ export function yesterdayIso(): string {
   return toIso(d)
 }
 
-const DAY = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
+const DAY = new Intl.DateTimeFormat('es-ES',
+  { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
+/**
+ * The heading over a day's entries: "lunes, 24 de agosto de 2026".
+ *
+ * With the year, always. The list reaches back to last January, so scrolling
+ * crosses one — and a heading that says "17 de diciembre" over rows from a
+ * different year is not ambiguous, it is wrong. Today and yesterday keep their
+ * names: those two need no date at all, let alone a year.
+ */
 export function formatDayHeading(iso: string): string {
   if (iso === todayIso()) return 'Hoy'
   if (iso === yesterdayIso()) return 'Ayer'
@@ -50,11 +59,17 @@ export function formatDayShort(iso: string): string {
     .replace(/\./g, '')
 }
 
-/** The month of a `YYYY-MM` or `YYYY-MM-DD`, abbreviated: "jul". Used as the
- *  label of a total, where the year is either obvious or is the other column. */
+/**
+ * The month of a `YYYY-MM` or `YYYY-MM-DD`, with its year: "jul 2026".
+ *
+ * The year used to be left off as obvious. It is obvious for eleven months of
+ * the year and wrong in January, when "dic" is last year and sits next to a
+ * total for this one — which is the one month where somebody is most likely to
+ * be comparing the two.
+ */
 export function formatMonthShort(iso: string): string {
   const [y, m] = iso.split('-').map(Number)
-  return new Intl.DateTimeFormat('es-ES', { month: 'short' })
+  return new Intl.DateTimeFormat('es-ES', { month: 'short', year: 'numeric' })
     .format(new Date(y, m - 1, 1))
     .replace(/\./g, '')
 }

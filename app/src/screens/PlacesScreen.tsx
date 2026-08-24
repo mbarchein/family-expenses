@@ -1,3 +1,4 @@
+import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
 import { formatShortDate, toIso } from '../lib/dates'
 import { metresBetween } from '../lib/geo'
@@ -14,7 +15,7 @@ import { usePlaces, type Place } from '../store/places'
  *
  * Nothing here has ever been uploaded, and the first line of the screen says so.
  */
-export function PlacesScreen() {
+export function PlacesScreen({ onBack }: { onBack: () => void }) {
   const { places, ready, here, forget } = usePlaces()
 
   const rows = [...places].sort((a, b) => {
@@ -24,6 +25,8 @@ export function PlacesScreen() {
 
   return (
     <div className="flex flex-col gap-3 p-4">
+      <ScreenHeader title={T.tabs.places} onBack={onBack} />
+
       <p className="text-xs text-ink-2">{T.places.local}</p>
 
       {ready && !rows.length && (

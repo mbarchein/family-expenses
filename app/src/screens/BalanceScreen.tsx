@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
 import { displayTyped, formatEur, parseAmount } from '../lib/money'
 import { splitTransfer } from '../lib/split'
@@ -11,7 +12,7 @@ import type { Ledger } from '../store/ledger'
  * the same figure the two of them have been reading for years. What the app
  * adds is the next step: how to split the next transfer so it lands on zero.
  */
-export function BalanceScreen({ ledger }: { ledger: Ledger }) {
+export function BalanceScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => void }) {
   const people = ledger.data?.config.people
   const balance = ledger.data?.balance ?? 0
   const [typed, setTyped] = useState('')
@@ -33,6 +34,8 @@ export function BalanceScreen({ ledger }: { ledger: Ledger }) {
 
   return (
     <div className="flex flex-col gap-5 p-4">
+      <ScreenHeader title={T.tabs.balance} onBack={onBack} />
+
       <div className="pt-2 text-center">
         <p className="font-mono text-4xl font-bold tabular"
            style={{ color: balance === 0 ? 'var(--ink)' : `var(--person-${ahead + 1})` }}>

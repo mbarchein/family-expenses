@@ -7,6 +7,7 @@ import { FixedBanner, FixedDue } from '../../components/FixedDue'
 import { alreadyThere, whatIsDue, type Due } from '../../lib/fixed'
 import { todayIso } from '../../lib/dates'
 import { typedFromAmount } from '../../lib/money'
+import { BackIcon } from '../../components/ScreenHeader'
 import { usePlaces } from '../../store/places'
 import { StepAmount } from './StepAmount'
 import { StepDetails } from './StepDetails'
@@ -34,7 +35,7 @@ const STEPS = 3
  * in IndexedDB, so an interruption — a lock screen, a phone call, or this app
  * reloading itself to pick up a new version — costs nothing.
  */
-export function AddScreen({ ledger }: { ledger: Ledger }) {
+export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => void }) {
   const data = ledger.data
   const me = data?.config.meIndex ?? -1
   const { draft, ready, patch, reset } = useDraft(me === 1 ? 1 : 0)
@@ -150,6 +151,30 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
     }
   }
 
+  /**
+   * Out of the flow, from any step, leaving nothing behind.
+   *
+   * There was a way to abandon an entry only on the third screen, which is the
+   * one place it is least needed — by then the thing is written and the question
+   * is whether to save it. Changing your mind happens on the first screen, with
+   * a wrong number on it, and the only ways out were the tab bar (which leaves
+   * the number there for next time) and the back arrow (which does nothing at
+   * all on the first step).
+   *
+   * The draft is cleared rather than left: a cancelled entry that comes back on
+   * the next open is not a cancelled entry.
+   */
+  function cancel() {
+    reset()
+    setPlace({ kind: 'off' })
+    setProblem(null)
+    rewind()
+  }
+
+  /** Whether there is anything to cancel. On an untouched keypad the button
+   *  would be an offer to abandon nothing. */
+  const started = step > 0 || Boolean(draft.typed) || Boolean(draft.concept.trim())
+
   function forward() {
     if (step === 0) {
       if (amount <= 0) return setProblem(T.add.needAmount)
@@ -216,28 +241,42 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
             visibly jumped the moment the step changed. An empty box the same size
             as the button is the whole fix. */}
         <div className="-ml-2 flex h-9 w-9 shrink-0 items-center justify-center">
-          {step > 0 && (
-            <button
-              type="button"
-              onClick={() => history.back()}
-              aria-label={T.add.back}
-              className="flex h-9 w-9 items-center justify-center rounded-full
-                         focus-visible:outline focus-visible:outline-2"
-              style={{ color: 'var(--accent)' }}
-            >
-              <BackIcon />
-            </button>
-          )}
+          {/* On every step now, including the first — where it leaves the flow
+              rather than walking back through it. Both are `history.back()`,
+              because a step and a screen are both entries in the same history
+              and the arrow should not have to know which one it is on. */}
+          <button
+            type="button"
+            onClick={() => (step > 0 ? history.back() : onLeave())}
+            aria-label={T.add.back}
+            className="flex h-9 w-9 items-center justify-center rounded-full
+                       focus-visible:outline focus-visible:outline-2"
+            style={{ color: 'var(--accent)' }}
+          >
+            <BackIcon />
+          </button>
         </div>
         <p className="text-xs font-semibold text-ink-2">{T.add.step(step + 1, STEPS)}</p>
-        <div className="ml-auto flex gap-1" aria-hidden="true">
-          {[0, 1, 2].map(index => (
-            <span
-              key={index}
-              className="h-1.5 w-6 rounded-full"
-              style={{ background: index <= step ? 'var(--accent)' : 'var(--surface-2)' }}
-            />
-          ))}
+        <div className="ml-auto flex items-center gap-2">
+          <div className="flex gap-1" aria-hidden="true">
+            {[0, 1, 2].map(index => (
+              <span
+                key={index}
+                className="h-1.5 w-6 rounded-full"
+                style={{ background: index <= step ? 'var(--accent)' : 'var(--surface-2)' }}
+              />
+            ))}
+          </div>
+          {started && (
+            <button
+              type="button"
+              onClick={cancel}
+              className="shrink-0 rounded-full border border-line px-3 py-1.5 text-xs
+                         font-semibold text-ink-2 focus-visible:outline focus-visible:outline-2"
+            >
+              {T.edit.cancel}
+            </button>
+          )}
         </div>
       </header>
 
@@ -282,18 +321,5 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
       )}
 
     </div>
-  )
-}
-
-/** A drawn chevron, not the `←` character. The glyph is a font's opinion: it
- *  arrives at a different weight and a different vertical offset on every
- *  device, and on Android it sat visibly above the text beside it. */
-function BackIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"
-         className="h-6 w-6" fill="none" stroke="currentColor"
-         strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M15 5l-7 7 7 7" />
-    </svg>
   )
 }

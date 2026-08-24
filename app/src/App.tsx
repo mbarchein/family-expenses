@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { TabBar, type Tab } from './components/TabBar'
+import { TabBar } from './components/TabBar'
 import { T } from './i18n/strings'
 import { AddScreen } from './screens/add/AddScreen'
 import { BalanceScreen } from './screens/BalanceScreen'
@@ -9,6 +9,7 @@ import { PlacesScreen } from './screens/PlacesScreen'
 import { renderSignInButton, setInteractionHandler, setSignedInHandler } from './auth/google'
 import { PRIVACY, TERMS } from './i18n/legal'
 import { useProgress, type Fact } from './lib/progress'
+import { useRoute } from './lib/route'
 import { useLedger } from './store/ledger'
 
 /** How long the splash is allowed to be the whole app before it admits that
@@ -17,7 +18,10 @@ const PATIENCE_MS = 15_000
 
 export default function App() {
   const ledger = useLedger()
-  const [tab, setTab] = useState<Tab>('add')
+  // The screen comes from the address bar rather than from state, so a reload —
+  // including the one the app performs on itself when a new version lands —
+  // reopens what was open. See `lib/route.ts`.
+  const { route, go, back } = useRoute()
   const [needsTap, setNeedsTap] = useState(false)
   const [stuck, setStuck] = useState(false)
 
@@ -64,11 +68,11 @@ export default function App() {
   return (
     <div className="flex h-full flex-col">
       <main className="flex-1 overflow-y-auto">
-        {tab === 'add' && <AddScreen ledger={ledger} />}
-        {tab === 'list' && <ListScreen ledger={ledger} />}
-        {tab === 'balance' && <BalanceScreen ledger={ledger} />}
-        {tab === 'places' && <PlacesScreen />}
-        {tab === 'fixed' && <FixedScreen ledger={ledger} />}
+        {route === 'add' && <AddScreen ledger={ledger} onLeave={back} />}
+        {route === 'list' && <ListScreen ledger={ledger} onBack={back} />}
+        {route === 'balance' && <BalanceScreen ledger={ledger} onBack={back} />}
+        {route === 'places' && <PlacesScreen onBack={back} />}
+        {route === 'fixed' && <FixedScreen ledger={ledger} onBack={back} />}
       </main>
 
       {ledger.pending > 0 && (
@@ -77,7 +81,7 @@ export default function App() {
         </p>
       )}
 
-      <TabBar tab={tab} onChange={setTab} />
+      <TabBar tab={route} onChange={go} />
     </div>
   )
 }

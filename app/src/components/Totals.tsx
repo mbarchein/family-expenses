@@ -33,7 +33,10 @@ export function Totals({ sums, today, filtered, partialSince }: {
       >
         <Cell label={formatMonthShort(sums.previousMonth)} amount={sums.previous} />
         <Cell label={formatMonthShort(today)} amount={sums.current} strong />
-        <Cell label={T.list.thisYear} amount={sums.year} last />
+        {/* The year names itself rather than saying "Año": the cells beside it
+            now carry theirs, and a column labelled only "Año" between two dated
+            ones reads as a different kind of number. */}
+        <Cell label={today.slice(0, 4)} amount={sums.year} last />
       </div>
 
       {(filtered || partialSince) && (
