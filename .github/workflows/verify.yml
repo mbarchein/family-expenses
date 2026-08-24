@@ -141,5 +141,27 @@ jobs:
                 + ". Apps Script has no require(); this would break every request.");
               process.exit(1);
             }
-            console.log("All " + filesToPush.length + " are files Apps Script can run.");
+            // Every pushed file shares one global scope in Apps Script, so two
+            // functions of the same name are not an error there: the last one
+            // loaded silently wins and the other becomes unreachable. This check
+            // exists because a duplicate `doGet` was written, pushed, deployed
+            // and smoke-tested green — `node --check` accepts it, and the
+            // endpoint answered from the other definition.
+            const seen = new Map();
+            const clashes = [];
+            for (const file of filesToPush.filter(f => f.endsWith(".js"))) {
+              const source = fs.readFileSync(file, "utf8");
+              for (const [, name] of source.matchAll(/^function\s+([A-Za-z0-9_$]+)\s*\(/gm)) {
+                if (seen.has(name)) clashes.push(`${name} (${seen.get(name)} and ${file})`);
+                else seen.set(name, file);
+              }
+            }
+            if (clashes.length) {
+              console.error("::error::Two functions with one name, in a single global scope: "
+                + clashes.join("; ") + ". One of them is unreachable.");
+              process.exit(1);
+            }
+
+            console.log("All " + filesToPush.length + " are files Apps Script can run, "
+              + seen.size + " functions, no name used twice.");
           '
