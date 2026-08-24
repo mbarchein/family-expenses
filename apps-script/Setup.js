@@ -158,7 +158,12 @@ function sanityCheck() {
     'Ledger tab:       ' + config.sheetName,
     'Last entry row:   ' + last,
     'Headers:          ' + headers.map(function (h) { return h || '(empty)'; }).join(' | '),
-    'Balance read:     ' + sheet.getRange(last, COL_BALANCE).getValue(),
+    // Both halves on purpose. The rounded one is the number the app shows and
+    // the two of them argue about; the raw one is why it sometimes ends in a
+    // string of nines, which is the spreadsheet's own floating point and not
+    // something this app did to their money.
+    'Balance read:     ' + euros_(sheet.getRange(last, COL_BALANCE).getValue()) +
+      '  (raw: ' + sheet.getRange(last, COL_BALANCE).getValue() + ')',
     'Balance formula:  ' + sheet.getRange(last, COL_BALANCE).getFormula(),
     'Person 1:         ' + config.people[0].name + ' -> column ' + config.people[0].column +
       ' <' + (config.people[0].email || 'NO EMAIL') + '>',
@@ -191,13 +196,21 @@ function sanityCheck() {
       ' neither person, and are being shown to both ***');
   }
 
+  // The Fijos tab, which this report used to say nothing about at all — while
+  // the advice being given was to run *this* function to give that tab its
+  // `desde` and `último` headers. It is `setupSpreadsheet` that writes them, so
+  // the one function anybody runs when something looks wrong had better say
+  // whether they are there.
+  lines.push('Fijos:            ' + describeFixed_());
+
   var withoutId = 0;
   if (last >= 2) {
     sheet.getRange(2, COL_ID, last - 1, 1).getValues().forEach(function (row) {
       if (!String(row[0] || '')) withoutId++;
     });
   }
-  lines.push('Rows without id:  ' + withoutId + ' (read-only from the app; run backfillIds)');
+  lines.push('Rows without id:  ' + withoutId +
+    (withoutId ? ' (read-only from the app; run backfillIds)' : ''));
 
   console.log(lines.join('\n'));
   return lines.join('\n');
@@ -297,6 +310,42 @@ function dumpLedgerShape() {
  * that is not on the list stops a row being proposed at all — and `último`,
  * which is the app's own bookkeeping and not a field to fill in by hand.
  */
+/** Two decimals, the way the app shows it. */
+function euros_(value) {
+  var number = Number(value);
+  return isNaN(number) ? String(value) : number.toFixed(2);
+}
+
+/**
+ * The state of the recurring templates, in one line plus whatever is wrong.
+ *
+ * Deliberately readFixed_ rather than a second reading of the tab: what this has
+ * to report is what the *app* will see, including the rows it refuses and why.
+ * A report that read the cells its own way could say everything is fine about a
+ * tab the app cannot use.
+ */
+function describeFixed_() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FIXED_SHEET);
+  if (!sheet) return 'no tab — run setupSpreadsheet to create it';
+
+  var headed = String(sheet.getRange(1, 7).getValue()).trim() &&
+    String(sheet.getRange(1, 8).getValue()).trim();
+  var fixed = readFixed_();
+  var active = fixed.items.filter(function (item) { return item.active; }).length;
+
+  var line = fixed.items.length + ' templates, ' + active + ' active';
+  if (!headed) {
+    // Without the two headers the tab still reads — the columns are read by
+    // position — but nothing can be written back to `último`, so every period
+    // would be proposed again for ever.
+    line += ' — MISSING the `desde` and `último` headers; run setupSpreadsheet';
+  }
+  if (fixed.problems.length) {
+    line += '\n*** Fijos rows the app is ignoring: ' + fixed.problems.join('; ') + ' ***';
+  }
+  return line;
+}
+
 function annotateFixed_(sheet) {
   sheet.getRange(1, 2).setNote('Vacío = te lo pregunta cada vez (la luz, el agua).');
   sheet.getRange(1, 3).setNote('Día del mes. 31 en un mes de 30 cae el último día.');

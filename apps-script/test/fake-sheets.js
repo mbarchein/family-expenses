@@ -144,7 +144,9 @@ function load() {
   var fs = require('fs')
   var path = require('path')
   var dir = path.join(__dirname, '..')
-  var files = ['Config.js', 'Ledger.js', 'Fixed.js', 'Api.js', 'Setup.js']
+  // Auth.js was missing from this list, so every function in it — including the
+  // one that decides who may use the app — was run by no test at all.
+  var files = ['Config.js', 'Ledger.js', 'Fixed.js', 'Auth.js', 'Api.js', 'Setup.js']
   var source = files
     .filter(function (file) { return fs.existsSync(path.join(dir, file)) })
     .map(function (file) { return fs.readFileSync(path.join(dir, file), 'utf8') })

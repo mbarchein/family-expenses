@@ -244,3 +244,74 @@ test('an unknown action is refused before anything is read', () => {
   assert.equal(answer.ok, false)
   assert.equal(answer.error.code, 'UNKNOWN_ACTION')
 })
+
+/**
+ * sanityCheck: the one function anybody runs when something looks wrong.
+ *
+ * It said nothing whatsoever about the Fijos tab, while the advice being given
+ * was to run it *to fix* that tab — which `setupSpreadsheet` does, not this. A
+ * report that is silent about the newest thing in the model is a report that
+ * hides exactly what is most likely to be broken.
+ */
+test('sanityCheck reports the Fijos tab, its templates and how many are active', () => {
+  world({ fixed: [
+    ['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo', 'desde', 'último'],
+    ['alquiler', 700, 1, 'Viqui', 'mensual', 'si', '', '2026-08-01'],
+    ['luz', '', 15, '', 'bimestral', 'si', '', ''],
+    ['gimnasio', 30, 5, 'Mario', 'mensual', 'no', '', ''],
+  ] })
+
+  const report = sanityCheck()
+  assert.match(report, /Fijos:\s+3 templates, 2 active/)
+  assert.ok(!report.includes('MISSING'), 'the headers are there; nothing to warn about')
+})
+
+test('sanityCheck names the missing headers, and the function that writes them', () => {
+  // The state their spreadsheet was actually in: the tab exists, from before
+  // `desde` and `último` did. It still reads — the columns are read by position
+  // — so nothing looks wrong until every period is proposed again for ever.
+  world({ fixed: [
+    ['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo'],
+    ['alquiler', 700, 1, 'Viqui', 'mensual', 'si'],
+  ] })
+
+  const report = sanityCheck()
+  assert.match(report, /MISSING the `desde` and `último` headers; run setupSpreadsheet/)
+})
+
+test('sanityCheck repeats the rows the app is ignoring, rather than dropping them', () => {
+  world({ fixed: [
+    ['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo', 'desde', 'último'],
+    ['alquiler', 700, 1, 'Viqui', 'cada dos jueves', '', '', ''],
+  ] })
+
+  const report = sanityCheck()
+  assert.match(report, /Fijos rows the app is ignoring: alquiler: periodicidad «cada dos jueves»/)
+  assert.match(report, /0 templates, 0 active/)
+})
+
+test('sanityCheck says nothing about backfillIds when every row has an id', () => {
+  world()
+  assert.match(sanityCheck(), /Rows without id:\s+0$/m)
+})
+
+test('sanityCheck prints the balance in euros as well as raw', () => {
+  // Their own report read `-152.0600000002887`, which is the spreadsheet's
+  // floating point and not something this app did to their money. Both, so that
+  // the number they argue about is the one the app shows.
+  const sheets = world()
+  sheets.gastos.values[sheets.gastos.values.length - 1][4] = -152.0600000002887
+
+  const report = sanityCheck()
+  assert.match(report, /Balance read:\s+-152\.06\s+\(raw: -152\.0600000002887\)/)
+})
+
+test('the accounts allowed to use the app are listed once each', () => {
+  // The owner is also an editor, so the owner arrived twice — and this list is
+  // printed as who may use the app.
+  world()
+  install({}, { editors: ['viqui@example.com', 'mario@example.com'], owner: 'mario@example.com' })
+  const emails = allowedEmails_()
+
+  assert.deepEqual(emails, ['viqui@example.com', 'mario@example.com'])
+})

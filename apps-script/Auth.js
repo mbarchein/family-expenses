@@ -99,7 +99,11 @@ function allowedEmails_() {
     emails = people
       .filter(function (p) { return p; })
       .map(function (p) { return String(p.getEmail() || '').toLowerCase(); })
-      .filter(function (e) { return e; });
+      // Deduped, because the owner is also an editor and so arrives twice. It
+      // changes no decision — `indexOf` is as happy either way — but this list is
+      // printed by sanityCheck as who may use the app, and an address listed
+      // twice reads as a second account that is not there.
+      .filter(function (email, at, all) { return email && all.indexOf(email) === at; });
   } catch (err) {
     console.warn('getEditors() failed (%s); falling back to the Config emails', err);
     emails = [];
