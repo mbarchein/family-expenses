@@ -198,7 +198,18 @@ function Details({ facts }: { facts: readonly Fact[] }) {
             {/* `break-all`, not `break-words`: the values that matter most here
                 are a URL and a deployment id, which have no spaces to break at
                 and would otherwise push the layout sideways. */}
-            <dd className="break-all">{fact.value}</dd>
+            <dd className="break-all">
+              {/* The endpoint is a link because opening it in a tab is the one
+                  check that settles what a CORS failure was: JSON means the
+                  deployment is alive and public, a Google login page means it is
+                  not. Asking somebody to copy a 90-character URL off a phone
+                  screen instead is asking them not to do it. */}
+              {fact.value.startsWith('https://')
+                ? <a href={fact.value} target="_blank" rel="noreferrer" className="underline">
+                    {fact.value}
+                  </a>
+                : fact.value}
+            </dd>
           </div>
         ))}
       </dl>

@@ -61,7 +61,12 @@ jobs:
           # panel behind a failure. Not a nicety: "antes funcionaba" is a claim
           # about two versions, and without this there is no way to tell from the
           # phone which of them is on it — including whether it ever picked up
-          # the fix it is being asked about. A local or CI build says 'dev'.
+          # the fix it is being asked about.
+          #
+          # Belt and braces, and the braces are the ones that hold: this variable
+          # did not reach the bundle on the deploy that introduced it — the phone
+          # reported `Versión: dev` — so `vite.config.ts` reads the commit from
+          # git, where the build actually runs, and only falls back to this.
           VITE_BUILD: ${{ github.sha }}
           # Printed on the two legal pages. Absent, they say so rather than
           # showing a gap — which is why preflight does not gate on it: a

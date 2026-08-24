@@ -140,12 +140,16 @@ test('the details say which server, which build and which session', async ({ pag
   await page.getByText('Detalles').click()
   const panel = page.locator('details')
   await expect(panel).toContainText('Servidor')
-  await expect(panel).toContainText('script.google.com')
+  // A link, because opening it settles what the CORS failure was.
+  await expect(panel.getByRole('link', { name: /script\.google\.com/ })).toBeVisible()
   await expect(panel).toContainText('Petición')
   await expect(panel).toContainText('bootstrap')
   // The browser's own words, which are the ones worth quoting to anyone else.
   await expect(panel).toContainText(/Respuesta.*(TypeError|Failed)/s)
-  await expect(panel).toContainText('Versión')
+  // A real commit and a date, never 'dev': a bundle that reached a phone without
+  // its stamp is the one thing the stamp exists to rule out, and it has already
+  // happened once.
+  await expect(panel).toContainText(/Versión\s*[0-9a-f]{7} · \d{4}-\d{2}-\d{2}/)
   await expect(panel).toContainText('Sesión')
   await expect(panel).toContainText('válida')
   await expect(panel).toContainText('mario@example.invalid')

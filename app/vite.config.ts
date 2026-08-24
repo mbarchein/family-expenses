@@ -1,8 +1,50 @@
+import { execSync } from 'node:child_process'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+/**
+ * Which commit this bundle is, worked out here rather than passed in.
+ *
+ * It was a `VITE_BUILD` in the deploy workflow's environment for exactly one
+ * deploy, and the phone reported `Versión: dev` — a bundle that had reached
+ * production without the stamp, which is the one thing the stamp exists to rule
+ * out. Reading git where the build actually runs cannot fail that way: the
+ * workflow builds from a checkout, and so does every other path that produces a
+ * bundle. The environment variable still wins when it is set, for a build that
+ * has no git.
+ *
+ * Both halves are here on purpose. A sha answers "is this the fix?", and the
+ * date answers it again for anyone without the commits to hand — including
+ * when the sha is somehow missing, which is what happened.
+ */
+function stamp(): { build: string; built: string } {
+  const fromEnv = process.env.VITE_BUILD?.trim()
+  if (fromEnv) return { build: fromEnv.slice(0, 7), built: today() }
+  try {
+    return {
+      build: execSync('git rev-parse --short=7 HEAD', { encoding: 'utf8' }).trim() || 'dev',
+      built: today(),
+    }
+  } catch {
+    // No git and no variable: a tarball, or a sandbox. Saying 'dev' is honest.
+    return { build: 'dev', built: today() }
+  }
+}
+
+function today(): string {
+  return new Date().toISOString().slice(0, 16).replace('T', ' ')
+}
+
+const VERSION = stamp()
+
 export default defineConfig({
+  define: {
+    // Inlined as literals, so nothing here depends on the VITE_ prefix reaching
+    // `import.meta.env` through whichever tool is driving the build.
+    __BUILD__: JSON.stringify(VERSION.build),
+    __BUILT_AT__: JSON.stringify(VERSION.built),
+  },
   plugins: [
     react(),
     VitePWA({

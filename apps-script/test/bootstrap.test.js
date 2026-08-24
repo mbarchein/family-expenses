@@ -215,3 +215,32 @@ test('marking a period done refuses a row and a date that are not one', () => {
 
   assert.deepEqual(setFixedDone_({ row: 2, due: '2026-08-01' }), { row: 2, last: '2026-08-01' })
 })
+
+/**
+ * The health GET, which exists to be opened in a browser tab when the app says
+ * `Failed to fetch` and nobody can tell whether the deployment is alive.
+ */
+test('doGet answers without a token, and carries no ledger with it', () => {
+  world()
+  const answer = JSON.parse(doGet().getContent())
+
+  assert.equal(answer.ok, true)
+  assert.equal(answer.data.service, 'a-medias')
+  // Deliberately nothing else. Anything it looked up could fail on its own and
+  // muddy the single bit of information it exists to carry, and a public
+  // endpoint is not a place to put a household's expenses.
+  const carried = JSON.stringify(answer)
+  for (const leak of ['compra', 'Viqui', 'Mario', 'id-', 'diferencia']) {
+    assert.ok(!carried.includes(leak), `doGet leaked ${leak}`)
+  }
+})
+
+test('an unknown action is refused before anything is read', () => {
+  // What the app's reachability probe sends. It must not append, not read the
+  // ledger, and not need a credential to be told no.
+  world()
+  const answer = JSON.parse(doPost({ postData: { contents: '{"action":"ping"}' } }).getContent())
+
+  assert.equal(answer.ok, false)
+  assert.equal(answer.error.code, 'UNKNOWN_ACTION')
+})

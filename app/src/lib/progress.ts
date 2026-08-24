@@ -131,9 +131,12 @@ export function describeDevice(labels: {
   state(labels.worker, navigator.serviceWorker?.controller ? labels.yes : labels.no)
 }
 
-/** Stamped in by the deploy workflow; 'dev' in a local or CI build. A commit and
- *  nothing else: it is printed on a screen the two users can photograph. */
-const BUILD = (import.meta.env.VITE_BUILD as string | undefined)?.slice(0, 7) || 'dev'
+/** Stamped in by `vite.config.ts`, from git or from the environment. A commit
+ *  and a date, and nothing else: this is printed on a screen the two users can
+ *  photograph and send to somebody. */
+declare const __BUILD__: string
+declare const __BUILT_AT__: string
+const BUILD = `${__BUILD__} · ${__BUILT_AT__}`
 
 export function watchForFaults() {
   window.addEventListener('error', event => {

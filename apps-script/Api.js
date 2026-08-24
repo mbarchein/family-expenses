@@ -41,6 +41,32 @@ var ACTIONS = {
   fixedDone: handleFixedDone_
 };
 
+/**
+ * A GET that answers a single question: is this deployment alive and public?
+ *
+ * It exists because of the failure it was written during. The app reported
+ * `TypeError: Failed to fetch` against this URL, which the browser gives for two
+ * unrelated things — a request that never arrived, and an answer with no
+ * `Access-Control-Allow-Origin`. An Apps Script deployment that wants a Google
+ * login is the second one, and from inside a browser the two are
+ * indistinguishable.
+ *
+ * From outside a browser they are not. Opening this URL in a tab now gives one
+ * of four unambiguous answers, and each names its own fix:
+ *
+ *   - this JSON            → the deployment is public and authorized
+ *   - a Google login page  → it is not published for "anyone"
+ *   - "Se necesita autorización" → the owner must authorize the new version
+ *   - a 404                → the URL is not this deployment any more
+ *
+ * It carries no data and needs no token, which is the whole point: anything it
+ * had to look up could fail for its own reasons and muddy the one bit of
+ * information it exists to carry. The ledger is not readable through here.
+ */
+function doGet() {
+  return json_({ ok: true, data: { service: 'a-medias', endpoint: 'alive' } });
+}
+
 function doPost(e) {
   try {
     var body = parseBody_(e);
