@@ -49,6 +49,12 @@ var FIXED_CADENCES = {
 /**
  * Every template on the tab, with its problems named rather than dropped.
  *
+ * The problems are English prose around Spanish nouns, and that is the rule
+ * rather than an accident: `periodicidad`, `dia` and `persona` are the tab's own
+ * column headers, so they are the users' data and are quoted as they appear —
+ * while the sentence around them is read by whoever runs `sanityCheck`, which is
+ * us. Nothing here reaches the app; if it ever does, it needs translating first.
+ *
  * A row the app cannot use is reported instead of vanishing — the same rule the
  * Sugerencias tab follows, and for the same reason: a row that disappears
  * without saying why is a bug the app gets blamed for.
@@ -70,19 +76,19 @@ function readFixed_() {
 
     var cadence = FIXED_CADENCES[fold_(row[4])] || (fold_(row[4]) === '' ? 1 : 0);
     if (!cadence) {
-      problems.push(concept + ': periodicidad «' + row[4] + '» no reconocida');
+      problems.push(concept + ': periodicidad «' + row[4] + '» is not a cadence we know');
       return;
     }
 
     var day = Number(row[2]) || 1;
     if (day < 1 || day > 31) {
-      problems.push(concept + ': dia ' + row[2] + ' fuera de 1..31');
+      problems.push(concept + ': dia ' + row[2] + ' is outside 1..31');
       return;
     }
 
     var who = fold_(row[3]);
     var person = who ? names.indexOf(who) : -1;
-    if (who && person === -1) problems.push(concept + ': persona «' + row[3] + '» no es ninguna de las dos');
+    if (who && person === -1) problems.push(concept + ': persona «' + row[3] + '» is neither of the two');
 
     items.push({
       row: rowNumber,

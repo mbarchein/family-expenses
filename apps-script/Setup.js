@@ -185,8 +185,11 @@ function sanityCheck() {
   var suggestions = readSuggestions_();
   var counts = { concept: 0, note: 0, method: 0 };
   suggestions.items.forEach(function (item) { counts[item.kind]++; });
-  lines.push('Sugerencias:      ' + counts.method + ' medios, ' + counts.concept +
-    ' conceptos, ' + counts.note + ' observaciones');
+  // The tab is `Sugerencias` because that is what it is called in their
+  // spreadsheet; what is counted is described in English like the rest of this
+  // report, which nobody but us reads.
+  lines.push('Sugerencias:      ' + plural_(counts.method, 'method') + ', ' +
+    plural_(counts.concept, 'concept') + ', ' + plural_(counts.note, 'note'));
   if (suggestions.unknownKind) {
     lines.push('*** ' + suggestions.unknownKind + ' row(s) in Sugerencias have a `tipo` that is' +
       ' none of concepto/observacion/medio, and are ignored ***');
@@ -310,6 +313,12 @@ function dumpLedgerShape() {
  * that is not on the list stops a row being proposed at all — and `último`,
  * which is the app's own bookkeeping and not a field to fill in by hand.
  */
+/** "1 template", "3 templates". A report that says "1 methods" reads as one
+ *  written by nobody, which is a poor advertisement for the numbers in it. */
+function plural_(count, noun) {
+  return count + ' ' + noun + (count === 1 ? '' : 's');
+}
+
 /** Two decimals, the way the app shows it. */
 function euros_(value) {
   var number = Number(value);
@@ -333,7 +342,7 @@ function describeFixed_() {
   var fixed = readFixed_();
   var active = fixed.items.filter(function (item) { return item.active; }).length;
 
-  var line = fixed.items.length + ' templates, ' + active + ' active';
+  var line = plural_(fixed.items.length, 'template') + ', ' + active + ' active';
   if (!headed) {
     // Without the two headers the tab still reads — the columns are read by
     // position — but nothing can be written back to `último`, so every period

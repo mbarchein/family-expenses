@@ -263,6 +263,8 @@ test('sanityCheck reports the Fijos tab, its templates and how many are active',
 
   const report = sanityCheck()
   assert.match(report, /Fijos:\s+3 templates, 2 active/)
+  // "1 templates" would read as a report written by nobody.
+  assert.ok(!/\b1 \w+s\b/.test(report), 'nothing plural should be counted as one')
   assert.ok(!report.includes('MISSING'), 'the headers are there; nothing to warn about')
 })
 
@@ -286,7 +288,8 @@ test('sanityCheck repeats the rows the app is ignoring, rather than dropping the
   ] })
 
   const report = sanityCheck()
-  assert.match(report, /Fijos rows the app is ignoring: alquiler: periodicidad «cada dos jueves»/)
+  assert.match(report,
+    /Fijos rows the app is ignoring: alquiler: periodicidad «cada dos jueves» is not a cadence/)
   assert.match(report, /0 templates, 0 active/)
 })
 
