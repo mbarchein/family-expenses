@@ -168,6 +168,43 @@ jobs:
           printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
           printf '{"scriptId":"%s","rootDir":"./apps-script"}' "$SCRIPT_ID" > .clasp.json
 
+      # clasp answers every problem with this file the same way: "Could not read
+      # API credentials. Are you logged in globally?" — which sends the reader
+      # looking for a login that is missing when what is actually wrong is the
+      # secret's content. So say what arrived, without echoing any of it: a byte
+      # count and the top-level key names are enough to tell an empty paste from
+      # a truncated one from a session written by the wrong major version of
+      # clasp, and none of the three is a credential.
+      - name: Check the clasp session is the shape clasp 2 reads
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = process.env.HOME + "/.clasprc.json";
+            const raw = fs.readFileSync(path, "utf8");
+            console.log("bytes: " + raw.length);
+            let parsed;
+            try {
+              parsed = JSON.parse(raw);
+            } catch (err) {
+              console.error("Not JSON: " + err.message);
+              console.error("CLASPRC_JSON did not survive the trip. Check the heredoc in terraform.tfvars.");
+              process.exit(1);
+            }
+            const keys = Object.keys(parsed);
+            console.log("top-level keys: " + keys.join(", "));
+            if (parsed.token && parsed.token.refresh_token) {
+              console.log("clasp 2 session, refresh token present");
+            } else if (parsed.tokens) {
+              console.error("This is a clasp 3 session — a `tokens` map rather than a `token` object.");
+              console.error("The steps below run clasp 2, which will not read it. Redo `clasp login`");
+              console.error("with @google/clasp@2 and put the new ~/.clasprc.json in terraform.tfvars.");
+              process.exit(1);
+            } else {
+              console.error("Neither a `token` object nor a `tokens` map. Not a clasp session at all.");
+              process.exit(1);
+            }
+          '
+
       - name: Push and redeploy
         env:
           DEPLOYMENT_ID: ${{ vars.DEPLOYMENT_ID }}

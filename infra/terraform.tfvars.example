@@ -29,6 +29,10 @@ apps_script_deployment_id = ""
 # To keep the refresh token out of this file altogether, pass it through the
 # environment instead and leave the heredoc out:
 #   export TF_VAR_clasprc_json="$(cat ~/.clasprc.json)"
+# The shape below is only there to show which one is right: clasp 2 writes a
+# `token` object, clasp 3 writes a `tokens` map, and the deploy workflow runs
+# clasp 2 and will not read a clasp 3 session. Paste your own file verbatim
+# rather than filling this in field by field.
 clasprc_json = <<-EOT
-{"tokens":{"default":{"client_id":"...","refresh_token":"..."}}}
+{"token":{"access_token":"...","refresh_token":"...","token_type":"Bearer"},"oauth2ClientSettings":{"clientId":"...","clientSecret":"...","redirectUri":"http://localhost"},"isLocalCreds":false}
 EOT
