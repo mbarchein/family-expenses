@@ -62,7 +62,9 @@ export interface DraftStore {
    *  flash an empty form over one that was half filled in. */
   ready: boolean
   patch: (fields: Partial<Draft>) => void
-  reset: () => void
+  /** Resolves once the draft is off the disk, so a caller that is about to
+   *  navigate can be sure of it. See `reset` below for why that matters. */
+  reset: () => Promise<void>
 }
 
 export function useDraft(defaultPayer: 0 | 1): DraftStore {
@@ -100,10 +102,25 @@ export function useDraft(defaultPayer: 0 | 1): DraftStore {
     })
   }, [])
 
+  /**
+   * Thrown away, and the promise says when it is actually gone.
+   *
+   * `patch` writes without awaiting on purpose — a keypad that waited for
+   * IndexedDB before repainting would feel like it was thinking, and a write
+   * that is a few milliseconds late costs nothing when the state on screen is
+   * already right. This is the one case where it is not the same: the state on
+   * screen is empty and the disk still holds what was cancelled, so an app
+   * killed in that window comes back offering the entry that was just thrown
+   * away. CI caught exactly that — a cancel and an immediate reload, and the
+   * amount was still there.
+   *
+   * The repaint still does not wait: `setDraft` happens first and the promise is
+   * for whoever has a reason to care.
+   */
   const reset = useCallback(() => {
     const fresh = emptyDraft(defaultPayer)
     setDraft(fresh)
-    void idb.del('draft', KEY)
+    return idb.del('draft', KEY)
   }, [defaultPayer])
 
   return { draft, ready, patch, reset }

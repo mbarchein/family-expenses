@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
-import { LAST_YEAR, bootstrap, entry, MARIO, signIn, stubApi, stubGoogle, TODAY } from './harness'
+import {
+  LAST_YEAR, bootstrap, entry, MARIO, signIn, storedDraft, stubApi, stubGoogle, TODAY,
+} from './harness'
 
 /**
  * Getting around: five screens, five addresses, and a way back from each.
@@ -104,6 +106,12 @@ test('a cancelled entry does not come back on the next open', async ({ page }) =
 
   await page.getByRole('button', { name: '5', exact: true }).click()
   await page.getByRole('button', { name: 'Cancelar' }).click()
+
+  // Waited for rather than assumed. The draft is written without being awaited,
+  // so on a fast machine the reload can beat the delete to the disk — which is
+  // how this test failed in CI and passed here, and it was the app that was
+  // wrong: `reset` now says when the draft is actually gone.
+  await expect.poll(() => storedDraft(page).then(draft => draft?.typed ?? null)).toBe(null)
   await page.reload()
 
   await expect(page.getByText('Paso 1 de 3')).toBeVisible()

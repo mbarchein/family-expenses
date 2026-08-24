@@ -165,7 +165,11 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
    * the next open is not a cancelled entry.
    */
   function cancel() {
-    reset()
+    // Not awaited before the screen changes — the draft in memory is already
+    // empty, so the repaint is honest — but not dropped either: the promise is
+    // what makes the delete reach the disk before an app that is being closed
+    // stops running its own code.
+    void reset()
     setPlace({ kind: 'off' })
     setProblem(null)
     rewind()
@@ -218,7 +222,7 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
       void ledger.settleFixed(settling.row, settling.due).catch(() => {})
     }
 
-    reset()
+    await reset()
     setPlace({ kind: 'off' })
     setProblem(null)
     // Back to where the flow started, so the steps just walked through are not
@@ -300,7 +304,7 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
           // the second can land before the first popstate has been handled.
           onEdit={target => history.go(target - step)}
           onSave={save}
-          onDiscard={() => { reset(); setPlace({ kind: 'off' }); rewind() }}
+          onDiscard={() => { void reset(); setPlace({ kind: 'off' }); rewind() }}
         />
       )}
 
