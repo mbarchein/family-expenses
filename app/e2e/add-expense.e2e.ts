@@ -210,3 +210,28 @@ test('an account that is neither of the two can look but not write', async ({ pa
 
   await expect(page.getByRole('button', { name: 'Guardar' })).toBeDisabled()
 })
+
+test('the header stays put when the step changes', async ({ page }) => {
+  // It did not. The back arrow appeared on step two where step one had a narrow
+  // spacer, so the step counter and the progress pills shifted sideways and down
+  // at the exact moment the screen changed — the one moment the eye is on them.
+  await stubApi(page)
+  await signIn(page)
+
+  const counter = page.locator('header p')
+  const before = await counter.boundingBox()
+
+  await typeAmount(page, '10')
+  await next(page)
+  await expect(page.getByText('Paso 2 de 3')).toBeVisible()
+
+  const after = await counter.boundingBox()
+  expect(after!.x).toBeCloseTo(before!.x, 0)
+  expect(after!.y).toBeCloseTo(before!.y, 0)
+
+  // And the arrow that appeared is drawn, not typed: a font glyph lands at a
+  // different height on every device.
+  const back = page.getByRole('button', { name: 'Atrás' })
+  await expect(back.locator('svg')).toBeVisible()
+  await expect(back).not.toContainText('←')
+})

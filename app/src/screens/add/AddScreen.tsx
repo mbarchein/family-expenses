@@ -130,20 +130,26 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
   // in the middle of an otherwise dense step.
   return (
     <div className="relative flex h-full flex-col justify-between gap-2 p-4">
-      <header className="flex items-center gap-3">
-        {step > 0 ? (
-          <button
-            type="button"
-            onClick={() => history.back()}
-            aria-label={T.add.back}
-            className="-ml-1 px-1 text-lg font-semibold focus-visible:outline focus-visible:outline-2"
-            style={{ color: 'var(--accent)' }}
-          >
-            ←
-          </button>
-        ) : (
-          <span className="w-3" />
-        )}
+      <header className="flex items-center gap-2">
+        {/* A slot of a fixed size, empty on the first step rather than absent.
+            The arrow used to be swapped for a narrower spacer, which changed the
+            row's width *and* its height — so "Paso 2 de 3" and the progress pills
+            visibly jumped the moment the step changed. An empty box the same size
+            as the button is the whole fix. */}
+        <div className="-ml-2 flex h-9 w-9 shrink-0 items-center justify-center">
+          {step > 0 && (
+            <button
+              type="button"
+              onClick={() => history.back()}
+              aria-label={T.add.back}
+              className="flex h-9 w-9 items-center justify-center rounded-full
+                         focus-visible:outline focus-visible:outline-2"
+              style={{ color: 'var(--accent)' }}
+            >
+              <BackIcon />
+            </button>
+          )}
+        </div>
         <p className="text-xs font-semibold text-ink-2">{T.add.step(step + 1, STEPS)}</p>
         <div className="ml-auto flex gap-1" aria-hidden="true">
           {[0, 1, 2].map(index => (
@@ -202,5 +208,18 @@ export function AddScreen({ ledger }: { ledger: Ledger }) {
         </div>
       )}
     </div>
+  )
+}
+
+/** A drawn chevron, not the `←` character. The glyph is a font's opinion: it
+ *  arrives at a different weight and a different vertical offset on every
+ *  device, and on Android it sat visibly above the text beside it. */
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"
+         className="h-6 w-6" fill="none" stroke="currentColor"
+         strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 5l-7 7 7 7" />
+    </svg>
   )
 }
