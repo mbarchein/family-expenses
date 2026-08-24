@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Segmented } from '../components/Segmented'
+import { Totals } from '../components/Totals'
 import { T } from '../i18n/strings'
-import { formatDayHeading } from '../lib/dates'
+import { formatDayHeading, formatShortDate, todayIso } from '../lib/dates'
 import { formatEur } from '../lib/money'
+import { earliestDay, summarise, yearIsPartial } from '../lib/totals'
 import type { Entry } from '../api/types'
 import type { Ledger } from '../store/ledger'
 import { EditSheet } from './EditSheet'
@@ -13,7 +15,17 @@ export function ListScreen({ ledger }: { ledger: Ledger }) {
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<Entry | null>(null)
 
-  const days = useMemo(() => groupByDay(ledger.entries, filter, query), [ledger.entries, filter, query])
+  // Filtered once, used three times: the list, the day totals and the strip must
+  // agree about what is on screen, and three copies of the same two conditions
+  // is three chances for them to stop agreeing.
+  const shown = useMemo(() => matching(ledger.entries, filter, query), [ledger.entries, filter, query])
+  const days = useMemo(() => groupByDay(shown), [shown])
+  const today = todayIso()
+  const sums = useMemo(() => summarise(shown, today), [shown, today])
+
+  // Coverage is a property of the window the app loaded, not of the filter, so
+  // it is measured over everything rather than over what is on screen.
+  const from = useMemo(() => earliestDay(ledger.entries), [ledger.entries])
 
   if (!people) return null
 
@@ -37,6 +49,13 @@ export function ListScreen({ ledger }: { ledger: Ledger }) {
         type="search"
         className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink
                    placeholder:text-ink-3 focus-visible:outline focus-visible:outline-2"
+      />
+
+      <Totals
+        sums={sums}
+        today={today}
+        filtered={filter !== 'all' || Boolean(query.trim())}
+        partialSince={yearIsPartial(from, today) ? formatShortDate(from!) : null}
       />
 
       {!days.length && (
@@ -102,6 +121,14 @@ export function ListScreen({ ledger }: { ledger: Ledger }) {
 
 interface Day { date: string; total: number; entries: Entry[] }
 
+/** The entries a person filter and a search leave standing. */
+function matching(entries: Entry[], filter: string, query: string): Entry[] {
+  const needle = query.trim().toLowerCase()
+  return entries.filter(entry =>
+    (filter === 'all' || entry.payer === Number(filter)) &&
+    (!needle || entry.concept.toLowerCase().includes(needle)))
+}
+
 /**
  * Groups into days, newest first.
  *
@@ -110,14 +137,10 @@ interface Day { date: string; total: number; entries: Entry[] }
  * app and the sheet telling different stories. They contribute nothing to the
  * day's total, because their amounts are gone.
  */
-function groupByDay(entries: Entry[], filter: string, query: string): Day[] {
-  const needle = query.trim().toLowerCase()
+function groupByDay(entries: Entry[]): Day[] {
   const days = new Map<string, Day>()
 
   for (const entry of entries) {
-    if (filter !== 'all' && entry.payer !== Number(filter)) continue
-    if (needle && !entry.concept.toLowerCase().includes(needle)) continue
-
     const day = days.get(entry.date) ?? { date: entry.date, total: 0, entries: [] }
     day.entries.push(entry)
     if (!entry.voided) day.total += entry.amount

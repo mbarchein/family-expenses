@@ -49,3 +49,12 @@ export function formatDayShort(iso: string): string {
     .format(new Date(y, m - 1, d))
     .replace(/\./g, '')
 }
+
+/** The month of a `YYYY-MM` or `YYYY-MM-DD`, abbreviated: "jul". Used as the
+ *  label of a total, where the year is either obvious or is the other column. */
+export function formatMonthShort(iso: string): string {
+  const [y, m] = iso.split('-').map(Number)
+  return new Intl.DateTimeFormat('es-ES', { month: 'short' })
+    .format(new Date(y, m - 1, 1))
+    .replace(/\./g, '')
+}

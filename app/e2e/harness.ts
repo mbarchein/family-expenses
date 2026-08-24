@@ -26,6 +26,25 @@ function fakeCredential(email: string): string {
 export const VIQUI = 0
 export const MARIO = 1
 
+/**
+ * The fixture's days, worked out from the real clock rather than written down.
+ *
+ * A hardcoded '2026-08-23' is in "this month" for a few weeks and then silently
+ * is not, which would make the totals over the list a test that passes today and
+ * fails in September for no reason anybody could see. `new Date(y, m - 1, …)`
+ * rolls the year back on its own, so January needs no special case.
+ */
+const iso = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` +
+  `-${String(date.getDate()).padStart(2, '0')}`
+
+const now = new Date()
+export const TODAY = iso(now)
+export const PREVIOUS_MONTH = iso(new Date(now.getFullYear(), now.getMonth() - 1, 15))
+/** June of last year: far enough back that it is never "the previous month",
+ *  whatever today is — including the first of January. */
+export const LAST_YEAR = iso(new Date(now.getFullYear() - 1, 5, 15))
+
 export function bootstrap(overrides: Partial<Bootstrap> = {}): Bootstrap {
   return {
     user: { email: 'mario@example.invalid', name: 'Mario' },
@@ -39,8 +58,11 @@ export function bootstrap(overrides: Partial<Bootstrap> = {}): Bootstrap {
     },
     balance: 1435.94,
     entries: [
-      entry({ row: 2298, id: 'one', date: '2026-08-23', concept: 'super', amount: 326.72, payer: VIQUI }),
-      entry({ row: 2297, id: 'two', date: '2026-08-22', concept: 'gasolina', amount: 60, payer: MARIO }),
+      entry({ row: 2298, id: 'one', date: TODAY, concept: 'super', amount: 326.72, payer: VIQUI }),
+      entry({ row: 2297, id: 'two', date: TODAY, concept: 'gasolina', amount: 60, payer: MARIO }),
+      entry({ row: 2296, id: 'three', date: PREVIOUS_MONTH, concept: 'luz', amount: 100, payer: MARIO }),
+      // Last year's, so the year total has something to exclude.
+      entry({ row: 2295, id: 'four', date: LAST_YEAR, concept: 'seguro', amount: 1000, payer: VIQUI }),
     ],
     // More concepts than the grid has tiles, on purpose: the cut is what the
     // grid is, and a fixture that fits inside it would never test the cut.

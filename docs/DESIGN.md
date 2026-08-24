@@ -333,6 +333,28 @@ uploads in the background.
 The last few months grouped by day, filterable by person, searchable by concept.
 Swipe to edit or void. Either person can edit any row.
 
+Over the list, three totals: **last month, this month, this year**. They are
+computed from the entries the list is showing, so they follow the filter and the
+search — which is the point, because the useful question is rarely "what have we
+spent" but "what has *this* cost us", and the answer has to change when the
+question does. The strip says **Solo lo filtrado** whenever one is on: three euro
+amounts read as the household's total whatever produced them, and a filtered
+number wearing that look is a wrong number rather than a narrow one.
+
+The year is the honest one. The app holds the last few hundred rows, not the
+whole sheet — see `TAIL_ROWS` — so on a busy ledger the year total is a floor,
+and the strip prints the day it counts from when that is the case rather than
+letting a floor pass for a total. Fixing it properly is a choice between a bigger
+payload on every open and a number computed in the backend that could not follow
+the filter; neither is worth doing before somebody says the floor is not enough.
+
+Months are compared as `YYYY-MM` string prefixes rather than as dates: the ledger
+stores days as strings, nothing here needs arithmetic on them, and going through
+`Date` would add a timezone that can move an expense into the wrong month at
+midnight on the first. What it does need is that the month before January is
+December of the year before, which `month - 1` gets wrong once a year, so there
+is a test for exactly that.
+
 ### Diferencia
 
 The running total, large, named for whoever is ahead. Below it the splitter:
@@ -482,7 +504,7 @@ names.
 
 **Tests.** Vitest over the pieces that cannot be wrong: the C/D column reader,
 the transfer splitter, the concept matcher, the distance between two points on
-the ground, and the icon a concept is given.
+the ground, the icon a concept is given, and the totals over the list.
 
 Playwright over the bundle in a browser, at the size of a phone, with Google and
 the backend replaced by doubles — `app/e2e/`. It exists because of what it
