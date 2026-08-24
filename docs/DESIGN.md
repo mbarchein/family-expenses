@@ -237,7 +237,10 @@ expense.
 
 **GitHub Actions.** `verificar` runs lint, typecheck, tests and build on every
 push and pull request. `desplegar` runs only after it passes, and publishes the
-app plus, when `apps-script/` changed, the backend.
+app and the backend. The backend goes out on every run rather than only when
+`apps-script/` changed: the change detection compared the last commit against
+its parent, which is not the same as the push, so a merge of two commits could
+skip the backend deploy in green. The comment in the workflow has the detail.
 
 Cloudflare Pages was the first choice and was dropped: Spanish ISPs block
 Cloudflare IP ranges on match days, and an app that does not open at weekends is

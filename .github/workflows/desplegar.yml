@@ -1,6 +1,6 @@
 name: desplegar
 
-# Publishes the app, and the backend when it changed.
+# Publishes the app and the backend, both on every run.
 #
 # Gated on `verificar`: Vercel's own Git integration would deploy every push the
 # moment it lands, checks or no checks, so it stays DISCONNECTED and the deploy
@@ -125,6 +125,21 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
+  # Deploys unconditionally. There used to be a step that asked whether
+  # `apps-script/` had changed and skipped the rest if it had not, and it was
+  # wrong in a way that is invisible: it compared HEAD against HEAD^, which is
+  # the last commit of a push and not the push. A merge that brought two commits
+  # to main — one touching apps-script/, one not — reported "unchanged" and
+  # skipped, in green, and the backend silently stayed a version behind.
+  #
+  # Getting the range right is harder than it looks: this workflow is triggered
+  # by workflow_run, which carries the head of the push but not what preceded
+  # it, so there is nothing to diff against without keeping state somewhere.
+  # Pushing every time costs a few seconds and one Apps Script version per push
+  # to main, including the doc-only ones. That is the accepted price, and it is
+  # the tradeoff the old comment already claimed to be making: erring towards an
+  # unnecessary push is harmless, erring the other way ships an app talking to
+  # yesterday's backend.
   backend:
     needs: preflight
     if: needs.preflight.outputs.clasp == 'true'
@@ -133,23 +148,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
-          fetch-depth: 2
-
-      - id: changed
-        name: Did the backend change?
-        run: |
-          # No parent commit means nothing to compare against, so treat it as
-          # changed: erring towards an unnecessary push is harmless, erring the
-          # other way ships an app talking to yesterday's backend.
-          if git rev-parse --verify --quiet HEAD^ >/dev/null \
-             && git diff --quiet HEAD^ HEAD -- apps-script/; then
-            echo "value=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=true" >> "$GITHUB_OUTPUT"
-          fi
 
       - uses: actions/setup-node@v7
-        if: steps.changed.outputs.value == 'true'
         with:
           node-version: 24
 
@@ -161,7 +161,6 @@ jobs:
       # a secret pasted straight into a shell command is one stray quote away
       # from being executed instead of stored.
       - name: Restore the clasp session
-        if: steps.changed.outputs.value == 'true'
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
           SCRIPT_ID: ${{ vars.SCRIPT_ID }}
@@ -170,7 +169,6 @@ jobs:
           printf '{"scriptId":"%s","rootDir":"./apps-script"}' "$SCRIPT_ID" > .clasp.json
 
       - name: Push and redeploy
-        if: steps.changed.outputs.value == 'true'
         env:
           DEPLOYMENT_ID: ${{ vars.DEPLOYMENT_ID }}
         run: |
