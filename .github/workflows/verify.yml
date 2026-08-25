@@ -141,6 +141,19 @@ jobs:
                 + ". Apps Script has no require(); this would break every request.");
               process.exit(1);
             }
+            // Invisible junk. A NUL byte reached Setup.js through a string that
+            // was meant to hold a space: it worked, because a NUL is a valid
+            // separator inside a JS string, and it made grep call the file
+            // binary. Anything unprintable in a file bound for Google is a
+            // mistake nobody can see in a diff.
+            const dirty = filesToPush.filter(f => /[\x00-\x08\x0b\x0c\x0e-\x1f]/
+              .test(fs.readFileSync(f, "utf8")));
+            if (dirty.length) {
+              console.error("::error::Control characters in " + dirty.join(", ")
+                + ". Invisible in a diff, pushed to Apps Script all the same.");
+              process.exit(1);
+            }
+
             // Every pushed file shares one global scope in Apps Script, so two
             // functions of the same name are not an error there: the last one
             // loaded silently wins and the other becomes unreachable. This check

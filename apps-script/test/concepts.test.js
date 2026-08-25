@@ -49,7 +49,7 @@ test('super and supermercado are one group, and the common one is kept', () => {
   const report = conceptGroups()
 
   assert.match(report, /Groups proposed:\s+1 \(37 rows would change\)/)
-  assert.match(report, /KEEP super \(112\)\s+<-\s+supermercado \(37\) \[prefix\]/)
+  assert.match(report, /super \(112\) {2}<- {2}supermercado \(37\) \[prefix\]/)
 })
 
 test('the case and the accents alone are a group', () => {
@@ -70,7 +70,7 @@ test('a plural and a word order are named as what they are', () => {
 
 test('a typo joins the word it is a typo of', () => {
   world([['gasolina', 20], ['gasolna', 2]])
-  assert.match(conceptGroups(), /KEEP gasolina \(20\)\s+<-\s+gasolna \(2\) \[typo\]/)
+  assert.match(conceptGroups(), /gasolina \(20\) {2}<- {2}gasolna \(2\) \[typo\]/)
 })
 
 test('two real words one letter apart are left alone', () => {
@@ -90,25 +90,32 @@ test('a short word is not swallowed by a longer one that contains it', () => {
   assert.match(conceptGroups(), /Groups proposed:\s+0 /)
 })
 
-test('three spellings land in one group, not two that share a member', () => {
-  // What one pass over pairs gets wrong: `Supermercado` matches both of the
-  // others, so joining as they arrive can leave two groups with `super` in each.
+test('three spellings land in one group, anchored on the most used', () => {
   world([['super', 40], ['supermercado', 12], ['Supermercado', 5]])
   const report = conceptGroups()
 
   assert.match(report, /Groups proposed:\s+1 \(17 rows would change\)/)
-  assert.equal(report.match(/KEEP /g).length, 1)
+  assert.match(report, /^super \(40\) {2}<- {2}supermercado \(12\) \[prefix\], Supermercado \(5\)/m)
 })
 
-test('the report shows real rows, so a group can be recognised before it is merged', () => {
-  // The whole point of the examples: somebody has to be able to tell whether
-  // `supermercado` was the same shop before agreeing to rewrite thirty-seven
-  // rows of their own history.
+test('one group prints real rows, so it can be recognised before it is merged', () => {
+  // Somebody has to be able to tell whether `supermercado` was the same shop
+  // before agreeing to rewrite ninety-nine rows of their own history. The list
+  // does not carry the evidence — printing two rows per spelling is what made
+  // Apps Script truncate the first real run — so it lives here, one group at a
+  // time, which is how the question is actually asked.
   world([['super', 3], ['supermercado', 2]])
-  const report = conceptGroups()
+  const detail = conceptGroup('supermercado')
 
-  assert.match(report, /super: 2026-07-\d\d \d+\.\d\d/)
-  assert.match(report, /supermercado: 2026-07-\d\d/)
+  assert.match(detail, /KEEP super \(3\)/)
+  assert.match(detail, /super \(3\): 2026-07-\d\d \d+\.\d\d/)
+  assert.match(detail, /supermercado \(2\) \[prefix\]: 2026-07-\d\d/)
+  assert.match(detail, /2 rows would be rewritten as super\./)
+})
+
+test('a group nobody asked about says so rather than answering', () => {
+  world([['super', 3], ['supermercado', 2]])
+  assert.match(conceptGroup('gasolina'), /No group contains gasolina/)
 })
 
 test('it counts what it read and what it could not group', () => {
@@ -117,7 +124,7 @@ test('it counts what it read and what it could not group', () => {
 
   assert.match(report, /Rows read:\s+4/)
   assert.match(report, /Distinct concepts: 3/)
-  assert.match(report, /Used once:\s+2 - una vez, otra/)
+  assert.match(report, /Used once:\s+2 concepts/)
 })
 
 test('it writes nothing at all', () => {
@@ -153,5 +160,76 @@ test('a phrase is not merged into the word it starts with', () => {
 test('the same words in another order are still one concept', () => {
   // The other half of that: a reordering is a spelling variant, so it stays.
   world([['compra super', 5], ['super compra', 2]])
-  assert.match(conceptGroups(), /KEEP compra super \(5\)\s+<-\s+super compra \(2\) \[order\]/)
+  assert.match(conceptGroups(), /compra super \(5\) {2}<- {2}super compra \(2\) \[order\]/)
+})
+
+/**
+ * The three groupings the real ledger produced that would have destroyed
+ * information. Every one of these is a spelling that exists on their sheet.
+ */
+
+test('presents for different people are not one present', () => {
+  // What the first real run proposed: regalo eva, regalo elia, Regalo Lía,
+  // regalo rosa, regalo Lisa, regalo lina and regalo yian in one group, to be
+  // rewritten as `regalo eva`. Four of those are children with names.
+  world([
+    ['regalo eva', 7], ['Regalo Eva', 2], ['Regalo Lía', 1], ['regalo elia', 1],
+    ['regalo rosa', 1], ['regalo Lisa', 1], ['regalo lina', 1], ['regalo yian', 1],
+  ])
+  const report = conceptGroups()
+
+  // Only the one that really is the same: case and accents.
+  assert.match(report, /regalo eva \(7\) {2}<- {2}Regalo Eva \(2\) \[accents\]$/m)
+  for (const name of ['Lía', 'elia', 'rosa', 'Lisa', 'lina', 'yian']) {
+    assert.ok(!report.includes(name), `${name} was pulled into another concept`)
+  }
+})
+
+test('numbered receipts are different receipts', () => {
+  // IBI 1 to 4 are four bills with four amounts; the conservatorio ones are two
+  // instalments. A digit is data, never a misspelling of another digit.
+  world([
+    ['IBI 1', 1], ['IBI 2', 1], ['IBI 3', 1], ['IBI 4', 1],
+    ['matrícula conservatorio', 2], ['Matrícula conservatorio 1', 1],
+    ['Matrícula conservatorio 2', 1],
+  ])
+  assert.match(conceptGroups(), /Groups proposed:\s+0 /)
+})
+
+test('nothing is grouped through a chain', () => {
+  // `ropa eva` and `ropa deca` are not the same, and neither is reachable from
+  // the other except through links nobody looked at.
+  world([['ropa eva', 3], ['Ropa Eva', 1], ['ropa deca', 1]])
+  const report = conceptGroups()
+
+  assert.match(report, /ropa eva \(3\) {2}<- {2}Ropa Eva \(1\) \[accents\]$/m)
+  assert.ok(!report.includes('deca'), 'ropa deca was pulled in')
+})
+
+/** And the groupings from that same run that have to survive. */
+
+test('the real duplicates are still found', () => {
+  world([
+    ['nomina María', 11], ['nomina maria', 5], ['nómina Maria', 1], ['Nómina María', 1],
+    ['Corte inglés', 2], ['Corte Ingés', 1],
+    ['carniceria', 5], ['carniuceria', 1],
+    ['restaurante', 3], ['restauran', 2],
+    ['Teatro Eva', 13], ['Eva teatro', 1],
+    ['traspaso a cuenta común', 3], ['traspaso cuenta comun', 2],
+  ])
+  const report = conceptGroups()
+
+  assert.match(report, /nomina María \(11\).*nomina maria \(5\) \[accents\]/)
+  assert.match(report, /Corte inglés \(2\) {2}<- {2}Corte Ingés \(1\) \[typo\]/)
+  assert.match(report, /carniceria \(5\) {2}<- {2}carniuceria \(1\) \[typo\]/)
+  assert.match(report, /restaurante \(3\) {2}<- {2}restauran \(2\) \[prefix\]/)
+  assert.match(report, /Teatro Eva \(13\) {2}<- {2}Eva teatro \(1\) \[order\]/)
+  // The dropped `a`, which no other rule can see: the phrases are different
+  // lengths, so it is not a typo, and the words are not a reordering.
+  assert.match(report, /traspaso a cuenta común \(3\) {2}<- {2}traspaso cuenta comun \(2\) \[stopwords\]/)
+})
+
+test('the summary counts the rows each signal would change', () => {
+  world([['pan', 114], ['Pan', 26], ['caña', 18], ['cañas', 6]])
+  assert.match(conceptGroups(), /By signal:\s+accents 26, plural 6/)
 })

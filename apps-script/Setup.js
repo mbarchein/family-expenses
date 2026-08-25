@@ -371,32 +371,122 @@ function annotateFixed_(sheet) {
  * Concepts that look like the same concept typed twice.
  *
  * Read-only, and run by hand from the editor. It exists to answer a question
- * before anything is built on top of it: are there four of these on this ledger
- * or forty, and do the heuristics find *their* duplicates or invent nonsense?
- * Guessing at that and shipping a screen for it is how a feature arrives
- * confident and wrong.
+ * before anything is built on top of it, and the first run against the real
+ * ledger answered it in a way no invented fixture had: 2318 rows, 720 distinct
+ * concepts, and the overwhelming majority of the duplication is capitals and
+ * accents — `Farmacia` and `farmacia`, `Taxi` and `taxi`, seven ways of writing
+ * `nómina María`. It also proposed three groups that would have destroyed
+ * information, and those are the reason the rules below look the way they do.
  *
- * Five signals, each named in the output so a bad grouping accuses its own rule
- * rather than the whole idea:
+ * Six signals, each named next to the group it produced, so a bad grouping
+ * accuses its own rule rather than the whole idea:
  *
- *   accents  the same word once the case and the accents are gone: Super, SUPER
- *   prefix   one word grows into a longer one: super, supermercado
- *   plural   the same word with a Spanish -s or -es on the end: cana, canas
- *   typo     one or two letters apart, sharing their first two: gasolna, gasolina
- *   order    the same words in a different order: compra super, super compra
+ *   accents    the same word once case and accents are gone: Súper, super
+ *   plural     the same word with a Spanish -s or -es: caña, cañas
+ *   stopwords  the same words with a little one dropped: traspaso a cuenta, traspaso cuenta
+ *   prefix     one word grown into a longer one: super, supermercado
+ *   order      the same words in another order: teatro Eva, Eva teatro
+ *   typo       one word of a phrase misspelled: Corte inglés, Corte Ingés
  *
- * The thresholds are deliberately mean. `typo` needs five characters and a
- * shared two-letter start, so `coche` and `noche` - one letter apart, both real
- * - are never proposed; `prefix` needs four characters and refuses phrases, so
- * neither `luz garaje` nor `cena fuera` is swallowed by the word it begins with.
- * A false grouping here costs a rewrite of somebody's history, and the cheap
- * direction to be wrong in is missing one.
+ * What the real ledger taught, and what the rules now refuse:
+ *
+ *   - `IBI 1`, `IBI 2`, `IBI 3` are three receipts with three different amounts,
+ *     and `Matrícula conservatorio 1` and `2` are two instalments. A digit is
+ *     data, never a misspelling of another digit, so two concepts whose digits
+ *     differ are never one concept.
+ *   - `regalo eva`, `regalo elia`, `regalo Lía`, `regalo rosa` are presents for
+ *     four different people. `typo` now needs the phrase to be the same length,
+ *     the difference to be in exactly one word, and that word to be five
+ *     characters or more — so a name is never a typo of another name.
+ *   - Those four were dragged into one group by transitivity: each linked to the
+ *     next through something, and union-find made them a set. Groups are now
+ *     anchored — every spelling has to match the *kept* one directly — so no
+ *     membership rests on a chain nobody can see, and every line of the report
+ *     carries the reason for itself.
+ *
+ * A false grouping costs a rewrite of somebody's history. The cheap direction to
+ * be wrong in is missing one, and two of these rules were retired for being
+ * wrong in the expensive direction.
  */
 function conceptGroups() {
+  var counted = countConcepts_();
+  if (!counted.order.length) return report_(['The ledger has no concepts to read.']);
+
+  var groups = groupConcepts_(counted.order.map(function (text) { return counted.byText[text]; }));
+  var tidied = groups.reduce(function (sum, group) { return sum + group.tidies; }, 0);
+  var signals = {};
+  groups.forEach(function (group) {
+    group.merge.forEach(function (item) {
+      signals[item.why] = (signals[item.why] || 0) + item.count;
+    });
+  });
+
+  var lines = [
+    'Rows read:         ' + counted.rows,
+    'Distinct concepts: ' + counted.order.length,
+    'Groups proposed:   ' + groups.length + ' (' + tidied + ' rows would change)',
+    'By signal:         ' + Object.keys(signals).sort().map(function (name) {
+      return name + ' ' + signals[name];
+    }).join(', '),
+    ''
+  ];
+
+  // One line per group and no examples, which is what makes 84 groups fit: the
+  // first run printed two rows of evidence per spelling and Apps Script cut the
+  // log off half way through, which is the one thing a report must not do.
+  // `conceptGroup('super')` prints the evidence for one of them.
+  groups.forEach(function (group) {
+    lines.push(group.keep.text + ' (' + group.keep.count + ')  <-  ' +
+      group.merge.map(function (item) {
+        return item.text + ' (' + item.count + ') [' + item.why + ']';
+      }).join(', '));
+  });
+
+  var once = counted.order.filter(function (text) { return counted.byText[text].count === 1; });
+  lines.push('');
+  lines.push('Used once:         ' + once.length + ' concepts');
+  return report_(lines);
+}
+
+/**
+ * One group in full, with real rows under every spelling of it.
+ *
+ * The evidence lives here rather than in the list because of what it is for:
+ * deciding whether `supermercado` was the same shop as `Supermercado` before
+ * agreeing to rewrite ninety-nine rows of your own history. That is a question
+ * asked about one group at a time, with the dates and the amounts in front of
+ * you — not a wall of them scrolling past.
+ */
+function conceptGroup(wanted) {
+  var counted = countConcepts_();
+  var groups = groupConcepts_(counted.order.map(function (text) { return counted.byText[text]; }));
+  var key = conceptKey_(String(wanted == null ? '' : wanted));
+
+  var found = null;
+  groups.forEach(function (group) {
+    if (found) return;
+    var names = [group.keep.text].concat(group.merge.map(function (item) { return item.text; }));
+    if (names.some(function (name) { return conceptKey_(name) === key; })) found = group;
+  });
+  if (!found) return report_(['No group contains ' + wanted + '. Run conceptGroups() for the list.']);
+
+  var lines = ['KEEP ' + found.keep.text + ' (' + found.keep.count + ')'];
+  [found.keep].concat(found.merge).forEach(function (item) {
+    lines.push('  ' + item.text + ' (' + item.count + ')' +
+      (item.why ? ' [' + item.why + ']' : '') +
+      (item.examples.length ? ': ' + item.examples.join('  |  ') : ''));
+  });
+  lines.push('');
+  lines.push(found.tidies + ' rows would be rewritten as ' + found.keep.text + '.');
+  return report_(lines);
+}
+
+/** Every distinct concept on the ledger, with how often and two of its rows. */
+function countConcepts_() {
   var config = readConfig_();
   var sheet = ledgerSheet_(config);
   var last = lastDataRow_(sheet);
-  if (last < 2) return report_(['The ledger has no rows to read.']);
+  if (last < 2) return { rows: 0, order: [], byText: {} };
 
   // Already indexes: `readConfig_` turns the Config tab's letters into numbers,
   // and putting them through the converter a second time asks it what column
@@ -405,7 +495,6 @@ function conceptGroups() {
   var second = config.people[1].column;
   var rows = sheet.getRange(2, 1, last - 1, COL_ID).getValues();
 
-  // Every distinct concept, exactly as it is written, with a couple of its rows.
   var order = [];
   var byText = {};
   rows.forEach(function (row) {
@@ -423,38 +512,7 @@ function conceptGroups() {
     }
   });
 
-  var groups = groupConcepts_(order.map(function (text) { return byText[text]; }));
-  var tidied = groups.reduce(function (sum, group) { return sum + group.tidies; }, 0);
-
-  var lines = [
-    'Rows read:         ' + (last - 1),
-    'Distinct concepts: ' + order.length,
-    'Groups proposed:   ' + groups.length + ' (' + tidied + ' rows would change)',
-    ''
-  ];
-
-  groups.slice(0, 40).forEach(function (group) {
-    lines.push('KEEP ' + group.keep.text + ' (' + group.keep.count + ')  <-  ' +
-      group.merge.map(function (item) {
-        return item.text + ' (' + item.count + ') [' + item.why + ']';
-      }).join(', '));
-    [group.keep].concat(group.merge).forEach(function (item) {
-      if (item.examples.length) {
-        lines.push('     ' + item.text + ': ' + item.examples.join('  |  '));
-      }
-    });
-    lines.push('');
-  });
-  if (groups.length > 40) lines.push('... and ' + (groups.length - 40) + ' more groups.');
-
-  // The long tail, where the typos live. A count and the first few: the whole
-  // list of one-offs on a ledger this old is not something anybody reads to the
-  // end.
-  var once = order.filter(function (text) { return byText[text].count === 1; });
-  lines.push('Used once:         ' + once.length +
-    (once.length ? ' - ' + once.slice(0, 20).join(', ') : ''));
-
-  return report_(lines);
+  return { rows: last - 1, order: order, byText: byText };
 }
 
 function report_(lines) {
@@ -464,72 +522,41 @@ function report_(lines) {
 }
 
 /**
- * The clusters, biggest tidy-up first.
+ * The groups, anchored on the spelling that is used most.
  *
- * Union-find rather than one pass over pairs: `super`, `supermercado` and
- * `Supermercado` are three spellings of one group, and joining them two at a
- * time in whatever order they arrive would otherwise leave two groups that
- * share a member.
+ * Every member matches the anchor *directly*, and that is the whole design. The
+ * first version joined pairs with union-find, which is how `regalo eva` ended up
+ * holding presents for four different people: each linked to the next through
+ * something, and a set formed out of links nobody had looked at. Anchoring costs
+ * a group that would have been found through a chain, and buys a report where
+ * every line answers for itself.
  */
 function groupConcepts_(items) {
-  var parent = items.map(function (unused, index) { return index; });
-  var why = {};
-
-  var find = function (index) {
-    while (parent[index] !== index) {
-      parent[index] = parent[parent[index]];
-      index = parent[index];
-    }
-    return index;
-  };
-
-  for (var a = 0; a < items.length; a++) {
-    for (var b = a + 1; b < items.length; b++) {
-      var signal = sameConcept_(items[a].text, items[b].text);
-      if (!signal) continue;
-      why[items[a].text + ' ' + items[b].text] = signal;
-      why[items[b].text + ' ' + items[a].text] = signal;
-      var rootA = find(a);
-      var rootB = find(b);
-      if (rootA !== rootB) parent[rootB] = rootA;
-    }
-  }
-
-  var clusters = {};
-  items.forEach(function (item, index) {
-    var root = find(index);
-    if (!clusters[root]) clusters[root] = [];
-    clusters[root].push(item);
+  var sorted = items.slice().sort(function (x, y) {
+    return y.count - x.count || x.text.length - y.text.length;
   });
 
-  var groups = [];
-  Object.keys(clusters).forEach(function (root) {
-    var members = clusters[root];
-    if (members.length < 2) return;
-    // The most used spelling is the one to keep, and a tie goes to the shorter.
-    members.sort(function (x, y) {
-      return y.count - x.count || x.text.length - y.text.length;
-    });
-    var keep = members[0];
-    var merge = members.slice(1).map(function (item) {
-      return {
-        text: item.text,
-        count: item.count,
-        examples: item.examples,
-        // 'chain' when two spellings are in one group without matching each
-        // other directly - joined through a third. Named rather than hidden:
-        // it is the grouping most likely to be wrong.
-        why: why[keep.text + ' ' + item.text] || 'chain'
-      };
-    });
-    groups.push({
-      keep: keep,
-      merge: merge,
-      tidies: merge.reduce(function (sum, item) { return sum + item.count; }, 0)
-    });
+  var anchors = [];
+  sorted.forEach(function (item) {
+    for (var i = 0; i < anchors.length; i++) {
+      var signal = sameConcept_(anchors[i].keep.text, item.text);
+      if (signal) {
+        anchors[i].merge.push({
+          text: item.text, count: item.count, examples: item.examples, why: signal
+        });
+        return;
+      }
+    }
+    anchors.push({ keep: item, merge: [] });
   });
 
-  return groups.sort(function (x, y) { return y.tidies - x.tidies; });
+  return anchors
+    .filter(function (group) { return group.merge.length; })
+    .map(function (group) {
+      group.tidies = group.merge.reduce(function (sum, item) { return sum + item.count; }, 0);
+      return group;
+    })
+    .sort(function (x, y) { return y.tidies - x.tidies; });
 }
 
 /** Which signal says these two are one concept, or '' for none. */
@@ -539,35 +566,62 @@ function sameConcept_(one, other) {
   if (!a || !b) return '';
   if (a === b) return 'accents';
 
-  // Plural before prefix, because both are true of `caña` and `cañas` and only
-  // one of them explains it. The signal is what somebody will judge the grouping
-  // by, so the most specific rule that fits has to be the one that answers.
+  // A digit is data. `IBI 1` and `IBI 2` are two receipts, and no rule below
+  // gets to say otherwise.
+  if (digitsOf_(a) !== digitsOf_(b)) return '';
+
   if (singular_(a) === singular_(b)) return 'plural';
-  // One word growing into a longer word, and only that: `super` into
-  // `supermercado`. A word appearing inside a *phrase* is not the same claim and
-  // used to be grouped here too — the demo run proposed merging `cena fuera`
-  // into `cena` and `compra super` into `super`, which are not two spellings of
-  // one thing but two things somebody chose to write differently. Merging those
-  // does not tidy a ledger, it loses what it said. Reordered words are still
-  // caught, by `order` below, because that is a spelling variant.
-  if (a.length >= 4 && b.length >= 4 && a.indexOf(' ') === -1 && b.indexOf(' ') === -1) {
-    if (b.indexOf(a) === 0 || a.indexOf(b) === 0) return 'prefix';
+  if (withoutStopWords_(a) === withoutStopWords_(b)) return 'stopwords';
+  if (oneWord_(a) && oneWord_(b) && a.length >= 4 && b.length >= 4 &&
+      (b.indexOf(a) === 0 || a.indexOf(b) === 0)) {
+    return 'prefix';
   }
   if (sortedWords_(a) === sortedWords_(b)) return 'order';
-
-  var shorter = Math.min(a.length, b.length);
-  var allowed = shorter >= 8 ? 2 : 1;
-  if (shorter >= 5 && a.slice(0, 2) === b.slice(0, 2) &&
-      editDistance_(a, b, allowed) <= allowed) {
-    return 'typo';
-  }
+  if (isTypo_(a, b)) return 'typo';
   return '';
+}
+
+/**
+ * One word of a phrase, misspelled.
+ *
+ * Three conditions, each of them there because the real ledger broke the rule
+ * without it: the same number of words, so `matrícula conservatorio` does not
+ * absorb `matrícula conservatorio 1`; exactly one word different, so two
+ * changes are two different things and not one slip; and that word at least
+ * five characters with a shared two-letter start, so `eva` is not a typo of
+ * `elia` and `coche` is not one of `noche`.
+ */
+function isTypo_(a, b) {
+  var left = a.split(' ');
+  var right = b.split(' ');
+  if (left.length !== right.length) return false;
+
+  var pair = null;
+  for (var i = 0; i < left.length; i++) {
+    if (left[i] === right[i]) continue;
+    if (pair) return false;
+    pair = [left[i], right[i]];
+  }
+  if (!pair) return false;
+
+  var shorter = Math.min(pair[0].length, pair[1].length);
+  var allowed = shorter >= 8 ? 2 : 1;
+  return shorter >= 5 && pair[0].slice(0, 2) === pair[1].slice(0, 2) &&
+    editDistance_(pair[0], pair[1], allowed) <= allowed;
 }
 
 /** Folded, with the punctuation and the repeated spaces gone, so that `Super.`
  *  and `super` are one word written twice. */
 function conceptKey_(text) {
   return fold_(text).replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function oneWord_(key) {
+  return key.indexOf(' ') === -1;
+}
+
+function digitsOf_(key) {
+  return key.replace(/[^0-9]/g, '');
 }
 
 /**
@@ -581,6 +635,18 @@ function conceptKey_(text) {
  */
 function singular_(key) {
   return key.replace(/([a-z0-9ñ]{3,})es\b/g, '$1').replace(/([a-z0-9ñ]{3,})s\b/g, '$1');
+}
+
+/**
+ * The same words with a small one dropped: `traspaso a cuenta común` and
+ * `traspaso cuenta comun`. Real, on this ledger, and not something any other
+ * rule can see — the phrases are different lengths, so it is not a typo, and
+ * the words are not a reordering.
+ */
+var STOP_WORDS = { a: 1, al: 1, de: 1, del: 1, el: 1, la: 1, las: 1, los: 1, en: 1, y: 1, con: 1 };
+
+function withoutStopWords_(key) {
+  return key.split(' ').filter(function (word) { return !STOP_WORDS[word]; }).join(' ');
 }
 
 function sortedWords_(key) {
