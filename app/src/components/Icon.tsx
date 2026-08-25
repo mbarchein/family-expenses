@@ -34,6 +34,13 @@ export const ICONS = {
   // a doughnut or a button — anything but lunch. Cutlery is the sign everybody
   // already reads, and it is straight lines.
   cubiertos: <><path d="M5 3.5v5a2 2 0 0 0 4 0v-5" /><path d="M7 3.5v5" /><path d="M7 10.5v10" /><path d="M16.5 20.5v-9" /><path d="M16.5 11.5V3.5l2 3.2a3 3 0 0 1-2 4.8Z" /></>,
+  // A loaf from the side: a domed top on a flat base, with the three cuts a
+  // baker's blade leaves. Two cuts were drawn first and rendered at 24, 48 and
+  // 96 pixels next to the car, which is the same dome over the same straight
+  // line: at 24 they were hard to tell apart. Three longer cuts make the inside
+  // of the shape the thing that identifies it, which is what survives being
+  // small.
+  pan: <><path d="M3.5 14a5.5 5.5 0 0 1 5.5-5.5h6a5.5 5.5 0 0 1 5.5 5.5v2.5a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2V14Z" /><path d="M9.2 9.4 7.4 14M12.6 9.1 10.8 14M16 9.4 14.2 14" /></>,
   taza: <><path d="M5 8h11v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V8Z" /><path d="M16 9.5h1.5a2.5 2.5 0 0 1 0 5H16" /><path d="M4 21h13" /></>,
   camiseta: <><path d="M9 4 4.5 6.5 6 10l2-1v11h8V9l2 1 1.5-3.5L15 4a4 4 0 0 1-6 0Z" /></>,
   regalo: <><rect x="3.5" y="8.5" width="17" height="11.5" rx="1.5" /><path d="M3.5 12.5h17M12 8.5V20" /><path d="M12 8.5S10.5 4 8 4a2 2 0 0 0 0 4.5M12 8.5S13.5 4 16 4a2 2 0 0 1 0 4.5" /></>,

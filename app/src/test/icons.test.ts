@@ -86,3 +86,61 @@ describe('the icon set', () => {
     expect(isIconName('no-existe')).toBe(false)
   })
 })
+
+describe('a keyword short enough to hide inside another word', () => {
+  // `pan` is what forced this: it is inside `pantalones`, `pañuelos` and
+  // `compañía`. Checking the rest of the list turned up four icons that were
+  // already wrong on any ledger containing these words.
+  it('gives bread to the bread and to the baker', () => {
+    expect(iconFor('pan')).toBe('pan')
+    expect(iconFor('Pan')).toBe('pan')
+    expect(iconFor('panes')).toBe('pan')
+    expect(iconFor('panadería')).toBe('pan')
+    expect(iconFor('Panaderia')).toBe('pan')
+    expect(iconFor('pan de pueblo')).toBe('pan')
+  })
+
+  it('gives it to nothing that merely contains the letters', () => {
+    for (const concept of ['pantalones', 'pañuelos', 'compañía de seguros', 'campana']) {
+      expect(iconFor(concept), concept).not.toBe('pan')
+    }
+    // `pañales` keeps the one it had: a longer keyword wins, as it always did.
+    expect(iconFor('pañales')).toBe('biberon')
+  })
+
+  it('stops the four that were already wrong', () => {
+    // Shipped, and wrong: a gas flame on `gastos varios`, a t-shirt on
+    // `europa`, a coffee cup on `barbacoa`, a water drop on `aguacates`.
+    expect(iconFor('gastos varios')).not.toBe('llama')
+    expect(iconFor('europa viaje')).not.toBe('camiseta')
+    expect(iconFor('barbacoa')).not.toBe('taza')
+    expect(iconFor('aguacates')).not.toBe('gota')
+    expect(iconFor('bebidas')).not.toBe('biberon')
+  })
+
+  it('keeps the short keywords working as words, plural included', () => {
+    expect(iconFor('gas')).toBe('llama')
+    expect(iconFor('gas natural')).toBe('llama')
+    expect(iconFor('ropa')).toBe('camiseta')
+    expect(iconFor('ropas')).toBe('camiseta')
+    expect(iconFor('cine')).toBe('entrada')
+    expect(iconFor('cines')).toBe('entrada')
+    expect(iconFor('agua')).toBe('gota')
+    expect(iconFor('bar')).toBe('taza')
+    expect(iconFor('IBI 1')).toBe('recibo')
+  })
+
+  it('still lets a long keyword match inside a word', () => {
+    // The rule only tightens for short ones: this is what makes `gasolinera`
+    // find `gasolina` and `panaderia` find anything at all.
+    expect(iconFor('gasolinera Repsol')).toBe('combustible')
+    expect(iconFor('supermercado Salobreña')).toBe('cesta')
+  })
+
+  it('gives the cup to a cafetería, which is the same concept as a café', () => {
+    // Their call, and the reason `cafeteria` is spelled out: `cafe` is short
+    // enough to be matched as a whole word now, so it no longer reaches inside.
+    expect(iconFor('café')).toBe('taza')
+    expect(iconFor('cafetería')).toBe('taza')
+  })
+})

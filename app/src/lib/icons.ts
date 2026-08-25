@@ -34,7 +34,11 @@ const KEYWORDS: Array<[string, IconName]> = ([
   ['seguro', 'escudo'],
   ['restaurante', 'cubiertos'], ['comida', 'cubiertos'], ['cena', 'cubiertos'],
   ['menu', 'cubiertos'], ['tapas', 'cubiertos'], ['comedor', 'cubiertos'],
-  ['cafe', 'taza'], ['desayuno', 'taza'], ['bar', 'taza'],
+  ['cafeteria', 'taza'], ['cafe', 'taza'], ['desayuno', 'taza'], ['bar', 'taza'],
+  // `pan` and `panadería` are the second and third most used concepts on this
+  // ledger, at 140 rows and 12. `cafetería` is spelled out because `cafe` is
+  // short enough to be matched as a whole word now, and the two are one concept.
+  ['panaderia', 'pan'], ['pan', 'pan'],
   ['ropa', 'camiseta'], ['zapatos', 'camiseta'], ['zara', 'camiseta'],
   ['regalo', 'regalo'], ['cumpleanos', 'regalo'], ['flores', 'regalo'],
   ['libreria', 'libro'], ['libro', 'libro'], ['colegio', 'libro'], ['escuela', 'libro'],
@@ -71,8 +75,32 @@ export function iconFor(concept: string, chosen?: string): IconName | null {
   if (chosen && isIconName(chosen)) return chosen
   const text = fold(concept)
   if (!text) return null
-  for (const [word, icon] of KEYWORDS) if (text.includes(word)) return icon
+  for (const [word, icon] of KEYWORDS) if (matches(text, word)) return icon
   return null
+}
+
+/** A keyword short enough to hide inside other words. Four characters is where
+ *  the list stops being distinctive: `gas`, `bar`, `ropa`, `agua`, `pan`. */
+const SHORT = 4
+
+/**
+ * Whether a concept contains a keyword as the keyword rather than as letters.
+ *
+ * A plain substring test was enough while the short words happened not to
+ * collide, and it stopped being enough the moment `pan` was added: `pantalones`,
+ * `pañuelos` and `compañía` all contain it. Checking the whole list showed four
+ * wrong icons already shipped — `gastos varios` was a gas flame, `europa viaje`
+ * a t-shirt, `barbacoa` a coffee cup, `aguacates` a water drop.
+ *
+ * So a short keyword has to be a word of its own, give or take a Spanish
+ * plural: `cine` still matches `cines` and `ropa` still matches `ropas`, while
+ * `gas` no longer matches `gastos`. Long keywords keep the substring rule, which
+ * is what lets `gasolinera` match `gasolina` and `panaderia` match at all.
+ */
+function matches(text: string, word: string): boolean {
+  if (word.length > SHORT) return text.includes(word)
+  return text.split(/[^a-z0-9ñ]+/).some(part =>
+    part === word || part === `${word}s` || part === `${word}es`)
 }
 
 /** What the tile shows when there is no icon: one capital letter. */
