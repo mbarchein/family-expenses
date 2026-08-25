@@ -319,6 +319,48 @@ test('the accounts allowed to use the app are listed once each', () => {
   assert.deepEqual(emails, ['viqui@example.com', 'mario@example.com'])
 })
 
+test('a concept from years before the window is still searchable', () => {
+  // The limit that made the first fix insufficient: the vocabulary was built
+  // from the window the app is sent, which reaches back to 1 January of last
+  // year at the most. On a ledger that starts in 2022, a concept last used in
+  // 2023 could not be found by typing it — and nothing in the app could say so,
+  // because the search box worked, it simply had nothing to search.
+  const rows = [['Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id']]
+  rows.push([new Date(2022, 4, 12), 'Museo del Prado', 18, '', 100, '', 'old-1'])
+  rows.push([new Date(2023, 8, 3), 'peluqueria', 12, '', 100, '', 'old-2'])
+  // Four hundred recent rows, so the window really does leave 2022 behind: with
+  // a handful of rows it would cover the whole sheet and prove nothing.
+  const today = new Date()
+  for (let i = 0; i < 400; i++) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (i % 300))
+    rows.push([date, `reciente ${i % 40}`, 10, '', 100, '', `new-${i}`])
+  }
+  world({ ledger: rows })
+
+  const data = handleBootstrap_({}, USER)
+  const concepts = data.frequent.map(item => item.concept)
+
+  assert.ok(concepts.includes('Museo del Prado'), 'a 2022 concept was not sent')
+  assert.ok(concepts.includes('peluqueria'), 'a 2023 concept was not sent')
+
+  // And the window is unchanged, which is the other half: the *list* is still
+  // the recent slice, because that is what the screen shows. The vocabulary is
+  // no longer tied to it.
+  const sent = data.entries.map(entry => entry.concept)
+  assert.ok(!sent.includes('Museo del Prado'),
+    'the entry window grew to the whole sheet, which was not the point')
+})
+
+test('a voided row is not offered back as a concept', () => {
+  const rows = [['Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id']]
+  rows.push([new Date(2026, 0, 5), '[anulado] museo', '', '', 100, '', 'v-1'])
+  rows.push([new Date(2026, 0, 6), 'pan', 2, '', 100, '', 'v-2'])
+  world({ ledger: rows })
+
+  const concepts = handleBootstrap_({}, USER).frequent.map(item => item.concept)
+  assert.deepEqual(concepts, ['pan'])
+})
+
 test('the vocabulary sent is much longer than the eight tiles shown', () => {
   // The bug this fixes: the app filters this list as somebody types and *then*
   // cuts it to eight, so whatever is not sent cannot be found by typing it. With

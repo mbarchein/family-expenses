@@ -333,35 +333,72 @@ function formatDate_(value) {
  * while it is still a monthly habit and lets it fade once it stops, without
  * anyone maintaining a list.
  */
-/** How many concepts the app is given to search. The grid shows eight of them;
- *  this is the vocabulary behind the search box. */
-var CONCEPTS_SENT = 200;
+/**
+ * How many concepts the app is given to search.
+ *
+ * The grid shows eight; this is the vocabulary behind the search box. A thousand
+ * short strings is about fifteen kilobytes of JSON, against a bootstrap that
+ * already carries a year of entries — and this household has 720 distinct
+ * concepts after four years, so a thousand is "all of them" with room to grow.
+ */
+var CONCEPTS_SENT = 1000;
 
-function frequentConcepts_(entries) {
+/**
+ * Every concept the sheet has ever held, most recently used first.
+ *
+ * Read from the whole ledger rather than from the window the app is sent, and
+ * that is the point of it. It used to be computed from `tail.entries`, which
+ * reaches back to 1 January of last year at the most — so on a ledger that
+ * starts in 2022, a concept last used in 2023 could not be found by typing it,
+ * however much of it you typed. There was no way to tell from inside the app:
+ * the search box worked, it simply had nothing to search.
+ *
+ * Four columns of every row, which is one range read of a few thousand cells and
+ * the reason this is worth doing at all: the alternative was another window with
+ * another edge for somebody to fall off.
+ *
+ * The order is recency-weighted rather than a plain count, so the eight tiles
+ * the app shows before anybody types are the eight of this month rather than the
+ * eight of 2022. Ninety days is the half-life: a concept used twice this week
+ * outranks one used ten times three years ago.
+ */
+function conceptVocabulary_(config) {
   var HALF_LIFE_DAYS = 90;
+  var sheet = ledgerSheet_(config);
+  var last = lastDataRow_(sheet);
+  if (last < 2) return [];
+
+  var width = Math.max(config.people[0].column, config.people[1].column);
+  var rows = sheet.getRange(2, 1, last - 1, width).getValues();
+  var first = config.people[0].column - 1;
+  var second = config.people[1].column - 1;
   var today = new Date();
   var byKey = {};
 
-  entries.forEach(function (entry) {
-    if (!entry.concept || entry.voided || entry.payer === null) return;
-    var key = entry.concept.toLowerCase();
-    var ageDays = (today - new Date(entry.date)) / 86400000;
+  rows.forEach(function (row) {
+    var text = String(row[COL_CONCEPT - 1] == null ? '' : row[COL_CONCEPT - 1]).trim();
+    // Voided rows are skipped rather than offered back: the concept is behind
+    // `[anulado] `, and a row with both amounts empty is what voiding leaves.
+    if (!text || text.indexOf(VOID_MARK) === 0) return;
+    if (row[first] === '' && row[second] === '') return;
+
+    var when = row[COL_DATE - 1];
+    var ageDays = when instanceof Date ? (today - when) / 86400000 : 3650;
     var weight = Math.pow(0.5, Math.max(0, ageDays) / HALF_LIFE_DAYS);
 
-    var bucket = byKey[key] || (byKey[key] = { concept: entry.concept, score: 0 });
-    bucket.concept = entry.concept;   // keep the most recent spelling
+    var key = text.toLowerCase();
+    var bucket = byKey[key] || (byKey[key] = { concept: text, score: 0, seen: 0 });
+    // The most recent spelling wins, which is the one somebody is typing now.
+    if (!(when instanceof Date) || when >= bucket.seen) {
+      bucket.concept = text;
+      bucket.seen = when instanceof Date ? when : bucket.seen;
+    }
     bucket.score += weight;
   });
 
   return Object.keys(byKey)
     .map(function (key) { return byKey[key]; })
     .sort(function (a, b) { return b.score - a.score; })
-    // Far more than the eight tiles the app shows, and that is the point: the
-    // app filters this list as somebody types and *then* cuts it to eight, so
-    // whatever is not sent here cannot be found by typing it. It used to send
-    // exactly eight, which made the search box able to reorder the tiles already
-    // on screen and nothing else — a concept apuntado once, `Museo`, was
-    // unreachable the next day. Two hundred short strings is a few kilobytes.
     .slice(0, CONCEPTS_SENT)
     .map(function (bucket) {
       // A concept and nothing else. It used to carry two more things and both

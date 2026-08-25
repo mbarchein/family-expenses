@@ -111,7 +111,10 @@ function handleBootstrap_(payload, user) {
     config: publicConfig_(config, user),
     balance: tail.balance,
     entries: tail.entries,
-    frequent: frequentConcepts_(tail.entries),
+    // Every concept on the sheet, not only the ones inside the window above:
+    // the app filters this as somebody types, so anything missing here cannot be
+    // found by typing it.
+    frequent: conceptVocabulary_(config),
     suggestions: readSuggestions_().items,
     // The templates as they are, not what they owe: which periods are due is
     // worked out in the app, where the calendar arithmetic has tests.
