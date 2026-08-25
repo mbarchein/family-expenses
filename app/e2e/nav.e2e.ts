@@ -100,6 +100,28 @@ test('an entry can be abandoned from any step of the flow', async ({ page }) => 
   await expect(page.locator('output')).not.toContainText('23')
 })
 
+test('the step indicator does not move when cancel appears', async ({ page }) => {
+  // The header jump, for the second time. It was the back arrow being swapped
+  // for a narrower spacer; this time it was the cancel button arriving with the
+  // first digit and pushing the progress pills along the row. Both are the same
+  // fix — a slot of a fixed size, empty rather than absent — and this is the
+  // assertion that says so out loud.
+  await stubApi(page)
+  await signIn(page)
+
+  // The pills themselves, not the box around them: it is the indicator that must
+  // not move, and a container can hold still while its contents slide.
+  const pills = page.locator('header div[aria-hidden="true"]')
+  const before = await pills.boundingBox()
+
+  await page.getByRole('button', { name: '7', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Cancelar' })).toBeVisible()
+
+  const after = await pills.boundingBox()
+  expect(after!.x).toBeCloseTo(before!.x, 0)
+  expect(after!.y).toBeCloseTo(before!.y, 0)
+})
+
 test('a cancelled entry does not come back on the next open', async ({ page }) => {
   await stubApi(page)
   await signIn(page)

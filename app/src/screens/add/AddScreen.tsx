@@ -15,6 +15,19 @@ import { StepReview, type PlaceState } from './StepReview'
 
 const STEPS = 3
 
+/** A cross, on its own filled circle. As four small words it was the least
+ *  visible thing on a row of large ones, and a word in a header is read rather
+ *  than seen — this is aimed at, which is what a way out is for. */
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"
+         className="h-5 w-5" fill="none" stroke="currentColor"
+         strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  )
+}
+
 /**
  * Entering an expense, in three screens: amount, details, review.
  *
@@ -271,16 +284,26 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
               />
             ))}
           </div>
-          {started && (
-            <button
-              type="button"
-              onClick={cancel}
-              className="shrink-0 rounded-full border border-line px-3 py-1.5 text-xs
-                         font-semibold text-ink-2 focus-visible:outline focus-visible:outline-2"
-            >
-              {T.edit.cancel}
-            </button>
-          )}
+          {/* A slot of a fixed size, empty when there is nothing to cancel
+              rather than absent — the same fix as the back arrow's on the left,
+              for the same reason and against the same mistake. As a button that
+              came and went it pushed the progress pills sideways the moment the
+              first digit was typed, which is the one thing on this row that has
+              to stay where it was. */}
+          <div className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center">
+            {started && (
+              <button
+                type="button"
+                onClick={cancel}
+                aria-label={T.edit.cancel}
+                className="flex h-9 w-9 items-center justify-center rounded-full
+                           focus-visible:outline focus-visible:outline-2"
+                style={{ background: 'var(--surface-2)', color: 'var(--danger)' }}
+              >
+                <CloseIcon />
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
