@@ -498,7 +498,12 @@ function countConcepts_() {
   var order = [];
   var byText = {};
   rows.forEach(function (row) {
-    var text = String(row[COL_CONCEPT - 1] == null ? '' : row[COL_CONCEPT - 1]).trim();
+    var raw = String(row[COL_CONCEPT - 1] == null ? '' : row[COL_CONCEPT - 1]).trim();
+    // A voided row carries its concept behind `[anulado] `. Counted under the
+    // concept it is, not as a concept of its own: otherwise every voided entry
+    // would arrive as its own spelling, and the report would propose merging a
+    // tombstone into the thing it is a tombstone of.
+    var text = raw.indexOf(VOID_MARK) === 0 ? raw.substring(VOID_MARK.length).trim() : raw;
     if (!text) return;
     if (!byText[text]) {
       byText[text] = { text: text, count: 0, examples: [] };
@@ -675,4 +680,170 @@ function editDistance_(a, b, limit) {
     previous = current;
   }
   return previous[b.length];
+}
+
+/**
+ * Rewriting one spelling of a concept as another, across the whole ledger.
+ *
+ * This is the half of unifying concepts that touches their data, so it is worth
+ * being explicit about what it will and will not do. It rewrites column B and
+ * nothing else: not the amounts, not the balance formula in column E, not the
+ * observaciones, not a single row's position. It never deletes a row and never
+ * inserts one. Rows are matched by the exact text of their concept, so
+ * `Supermercado` and `supermercado` are two calls and not one guess.
+ *
+ * Three rails, each of them for a specific way this could go wrong:
+ *
+ *   - A voided row carries its concept behind `[anulado] `. The mark is kept and
+ *     the concept inside it is rewritten, so a tidy-up does not leave the voided
+ *     rows spelling it the old way — and a target that starts with the mark is
+ *     refused outright, because renaming a row *into* the mark would void it
+ *     without anybody saying so.
+ *   - If any concept cell holds a formula, nothing is written at all. The write
+ *     goes back as values, and a formula replaced by its own result is the kind
+ *     of quiet damage nobody notices for a year.
+ *   - Every run appends to `Renombrados`: when, from what, to what, how many
+ *     rows, and who ran it. Rewriting somebody's history without leaving a note
+ *     of it is not something a spreadsheet should help with.
+ */
+var RENAME_LOG_SHEET = 'Renombrados';
+var RENAME_LOG_HEADERS = ['cuándo', 'de', 'a', 'filas', 'quién'];
+
+/** What `renameConcept` would do, without doing any of it. */
+function previewRename(from, to) {
+  var config = readConfig_();
+  var plan = planRename_(config, [from], to);
+  if (plan.problem) return report_([plan.problem]);
+
+  return report_([
+    'Would rewrite: ' + plan.rows + ' rows',
+    'From:          ' + from + (plan.voided ? ' (' + plan.voided + ' of them voided)' : ''),
+    'To:            ' + to,
+    plan.rows ? 'Run renameConcept("' + from + '", "' + to + '") to do it.' : 'Nothing to do.'
+  ]);
+}
+
+/** Rewrites every row whose concept is exactly `from` so that it reads `to`. */
+function renameConcept(from, to) {
+  var config = readConfig_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var plan = planRename_(config, [from], to);
+    if (plan.problem) return report_([plan.problem]);
+    if (!plan.rows) return report_(['Nothing reads ' + from + '. Nothing written.']);
+
+    applyRename_(config, plan);
+    logRename_([from], to, plan.rows);
+    SpreadsheetApp.flush();
+
+    return report_([plan.rows + ' rows now read ' + to + ' (was ' + from + ').',
+      'Logged in ' + RENAME_LOG_SHEET + '.']);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * A whole group in one pass: every spelling in `from`, rewritten as `to`.
+ *
+ * One read and one write for six spellings of `nómina María`, rather than six of
+ * each. It is also the honest unit of the decision — a group is what somebody
+ * confirms, so a group is what gets applied and what gets logged.
+ */
+function renameConcepts(to, from) {
+  var targets = Array.isArray(from) ? from : Array.prototype.slice.call(arguments, 1);
+  var config = readConfig_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var plan = planRename_(config, targets, to);
+    if (plan.problem) return report_([plan.problem]);
+    if (!plan.rows) return report_(['None of those spellings exist. Nothing written.']);
+
+    applyRename_(config, plan);
+    logRename_(targets, to, plan.rows);
+    SpreadsheetApp.flush();
+
+    return report_([plan.rows + ' rows now read ' + to + '.',
+      'Rewritten: ' + targets.join(', '),
+      'Logged in ' + RENAME_LOG_SHEET + '.']);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** The rows that would change and what they would say, or a reason not to. */
+function planRename_(config, targets, to) {
+  var wanted = String(to == null ? '' : to).trim();
+  var names = (targets || []).map(function (name) {
+    return String(name == null ? '' : name).trim();
+  }).filter(function (name) { return name; });
+
+  if (!wanted) return { problem: 'A concept to rename to is required.' };
+  if (!names.length) return { problem: 'A concept to rename from is required.' };
+  if (wanted.indexOf(VOID_MARK) === 0) {
+    return { problem: 'Refusing: "' + wanted + '" starts with ' + VOID_MARK.trim() +
+      ', which would void every row it touched.' };
+  }
+
+  var sheet = ledgerSheet_(config);
+  var last = lastDataRow_(sheet);
+  if (last < 2) return { problem: 'The ledger has no rows.' };
+
+  var range = sheet.getRange(2, COL_CONCEPT, last - 1, 1);
+  var values = range.getValues();
+  var formulas = range.getFormulas();
+  var withFormula = formulas.filter(function (row) { return row[0]; }).length;
+  if (withFormula) {
+    return { problem: 'Refusing: ' + withFormula + ' cells in the concept column hold formulas.' +
+      ' Writing values over a formula is damage nobody notices for a year.' };
+  }
+
+  var changed = 0;
+  var voided = 0;
+  values.forEach(function (row, index) {
+    var text = String(row[0] == null ? '' : row[0]);
+    var marked = text.indexOf(VOID_MARK) === 0;
+    var bare = marked ? text.substring(VOID_MARK.length) : text;
+    if (names.indexOf(bare.trim()) === -1) return;
+    if (bare.trim() === wanted && !marked) return;
+    values[index][0] = marked ? VOID_MARK + wanted : wanted;
+    changed++;
+    if (marked) voided++;
+  });
+
+  return { range: range, values: values, rows: changed, voided: voided, to: wanted };
+}
+
+/** One write for the column, and only when something in it changed. */
+function applyRename_(config, plan) {
+  plan.range.setValues(plan.values);
+}
+
+function logRename_(targets, to, rows) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RENAME_LOG_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(RENAME_LOG_SHEET);
+    sheet.getRange(1, 1, 1, RENAME_LOG_HEADERS.length)
+      .setValues([RENAME_LOG_HEADERS]).setFontWeight('bold');
+  }
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, RENAME_LOG_HEADERS.length).setValues([[
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
+    targets.join(', '),
+    to,
+    rows,
+    whoIsRunning_()
+  ]]);
+}
+
+/** Best effort: an editor run knows the user, a web app run knows the token's
+ *  owner, and neither is worth failing a rename over. */
+function whoIsRunning_() {
+  try {
+    return Session.getActiveUser().getEmail() || 'unknown';
+  } catch (err) {
+    return 'unknown';
+  }
 }

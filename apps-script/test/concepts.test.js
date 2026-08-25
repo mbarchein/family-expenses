@@ -233,3 +233,15 @@ test('the summary counts the rows each signal would change', () => {
   world([['pan', 114], ['Pan', 26], ['caña', 18], ['cañas', 6]])
   assert.match(conceptGroups(), /By signal:\s+accents 26, plural 6/)
 })
+
+test('a voided row counts under the concept it is, not as a spelling of its own', () => {
+  // Voiding prefixes the concept with `[anulado] `. Left raw, every voided entry
+  // arrives as its own spelling and the report proposes merging a tombstone into
+  // the thing it is a tombstone of.
+  world([['super', 3], ['[anulado] super', 1], ['Super', 2]])
+  const report = conceptGroups()
+
+  assert.match(report, /Distinct concepts: 2/)
+  assert.match(report, /super \(4\) {2}<- {2}Super \(2\) \[accents\]/)
+  assert.ok(!report.includes('anulado'), 'the mark leaked into the report')
+})

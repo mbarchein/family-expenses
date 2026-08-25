@@ -13,12 +13,17 @@
  * the code parses, runs, and returns the shape the app expects.
  */
 
-function sheet(name, values, maxColumns) {
+function sheet(name, values, maxColumns, formulas) {
   var writes = []
+  // Keyed 'row,column'. Empty for almost every test, and the point of the one
+  // where it is not: a range written back as values would replace a formula
+  // with whatever it happened to evaluate to.
+  var byCell = formulas || {}
   return {
     name: name,
     values: values,
     writes: writes,
+    formulas: byCell,
     getName: function () { return name },
     getMaxRows: function () { return values.length + 500 },
     getMaxColumns: function () { return maxColumns || 26 },
@@ -53,6 +58,17 @@ function sheet(name, values, maxColumns) {
         },
         getNextDataCell: function () { return { getRow: function () { return values.length } } },
         getFormula: function () { return '=SUM($C$2:C2)-SUM($D$2:D2)' },
+        getFormulas: function () {
+          var out = []
+          for (var i = 0; i < height; i++) {
+            var line = []
+            for (var j = 0; j < width; j++) {
+              line.push(byCell[(row + i) + ',' + (column + j)] || '')
+            }
+            out.push(line)
+          }
+          return out
+        },
         copyTo: function () { return this },
         setNumberFormat: function () { return this },
         setNote: function () { return this },
@@ -91,6 +107,7 @@ function install(sheets, options) {
           sheets[wanted] = sheet(wanted, [], 26)
           return sheets[wanted]
         },
+        flush: function () {},
         getEditors: function () {
           return (settings.editors || ['mario@example.com']).map(function (email) {
             return { getEmail: function () { return email } }
@@ -101,6 +118,7 @@ function install(sheets, options) {
         },
       }
     },
+    flush: function () {},
     Direction: { UP: 'up' },
     newDataValidation: function () {
       return { requireValueInList: function () { return { build: function () { return {} } } } }
@@ -112,14 +130,28 @@ function install(sheets, options) {
     getActiveUser: function () { return { getEmail: function () { return 'mario@example.com' } } },
   }
   global.Utilities = {
-    formatDate: function (date) {
-      var month = String(date.getMonth() + 1)
-      var day = String(date.getDate())
-      return date.getFullYear() + '-' +
-        (month.length === 1 ? '0' + month : month) + '-' +
-        (day.length === 1 ? '0' + day : day)
+    // The format string used to be ignored, which was fine while every caller
+    // asked for a date — and a lie the moment one asked for the time, which the
+    // rename log does: "when" is the whole point of an audit row.
+    formatDate: function (date, zone, pattern) {
+      var pad = function (n) { return n < 10 ? '0' + n : String(n) }
+      var out = date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate())
+      if (String(pattern || '').indexOf('HH:mm') !== -1) {
+        out += ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes())
+      }
+      return out
     },
     base64Encode: function (value) { return Buffer.from(String(value)).toString('base64') },
+  }
+  // Absent until the first writer with a lock was tested, which is to say: every
+  // function in the backend that takes one had never run in here at all.
+  global.LockService = {
+    getScriptLock: function () {
+      return {
+        waitLock: function () { settings.locks = (settings.locks || 0) + 1 },
+        releaseLock: function () { settings.released = (settings.released || 0) + 1 },
+      }
+    },
   }
   global.CacheService = {
     getScriptCache: function () { return { get: function () { return null }, put: function () {} } },
