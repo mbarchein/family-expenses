@@ -588,3 +588,28 @@ test('a chosen face is still there after the app reloads', async ({ page }) => {
 
   await expect(page.getByRole('button', { name: /^Mario/ })).toContainText('Frida Kahlo')
 })
+
+test('the payer tiles are square-ish, and say the name without the verb', async ({ page }) => {
+  // "Paga Viqui" side by side gave the face a fifth of the width and the verb
+  // the rest, which is the wrong way round on the one row of this screen that is
+  // aimed at rather than read. The verb stays as the accessible name — the
+  // button does mean "paga Viqui", and a screen reader should still say so.
+  await stubApi(page)
+  await signIn(page)
+
+  const viqui = page.getByRole('button', { name: 'Paga Viqui' })
+  await expect(viqui).toHaveText('Viqui')
+
+  const box = (await viqui.boundingBox())!
+  expect(box.width / box.height).toBeLessThan(1.6)
+  // And the face is drawn big enough to be the reason the tile got taller.
+  const face = (await viqui.locator('svg').boundingBox())!
+  expect(face.height).toBeGreaterThanOrEqual(32)
+
+  // Still fits without scrolling, which is what the keypad's whole layout is for.
+  const room = await page.evaluate(() => {
+    const main = document.querySelector('main')!
+    return main.scrollHeight - main.clientHeight
+  })
+  expect(room).toBeLessThanOrEqual(0)
+})

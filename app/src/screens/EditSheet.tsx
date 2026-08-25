@@ -92,14 +92,23 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
             onChange={value => setPayer(Number(value) as 0 | 1)}
             options={[
               {
-                label: T.add.pays(people[0].name), value: '0', tone: 'person-1',
-                icon: <Avatar name={faces[0]} />,
+                // The name alone, with "Paga" left to the accessible name: the
+                // row is under a heading that already asks the question, and the
+                // word was taking the space the face wanted.
+                label: people[0].name, ariaLabel: T.add.pays(people[0].name),
+                value: '0', tone: 'person-1',
+                icon: <Avatar name={faces[0]} className="h-10 w-10" />,
               },
               {
-                label: T.add.pays(people[1].name), value: '1', tone: 'person-2',
-                icon: <Avatar name={faces[1]} />,
+                // The name alone, with "Paga" left to the accessible name: the
+                // row is under a heading that already asks the question, and the
+                // word was taking the space the face wanted.
+                label: people[1].name, ariaLabel: T.add.pays(people[1].name),
+                value: '1', tone: 'person-2',
+                icon: <Avatar name={faces[1]} className="h-10 w-10" />,
               },
             ]}
+            stack
           />
 
           <input

@@ -14,7 +14,7 @@ interface Option {
   ariaLabel?: string
 }
 
-export function Segmented({ options, value, onChange, compact }: {
+export function Segmented({ options, value, onChange, compact, stack }: {
   options: Option[]
   value: string
   onChange: (value: string) => void
@@ -22,6 +22,12 @@ export function Segmented({ options, value, onChange, compact }: {
    *  which is right nine times out of ten and does not deserve the same weight
    *  as the one that says who paid. */
   compact?: boolean
+  /** The drawing above the label instead of beside it, in a button tall enough
+   *  to be nearly square. For the two that say who paid: side by side, the face
+   *  had a fifth of the width and the word "Paga" had the rest, which is the
+   *  wrong way round on the one row of this screen that is aimed at rather than
+   *  read. */
+  stack?: boolean
 }) {
   return (
     <div className="flex gap-1.5">
@@ -34,10 +40,11 @@ export function Segmented({ options, value, onChange, compact }: {
             onClick={() => onChange(option.value)}
             aria-label={option.ariaLabel}
             aria-pressed={on}
-            className={'flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-1' +
+            className={'flex flex-1 items-center justify-center rounded-lg border px-1' +
               ' font-semibold' +
               ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2' +
-              (compact ? ' py-1.5 text-xs' : ' py-2.5 text-sm')}
+              (stack ? ' aspect-[7/5] flex-col gap-1 text-sm'
+                : ' gap-1.5' + (compact ? ' py-1.5 text-xs' : ' py-2.5 text-sm'))}
             style={on ? onStyle(option.tone) : offStyle}
           >
             {option.icon}
