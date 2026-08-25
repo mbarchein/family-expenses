@@ -251,6 +251,13 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
   // in the middle of an otherwise dense step.
   return (
     <div className="flex h-full flex-col justify-between gap-2 p-4">
+      {/* Two buttons and, between them, where you are.
+          
+          The height is the two 36px slots and nothing else: the stack in the
+          middle is 26px tall, so it sits inside a header whose height does not
+          depend on it. The slots are symmetric — the same negative margin on
+          both sides — which is what makes "centred" the middle of the screen
+          rather than the middle of what is left over. */}
       <header className="flex items-center gap-2">
         {/* A slot of a fixed size, empty on the first step rather than absent.
             The arrow used to be swapped for a narrower spacer, which changed the
@@ -273,8 +280,11 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
             <BackIcon />
           </button>
         </div>
-        <p className="text-xs font-semibold text-ink-2">{T.add.step(step + 1, STEPS)}</p>
-        <div className="ml-auto flex items-center gap-2">
+        {/* The words and the bars say the same thing, so they belong together
+            and in the middle: one glance at the centre of the screen instead of
+            one at each end of a row. */}
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+          <p className="text-xs font-semibold text-ink-2">{T.add.step(step + 1, STEPS)}</p>
           <div className="flex gap-1" aria-hidden="true">
             {[0, 1, 2].map(index => (
               <span
@@ -284,26 +294,27 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
               />
             ))}
           </div>
-          {/* A slot of a fixed size, empty when there is nothing to cancel
-              rather than absent — the same fix as the back arrow's on the left,
-              for the same reason and against the same mistake. As a button that
-              came and went it pushed the progress pills sideways the moment the
-              first digit was typed, which is the one thing on this row that has
-              to stay where it was. */}
-          <div className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center">
-            {started && (
-              <button
-                type="button"
-                onClick={cancel}
-                aria-label={T.edit.cancel}
-                className="flex h-9 w-9 items-center justify-center rounded-full
-                           focus-visible:outline focus-visible:outline-2"
-                style={{ background: 'var(--surface-2)', color: 'var(--danger)' }}
-              >
-                <CloseIcon />
-              </button>
-            )}
-          </div>
+        </div>
+
+        {/* A slot of a fixed size, empty when there is nothing to cancel rather
+            than absent — the same fix as the back arrow's on the left, for the
+            same reason and against the same mistake. As a button that came and
+            went it pushed the step indicator sideways the moment the first digit
+            was typed, which is the one thing here that has to stay where it
+            was. */}
+        <div className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center">
+          {started && (
+            <button
+              type="button"
+              onClick={cancel}
+              aria-label={T.edit.cancel}
+              className="flex h-9 w-9 items-center justify-center rounded-full
+                         focus-visible:outline focus-visible:outline-2"
+              style={{ background: 'var(--surface-2)', color: 'var(--danger)' }}
+            >
+              <CloseIcon />
+            </button>
+          )}
         </div>
       </header>
 

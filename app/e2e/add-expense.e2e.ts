@@ -449,3 +449,53 @@ test('typing reaches a concept that is not one of the eight', async ({ page }) =
   await page.getByRole('textbox', { name: 'Concepto' }).fill('jueves')
   await expect(grid.getByRole('button', { name: 'lo del jueves' })).toBeVisible()
 })
+
+test('the step and its bars are stacked in the middle, and the header keeps its height', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+
+  const header = page.locator('header')
+  const counter = header.locator('p')
+  const pills = header.locator('div[aria-hidden="true"]')
+
+  const tall = (await header.boundingBox())!.height
+  for (const step of ['Paso 1 de 3', 'Paso 2 de 3', 'Paso 3 de 3']) {
+    await expect(page.getByText(step)).toBeVisible()
+
+    const [box, text, bars] = await Promise.all(
+      [header, counter, pills].map(locator => locator.boundingBox()))
+
+    // One above the other, both centred on the header rather than pushed to
+    // opposite ends of it.
+    expect(text!.y).toBeLessThan(bars!.y)
+    const middle = box!.x + box!.width / 2
+    expect(text!.x + text!.width / 2).toBeCloseTo(middle, 0)
+    expect(bars!.x + bars!.width / 2).toBeCloseTo(middle, 0)
+
+    // And the header is the same height on every step — the stack lives inside
+    // the height the two buttons already give it.
+    expect(box!.height).toBeCloseTo(tall, 0)
+
+    if (step === 'Paso 1 de 3') await typeAmount(page, '10')
+    if (step === 'Paso 2 de 3') await page.getByRole('textbox', { name: 'Concepto' }).fill('super')
+    if (step !== 'Paso 3 de 3') await next(page)
+  }
+})
+
+test('the icons cog sits on the line of the concept field', async ({ page }) => {
+  // It was a small cog attached to a label above a grid of large tiles: the
+  // smallest thing on the screen, next to the one thing nobody touches.
+  await stubApi(page)
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+
+  const field = page.getByRole('textbox', { name: 'Concepto' })
+  const cog = page.getByRole('button', { name: 'Iconos' })
+
+  const [box, button] = await Promise.all([field.boundingBox(), cog.boundingBox()])
+  // Same line, to the right of the field, and the same height as it.
+  expect(button!.y).toBeCloseTo(box!.y, 0)
+  expect(button!.height).toBeCloseTo(box!.height, 0)
+  expect(button!.x).toBeGreaterThan(box!.x + box!.width - 1)
+})

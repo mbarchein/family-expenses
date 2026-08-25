@@ -157,29 +157,7 @@ export function StepDetails({ draft, data, patch, onNext }: {
             tapping a chip changed who was paying — silently, and over a choice
             just made. A suggestion may fill in the field it is a suggestion
             for, and no others. */}
-        <div className="flex items-center gap-3">
-          <p className="flex-1 text-xs font-semibold text-ink-2">{T.add.conceptRow}</p>
-          {/* The way in to the icons, next to the icons. A preference nobody
-              visits on purpose does not deserve a tab, and choosing an icon
-              anywhere other than in front of the grid it changes is choosing
-              blind.
-
-              A cog and not the word "Iconos": on a row whose whole point is that
-              the tiles are read as pictures, a word is the one thing that reads
-              as content. Its name is still "Iconos" — the label moved out of
-              sight, not out of existence. The negative margins keep a 32px tap
-              target from making this row taller than the text beside it. */}
-          <button
-            type="button"
-            onClick={() => setMenu(true)}
-            aria-label={T.icons.menu}
-            className="-my-1.5 -mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-full
-                       focus-visible:outline focus-visible:outline-2"
-            style={{ color: 'var(--accent)' }}
-          >
-            <CogIcon />
-          </button>
-        </div>
+        <p className="text-xs font-semibold text-ink-2">{T.add.conceptRow}</p>
 
         <ConceptGrid
           items={conceptTiles}
@@ -187,16 +165,43 @@ export function StepDetails({ draft, data, patch, onNext }: {
           onPick={concept => patch({ concept })}
         />
 
-        <input
-          value={draft.concept}
-          onChange={event => patch({ concept: event.target.value })}
-          placeholder={T.add.conceptPlaceholder}
-          aria-label={T.add.concept}
-          enterKeyHint="done"
-          autoComplete="off"
-          className="rounded-lg border border-line bg-surface px-3 py-3 text-base text-ink
-                     placeholder:text-ink-2 focus-visible:outline focus-visible:outline-2"
-        />
+        {/* The field and the way in to the icons, on one line.
+            
+            It used to be a small cog beside the words "Conceptos frecuentes",
+            above a grid of large tiles — the smallest thing on the screen,
+            attached to a label rather than to anything you touch. Here it is the
+            height of the field it sits next to, and the field is where the hand
+            already is. Still a cog and not the word "Iconos": on a screen whose
+            point is that the tiles are read as pictures, a word is the one thing
+            that reads as content. Its name is unchanged — the label moved out of
+            sight, not out of existence. */}
+        {/* `items-stretch`, so the button is exactly as tall as the field
+            whatever the font does to it. A hardcoded height here was two pixels
+            out on the first render and would have been a different two pixels on
+            somebody's phone. */}
+        <div className="flex items-stretch gap-2">
+          <input
+            value={draft.concept}
+            onChange={event => patch({ concept: event.target.value })}
+            placeholder={T.add.conceptPlaceholder}
+            aria-label={T.add.concept}
+            enterKeyHint="done"
+            autoComplete="off"
+            className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-3
+                       text-base text-ink placeholder:text-ink-2
+                       focus-visible:outline focus-visible:outline-2"
+          />
+          <button
+            type="button"
+            onClick={() => setMenu(true)}
+            aria-label={T.icons.menu}
+            className="grid w-14 shrink-0 place-items-center rounded-lg border border-line
+                       focus-visible:outline focus-visible:outline-2"
+            style={{ color: 'var(--accent)' }}
+          >
+            <CogIcon />
+          </button>
+        </div>
 
         <div className="pt-1">
           <p className="pb-1 text-xs font-semibold text-ink-2">{T.add.noteRow}</p>
