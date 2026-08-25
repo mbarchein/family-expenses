@@ -366,3 +366,247 @@ function annotateFixed_(sheet) {
     'Desde cuándo cuenta la periodicidad. Solo importa si no es mensual.');
   sheet.getRange(1, 8).setNote('Lo escribe la app: el último vencimiento resuelto. No lo edites.');
 }
+
+/**
+ * Concepts that look like the same concept typed twice.
+ *
+ * Read-only, and run by hand from the editor. It exists to answer a question
+ * before anything is built on top of it: are there four of these on this ledger
+ * or forty, and do the heuristics find *their* duplicates or invent nonsense?
+ * Guessing at that and shipping a screen for it is how a feature arrives
+ * confident and wrong.
+ *
+ * Five signals, each named in the output so a bad grouping accuses its own rule
+ * rather than the whole idea:
+ *
+ *   accents  the same word once the case and the accents are gone: Super, SUPER
+ *   prefix   one word grows into a longer one: super, supermercado
+ *   plural   the same word with a Spanish -s or -es on the end: cana, canas
+ *   typo     one or two letters apart, sharing their first two: gasolna, gasolina
+ *   order    the same words in a different order: compra super, super compra
+ *
+ * The thresholds are deliberately mean. `typo` needs five characters and a
+ * shared two-letter start, so `coche` and `noche` - one letter apart, both real
+ * - are never proposed; `prefix` needs four characters and refuses phrases, so
+ * neither `luz garaje` nor `cena fuera` is swallowed by the word it begins with.
+ * A false grouping here costs a rewrite of somebody's history, and the cheap
+ * direction to be wrong in is missing one.
+ */
+function conceptGroups() {
+  var config = readConfig_();
+  var sheet = ledgerSheet_(config);
+  var last = lastDataRow_(sheet);
+  if (last < 2) return report_(['The ledger has no rows to read.']);
+
+  // Already indexes: `readConfig_` turns the Config tab's letters into numbers,
+  // and putting them through the converter a second time asks it what column
+  // number 3 is.
+  var first = config.people[0].column;
+  var second = config.people[1].column;
+  var rows = sheet.getRange(2, 1, last - 1, COL_ID).getValues();
+
+  // Every distinct concept, exactly as it is written, with a couple of its rows.
+  var order = [];
+  var byText = {};
+  rows.forEach(function (row) {
+    var text = String(row[COL_CONCEPT - 1] == null ? '' : row[COL_CONCEPT - 1]).trim();
+    if (!text) return;
+    if (!byText[text]) {
+      byText[text] = { text: text, count: 0, examples: [] };
+      order.push(text);
+    }
+    var seen = byText[text];
+    seen.count++;
+    if (seen.examples.length < 2) {
+      var amount = row[first - 1] === '' ? row[second - 1] : row[first - 1];
+      seen.examples.push(formatDate_(row[COL_DATE - 1]) + ' ' + euros_(amount));
+    }
+  });
+
+  var groups = groupConcepts_(order.map(function (text) { return byText[text]; }));
+  var tidied = groups.reduce(function (sum, group) { return sum + group.tidies; }, 0);
+
+  var lines = [
+    'Rows read:         ' + (last - 1),
+    'Distinct concepts: ' + order.length,
+    'Groups proposed:   ' + groups.length + ' (' + tidied + ' rows would change)',
+    ''
+  ];
+
+  groups.slice(0, 40).forEach(function (group) {
+    lines.push('KEEP ' + group.keep.text + ' (' + group.keep.count + ')  <-  ' +
+      group.merge.map(function (item) {
+        return item.text + ' (' + item.count + ') [' + item.why + ']';
+      }).join(', '));
+    [group.keep].concat(group.merge).forEach(function (item) {
+      if (item.examples.length) {
+        lines.push('     ' + item.text + ': ' + item.examples.join('  |  '));
+      }
+    });
+    lines.push('');
+  });
+  if (groups.length > 40) lines.push('... and ' + (groups.length - 40) + ' more groups.');
+
+  // The long tail, where the typos live. A count and the first few: the whole
+  // list of one-offs on a ledger this old is not something anybody reads to the
+  // end.
+  var once = order.filter(function (text) { return byText[text].count === 1; });
+  lines.push('Used once:         ' + once.length +
+    (once.length ? ' - ' + once.slice(0, 20).join(', ') : ''));
+
+  return report_(lines);
+}
+
+function report_(lines) {
+  var text = lines.join('\n');
+  console.log(text);
+  return text;
+}
+
+/**
+ * The clusters, biggest tidy-up first.
+ *
+ * Union-find rather than one pass over pairs: `super`, `supermercado` and
+ * `Supermercado` are three spellings of one group, and joining them two at a
+ * time in whatever order they arrive would otherwise leave two groups that
+ * share a member.
+ */
+function groupConcepts_(items) {
+  var parent = items.map(function (unused, index) { return index; });
+  var why = {};
+
+  var find = function (index) {
+    while (parent[index] !== index) {
+      parent[index] = parent[parent[index]];
+      index = parent[index];
+    }
+    return index;
+  };
+
+  for (var a = 0; a < items.length; a++) {
+    for (var b = a + 1; b < items.length; b++) {
+      var signal = sameConcept_(items[a].text, items[b].text);
+      if (!signal) continue;
+      why[items[a].text + ' ' + items[b].text] = signal;
+      why[items[b].text + ' ' + items[a].text] = signal;
+      var rootA = find(a);
+      var rootB = find(b);
+      if (rootA !== rootB) parent[rootB] = rootA;
+    }
+  }
+
+  var clusters = {};
+  items.forEach(function (item, index) {
+    var root = find(index);
+    if (!clusters[root]) clusters[root] = [];
+    clusters[root].push(item);
+  });
+
+  var groups = [];
+  Object.keys(clusters).forEach(function (root) {
+    var members = clusters[root];
+    if (members.length < 2) return;
+    // The most used spelling is the one to keep, and a tie goes to the shorter.
+    members.sort(function (x, y) {
+      return y.count - x.count || x.text.length - y.text.length;
+    });
+    var keep = members[0];
+    var merge = members.slice(1).map(function (item) {
+      return {
+        text: item.text,
+        count: item.count,
+        examples: item.examples,
+        // 'chain' when two spellings are in one group without matching each
+        // other directly - joined through a third. Named rather than hidden:
+        // it is the grouping most likely to be wrong.
+        why: why[keep.text + ' ' + item.text] || 'chain'
+      };
+    });
+    groups.push({
+      keep: keep,
+      merge: merge,
+      tidies: merge.reduce(function (sum, item) { return sum + item.count; }, 0)
+    });
+  });
+
+  return groups.sort(function (x, y) { return y.tidies - x.tidies; });
+}
+
+/** Which signal says these two are one concept, or '' for none. */
+function sameConcept_(one, other) {
+  var a = conceptKey_(one);
+  var b = conceptKey_(other);
+  if (!a || !b) return '';
+  if (a === b) return 'accents';
+
+  // Plural before prefix, because both are true of `caña` and `cañas` and only
+  // one of them explains it. The signal is what somebody will judge the grouping
+  // by, so the most specific rule that fits has to be the one that answers.
+  if (singular_(a) === singular_(b)) return 'plural';
+  // One word growing into a longer word, and only that: `super` into
+  // `supermercado`. A word appearing inside a *phrase* is not the same claim and
+  // used to be grouped here too — the demo run proposed merging `cena fuera`
+  // into `cena` and `compra super` into `super`, which are not two spellings of
+  // one thing but two things somebody chose to write differently. Merging those
+  // does not tidy a ledger, it loses what it said. Reordered words are still
+  // caught, by `order` below, because that is a spelling variant.
+  if (a.length >= 4 && b.length >= 4 && a.indexOf(' ') === -1 && b.indexOf(' ') === -1) {
+    if (b.indexOf(a) === 0 || a.indexOf(b) === 0) return 'prefix';
+  }
+  if (sortedWords_(a) === sortedWords_(b)) return 'order';
+
+  var shorter = Math.min(a.length, b.length);
+  var allowed = shorter >= 8 ? 2 : 1;
+  if (shorter >= 5 && a.slice(0, 2) === b.slice(0, 2) &&
+      editDistance_(a, b, allowed) <= allowed) {
+    return 'typo';
+  }
+  return '';
+}
+
+/** Folded, with the punctuation and the repeated spaces gone, so that `Super.`
+ *  and `super` are one word written twice. */
+function conceptKey_(text) {
+  return fold_(text).replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Spanish plurals, the two that matter. Nothing clever: this is a proposal for
+ * somebody to confirm, not a morphology.
+ *
+ * The class is spelled out rather than `\w`, which is ASCII: with `\w{3,}` the
+ * rule could not see past the ñ, so `cañas` never matched `caña` and the pair
+ * was grouped by the prefix rule instead — the right answer with the wrong
+ * reason on it, which is worse here than no answer.
+ */
+function singular_(key) {
+  return key.replace(/([a-z0-9ñ]{3,})es\b/g, '$1').replace(/([a-z0-9ñ]{3,})s\b/g, '$1');
+}
+
+function sortedWords_(key) {
+  return key.split(' ').sort().join(' ');
+}
+
+/** Levenshtein, abandoned as soon as it is past the limit: the answer beyond
+ *  that is never used, and every concept is compared with every other one. */
+function editDistance_(a, b, limit) {
+  if (Math.abs(a.length - b.length) > limit) return limit + 1;
+  var previous = [];
+  for (var j = 0; j <= b.length; j++) previous[j] = j;
+
+  for (var i = 1; i <= a.length; i++) {
+    var current = [i];
+    var best = i;
+    for (var k = 1; k <= b.length; k++) {
+      current[k] = Math.min(
+        previous[k] + 1,
+        current[k - 1] + 1,
+        previous[k - 1] + (a.charAt(i - 1) === b.charAt(k - 1) ? 0 : 1)
+      );
+      if (current[k] < best) best = current[k];
+    }
+    if (best > limit) return limit + 1;
+    previous = current;
+  }
+  return previous[b.length];
+}
