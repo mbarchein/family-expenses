@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Avatar, AVATAR_NAMES, type AvatarName } from './Avatar'
 import { Icon, ICON_NAMES } from './Icon'
 import { T } from '../i18n/strings'
 import { fold, iconFor, initialOf } from '../lib/icons'
@@ -16,43 +17,88 @@ import { fold, iconFor, initialOf } from '../lib/icons'
  * what the tile shows now. So the list doubles as the answer to "why has that
  * got a basket on it" — the guess is visible, and one tap overrides it.
  */
-export function IconMenu({ concepts, chosen, onChoose, onClose }: {
+export function IconMenu({ concepts, chosen, onChoose, onClose, people, faces, onFace }: {
   concepts: string[]
   chosen: Record<string, string>
   onChoose: (concept: string, icon: string | null) => void
   onClose: () => void
+  /** The two names, for the rows that choose their faces. */
+  people: readonly [string, string]
+  faces: readonly [AvatarName, AvatarName]
+  onFace: (person: 0 | 1, face: AvatarName) => void
 }) {
   const [editing, setEditing] = useState<string | null>(null)
+  const [whose, setWhose] = useState<0 | 1 | null>(null)
+
+  const heading = editing ? T.icons.pick(editing)
+    : whose !== null ? T.icons.face(people[whose])
+    : T.icons.title
 
   return (
     <div
       className="absolute inset-0 z-10 flex flex-col"
       style={{ background: 'var(--paper)' }}
       role="dialog"
-      aria-label={editing ? T.icons.pick(editing) : T.icons.title}
+      aria-label={heading}
     >
       <header className="flex items-center gap-3 border-b border-line px-4 py-3">
-        <p className="flex-1 text-sm font-semibold">
-          {editing ? T.icons.pick(editing) : T.icons.title}
-        </p>
+        <p className="flex-1 text-sm font-semibold">{heading}</p>
         <button
           type="button"
-          onClick={() => (editing ? setEditing(null) : onClose())}
+          onClick={() => {
+            if (editing) return setEditing(null)
+            if (whose !== null) return setWhose(null)
+            onClose()
+          }}
           className="text-sm font-semibold focus-visible:outline focus-visible:outline-2"
           style={{ color: 'var(--accent)' }}
         >
-          {editing ? T.icons.back : T.icons.close}
+          {editing || whose !== null ? T.icons.back : T.icons.close}
         </button>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {editing ? (
+        {whose !== null ? (
+          <Faces
+            current={faces[whose]}
+            onPick={face => { onFace(whose, face); setWhose(null) }}
+          />
+        ) : editing ? (
           <Choices
             current={chosen[fold(editing)]}
             onPick={name => { onChoose(editing, name); setEditing(null) }}
           />
         ) : (
           <ul className="flex flex-col gap-1.5">
+            {/* The two people first, above their concepts: this list is long and
+                the faces are two rows that somebody comes here on purpose to
+                find. */}
+            <li>
+              <p className="pb-1 pt-1 text-xs font-semibold text-ink-2">{T.icons.people}</p>
+            </li>
+            {([0, 1] as const).map(person => (
+              <li key={person}>
+                <button
+                  type="button"
+                  onClick={() => setWhose(person)}
+                  className="flex w-full items-center gap-3 rounded-xl border border-line px-3 py-2.5
+                             text-left focus-visible:outline focus-visible:outline-2"
+                  style={{ background: 'var(--surface)' }}
+                >
+                  <Avatar
+                    name={faces[person]}
+                    className="h-6 w-6 shrink-0"
+                  />
+                  <span className="flex-1 truncate text-sm font-semibold">{people[person]}</span>
+                  <span className="text-[11px] text-ink-3">
+                    {T.icons.paintings[faces[person]] ?? faces[person]}
+                  </span>
+                </button>
+              </li>
+            ))}
+            <li>
+              <p className="pb-1 pt-3 text-xs font-semibold text-ink-2">{T.icons.title}</p>
+            </li>
             {concepts.map(concept => (
               <li key={concept}>
                 <button
@@ -115,6 +161,39 @@ function Choices({ current, onPick }: {
         {T.icons.none}
       </button>
     </>
+  )
+}
+
+/** The eight portraits, named. Two columns rather than four: the name under
+ *  each is what makes it a choice rather than a guessing game, and the drawing
+ *  is bigger than the button it will end up on so that what is being chosen is
+ *  visible while choosing it. */
+function Faces({ current, onPick }: {
+  current: AvatarName
+  onPick: (name: AvatarName) => void
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {AVATAR_NAMES.map(name => (
+        <button
+          key={name}
+          type="button"
+          onClick={() => onPick(name)}
+          aria-label={T.icons.paintings[name] ?? name}
+          aria-pressed={name === current}
+          className="flex items-center gap-2 rounded-xl border px-3 py-2.5
+                     focus-visible:outline focus-visible:outline-2"
+          style={name === current
+            ? { background: 'var(--accent)', color: 'var(--accent-ink)', borderColor: 'var(--accent)' }
+            : { background: 'var(--surface)', color: 'var(--ink)', borderColor: 'var(--line)' }}
+        >
+          <Avatar name={name} className="h-8 w-8 shrink-0" />
+          <span className="min-w-0 truncate text-left text-xs font-semibold">
+            {T.icons.paintings[name] ?? name}
+          </span>
+        </button>
+      ))}
+    </div>
   )
 }
 

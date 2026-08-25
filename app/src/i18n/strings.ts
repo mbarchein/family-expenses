@@ -99,6 +99,23 @@ export const T = {
     // tile, and only one of them is yours.
     mine: 'elegido',
     guessed: 'propuesto',
+    /** The other half of this menu: which face stands for each of the two of
+     *  you on the buttons that say who paid. */
+    people: 'Quién paga',
+    face: (name: string) => `Cara de ${name}`,
+    /** The portraits, by the name of the painting rather than of the drawing.
+     *  Nobody is being told they look like any of them: they are eight pictures
+     *  to choose from, and the choice stays on this phone. */
+    paintings: {
+      monalisa: 'La Gioconda',
+      pearl: 'La joven de la perla',
+      vangogh: 'Van Gogh',
+      frida: 'Frida Kahlo',
+      scream: 'El grito',
+      knight: 'El caballero',
+      menina: 'La infanta',
+      cubist: 'Cubista',
+    } as Record<string, string>,
   },
 
   fixed: {

@@ -1,9 +1,11 @@
 import { useId, useState } from 'react'
+import { Avatar } from '../components/Avatar'
 import { Segmented } from '../components/Segmented'
 import { T } from '../i18n/strings'
 import { formatShortDate, todayIso } from '../lib/dates'
 import { displayTyped, parseAmount } from '../lib/money'
 import type { Entry, Person } from '../api/types'
+import { useAvatars } from '../store/avatars'
 import type { QueuedEntry } from '../store/queue'
 
 export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
@@ -20,6 +22,7 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
   const [note, setNote] = useState(entry.note)
   const [busy, setBusy] = useState(false)
   const titleId = useId()
+  const { faces } = useAvatars()
 
   async function save() {
     const amount = parseAmount(typed)
@@ -88,8 +91,14 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
             value={String(payer)}
             onChange={value => setPayer(Number(value) as 0 | 1)}
             options={[
-              { label: T.add.pays(people[0].name), value: '0', tone: 'person-1' },
-              { label: T.add.pays(people[1].name), value: '1', tone: 'person-2' },
+              {
+                label: T.add.pays(people[0].name), value: '0', tone: 'person-1',
+                icon: <Avatar name={faces[0]} />,
+              },
+              {
+                label: T.add.pays(people[1].name), value: '1', tone: 'person-2',
+                icon: <Avatar name={faces[1]} />,
+              },
             ]}
           />
 

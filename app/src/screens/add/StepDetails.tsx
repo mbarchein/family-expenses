@@ -6,6 +6,7 @@ import { Pills, type Pill } from '../../components/Pills'
 import { T } from '../../i18n/strings'
 import { fold } from '../../lib/icons'
 import { fuzzyFilter } from '../../lib/fuzzy'
+import { useAvatars } from '../../store/avatars'
 import { useIconChoices } from '../../store/iconChoices'
 import { usePlaces } from '../../store/places'
 import type { Draft } from '../../store/draft'
@@ -59,6 +60,7 @@ export function StepDetails({ draft, data, patch, onNext }: {
   // when it was taken.
   const { nearby } = usePlaces({ locate: true })
   const { chosen, choose } = useIconChoices()
+  const { faces, choose: chooseFace } = useAvatars()
   const [menu, setMenu] = useState(false)
 
   const mine = useMemo(
@@ -249,6 +251,9 @@ export function StepDetails({ draft, data, patch, onNext }: {
           chosen={chosen}
           onChoose={choose}
           onClose={() => setMenu(false)}
+          people={[data.config.people[0].name, data.config.people[1].name]}
+          faces={faces}
+          onFace={chooseFace}
         />
       )}
 

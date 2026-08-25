@@ -547,3 +547,44 @@ test('a pill fills the same field the keyboard writes into', async ({ page }) =>
   await expect(page.getByRole('button', { name: 'Efectivo' }))
     .not.toHaveAttribute('aria-pressed', 'true')
 })
+
+test('the payer buttons wear a face, and each one can be changed', async ({ page }) => {
+  // Two names in the same type are told apart by reading them, and this row is
+  // pressed without looking. The choice is per phone: it is a preference about
+  // how a button looks, not a fact about the ledger.
+  await stubApi(page)
+  await signIn(page)
+
+  const viqui = page.getByRole('button', { name: 'Paga Viqui' })
+  await expect(viqui.locator('svg')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Paga Mario' }).locator('svg')).toBeVisible()
+
+  // Into the menu the cog opens, which is where the pictures are chosen.
+  await typeAmount(page, '10')
+  await next(page)
+  await page.getByRole('button', { name: 'Iconos' }).click()
+  await page.getByRole('button', { name: /^Viqui/ }).click()
+
+  await expect(page.getByRole('button', { name: 'La Gioconda' })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'El grito' }).click()
+
+  // Back on the list, the row says which painting she is now.
+  await expect(page.getByRole('button', { name: /^Viqui/ })).toContainText('El grito')
+})
+
+test('a chosen face is still there after the app reloads', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+  await page.getByRole('button', { name: 'Iconos' }).click()
+  await page.getByRole('button', { name: /^Mario/ }).click()
+  await page.getByRole('button', { name: 'Frida Kahlo' }).click()
+  await expect(page.getByRole('button', { name: /^Mario/ })).toContainText('Frida Kahlo')
+
+  await page.reload()
+  await page.getByText('Paso 2 de 3').waitFor()
+  await page.getByRole('button', { name: 'Iconos' }).click()
+
+  await expect(page.getByRole('button', { name: /^Mario/ })).toContainText('Frida Kahlo')
+})

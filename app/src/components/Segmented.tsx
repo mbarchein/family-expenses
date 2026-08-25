@@ -1,6 +1,12 @@
+import type { ReactNode } from 'react'
+
 interface Option {
   label: string
   value: string
+  /** Drawn before the label, at the label's colour. The two payer buttons carry
+   *  a face here: two names in the same type are told apart by reading them,
+   *  and this row is pressed without looking. */
+  icon?: ReactNode
   tone?: 'accent' | 'person-1' | 'person-2'
   /** For the segment whose label is the answer rather than the question — the
    *  day one, which reads "10 ago" once a day has been chosen. Without it the
@@ -28,12 +34,14 @@ export function Segmented({ options, value, onChange, compact }: {
             onClick={() => onChange(option.value)}
             aria-label={option.ariaLabel}
             aria-pressed={on}
-            className={'flex-1 rounded-lg border px-1 font-semibold' +
+            className={'flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-1' +
+              ' font-semibold' +
               ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2' +
               (compact ? ' py-1.5 text-xs' : ' py-2.5 text-sm')}
             style={on ? onStyle(option.tone) : offStyle}
           >
-            {option.label}
+            {option.icon}
+            <span className="min-w-0 truncate">{option.label}</span>
           </button>
         )
       })}

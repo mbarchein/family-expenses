@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react'
 import { Keypad } from '../../components/Keypad'
+import { Avatar } from '../../components/Avatar'
 import { Segmented } from '../../components/Segmented'
 import { T } from '../../i18n/strings'
 import { displayTyped } from '../../lib/money'
 import { formatDayShort, todayIso, yesterdayIso } from '../../lib/dates'
+import { useAvatars } from '../../store/avatars'
 import type { Draft } from '../../store/draft'
 import type { Person } from '../../api/types'
 
@@ -26,6 +28,7 @@ export function StepAmount({ draft, people, patch, onNext }: {
   patch: (fields: Partial<Draft>) => void
   onNext: () => void
 }) {
+  const { faces } = useAvatars()
   const kind = dateKind(draft)
   const day = useRef<HTMLInputElement>(null)
   // Only for a browser whose date field cannot open itself. See `openCalendar`.
@@ -98,8 +101,14 @@ export function StepAmount({ draft, people, patch, onNext }: {
         value={String(draft.payer)}
         onChange={value => patch({ payer: Number(value) as 0 | 1 })}
         options={[
-          { label: T.add.pays(people[0].name), value: '0', tone: 'person-1' },
-          { label: T.add.pays(people[1].name), value: '1', tone: 'person-2' },
+          {
+            label: T.add.pays(people[0].name), value: '0', tone: 'person-1',
+            icon: <Avatar name={faces[0]} />,
+          },
+          {
+            label: T.add.pays(people[1].name), value: '1', tone: 'person-2',
+            icon: <Avatar name={faces[1]} />,
+          },
         ]}
       />
 
