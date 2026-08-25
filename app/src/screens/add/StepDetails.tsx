@@ -211,6 +211,28 @@ export function StepDetails({ draft, data, patch, onNext }: {
             onPick={note => patch({ note })}
             label={T.add.noteRow}
           />
+          {/* Typed as well as picked.
+              
+              The pills are what the Sugerencias tab has written down, and until
+              now they were the only way to fill this field while apuntando: a
+              note nobody had thought of in advance could not be written at all
+              — not here and not on the review step, which only displays it — so
+              the way to add one was to save the expense and then edit it.
+              
+              One field, one draft key: tapping a pill fills this box, and typing
+              over it leaves no pill lit. There is no second state to disagree
+              with the first. */}
+          <input
+            value={draft.note}
+            onChange={event => patch({ note: event.target.value })}
+            placeholder={T.add.notePlaceholder}
+            aria-label={T.add.fieldNote}
+            enterKeyHint="done"
+            autoComplete="off"
+            className="mt-2 w-full rounded-lg border border-line bg-surface px-3 py-2.5
+                       text-sm text-ink placeholder:text-ink-2
+                       focus-visible:outline focus-visible:outline-2"
+          />
         </div>
       </div>
 

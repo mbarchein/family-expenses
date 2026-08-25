@@ -81,6 +81,9 @@ export const T = {
     discard: 'Descartar este gasto',
     conceptRow: 'Conceptos frecuentes',
     noteRow: 'Medio de pago y observaciones',
+    /** The free-text half of that row. The pills cover what is written down in
+     *  the Sugerencias tab; this is for everything nobody thought of. */
+    notePlaceholder: 'Escribe una observación',
     needAmount: 'Pon un importe',
     needConcept: 'Pon un concepto',
   },

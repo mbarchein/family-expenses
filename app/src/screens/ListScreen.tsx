@@ -124,6 +124,12 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
                           ? people[entry.payer ?? 0].name
                           : T.list.legacy}
                       {entry.id && <> · {formatShortDate(entry.date)}</>}
+                      {/* Last, and truncated first if the row runs out of
+                          room: an observación is worth showing — it is where
+                          "efectivo" or "lo pongo yo y luego me lo pasas" lives
+                          — and it is the part of the line you can afford to
+                          lose. */}
+                      {entry.note && <> · {entry.note}</>}
                     </span>
                   </span>
                   <span className="font-mono text-sm tabular">{formatEur(entry.amount)}</span>

@@ -502,3 +502,48 @@ test('the icons cog sits on the line of the concept field', async ({ page }) => 
   expect(button!.height).toBeCloseTo(box!.height, 0)
   expect(button!.x).toBeGreaterThan(box!.x + box!.width - 1)
 })
+
+test('an observación can be typed, not only picked from the pills', async ({ page }) => {
+  // Until now the pills were the only way to fill this field while apuntando: a
+  // note nobody had written into the Sugerencias tab could not be entered at
+  // all — not here, and not on the review step, which only shows it. The way to
+  // add one was to save the expense and then edit it.
+  const calls = await stubApi(page)
+  await signIn(page)
+
+  await typeAmount(page, '12')
+  await next(page)
+  await page.getByRole('button', { name: 'super', exact: true }).click()
+
+  const note = page.getByRole('textbox', { name: 'Observaciones' })
+  await note.fill('lo pongo yo y me lo pasas')
+  await next(page)
+
+  // It reaches the review step as what will be written.
+  await expect(page.getByText('lo pongo yo y me lo pasas')).toBeVisible()
+  await page.getByRole('button', { name: 'Guardar' }).click()
+
+  await expect.poll(() => calls.filter(call => call.action === 'append').length).toBe(1)
+  expect(calls.find(call => call.action === 'append')!.payload)
+    .toMatchObject({ note: 'lo pongo yo y me lo pasas' })
+})
+
+test('a pill fills the same field the keyboard writes into', async ({ page }) => {
+  // One field and one draft key, so there is no second state to disagree with
+  // the first: tapping a pill fills the box, and typing over it is just typing.
+  await stubApi(page)
+  await signIn(page)
+
+  await typeAmount(page, '12')
+  await next(page)
+  const note = page.getByRole('textbox', { name: 'Observaciones' })
+
+  await page.getByRole('button', { name: 'Efectivo' }).click()
+  await expect(note).toHaveValue('Efectivo')
+
+  await note.fill('a medias con mi hermana')
+  await expect(note).toHaveValue('a medias con mi hermana')
+  // And the pill is no longer the one that is on.
+  await expect(page.getByRole('button', { name: 'Efectivo' }))
+    .not.toHaveAttribute('aria-pressed', 'true')
+})

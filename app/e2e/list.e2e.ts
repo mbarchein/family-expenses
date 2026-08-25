@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import {
-  LAST_YEAR, PREVIOUS_MONTH, TODAY, bootstrap, longLedger, signIn, stubApi, stubGoogle,
+  LAST_YEAR, MARIO, PREVIOUS_MONTH, TODAY, bootstrap, entry, longLedger, signIn, stubApi,
+  stubGoogle,
 } from './harness'
 
 /**
@@ -20,6 +21,24 @@ const month = (iso: string) =>
 
 test.beforeEach(async ({ page }) => {
   await stubGoogle(page)
+})
+
+test('the rows show the observación, after the payer and the day', async ({ page }) => {
+  // It lands in the `observaciones` column and it is often the thing that
+  // explains the row — "efectivo", "lo pago yo y me lo pasas". The list had no
+  // sign of it at all, so the only way to see one was to open the entry.
+  await stubApi(page, bootstrap({
+    entries: [entry({
+      row: 2300, id: 'e1', date: TODAY, concept: 'cena', amount: 40,
+      payer: MARIO, note: 'lo pongo yo y me lo pasas',
+    })],
+  }))
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+
+  const row = page.getByRole('button', { name: /cena/ })
+  await expect(row).toContainText('Mario')
+  await expect(row).toContainText('lo pongo yo y me lo pasas')
 })
 
 test('the strip totals last month, this month and this year', async ({ page }) => {
