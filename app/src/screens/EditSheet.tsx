@@ -2,8 +2,8 @@ import { useId, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Segmented } from '../components/Segmented'
 import { T } from '../i18n/strings'
-import { formatShortDate, todayIso } from '../lib/dates'
-import { displayTyped, parseAmount } from '../lib/money'
+import { todayIso } from '../lib/dates'
+import { parseAmount, typedFromAmount } from '../lib/money'
 import type { Entry, Person } from '../api/types'
 import { useAvatars } from '../store/avatars'
 import type { QueuedEntry } from '../store/queue'
@@ -15,7 +15,10 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
   onSave: (entry: QueuedEntry) => Promise<void>
   onVoid: (id: string) => Promise<void>
 }) {
-  const [typed, setTyped] = useState(String(entry.amount).replace('.', ','))
+  // Two decimals from the start, the way money is written and the way the big
+  // display used to render it. Merging that display into this field made the raw
+  // number visible for the first time: 43.5 arrived on screen as `43,5`.
+  const [typed, setTyped] = useState(typedFromAmount(entry.amount))
   const [concept, setConcept] = useState(entry.concept)
   const [payer, setPayer] = useState<0 | 1>(entry.payer ?? 0)
   const [date, setDate] = useState(entry.date)
@@ -51,7 +54,15 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
           {/* The title moved into the space the cancel link left behind, and it
               is what names the dialog now — one name rather than a visible one
               and a different invisible one. */}
-          <h2 id={titleId} className="text-sm font-semibold">{T.edit.title}</h2>
+          <div className="min-w-0">
+            <h2 id={titleId} className="text-sm font-semibold">{T.edit.title}</h2>
+            {/* Up here with the title rather than alone at the foot of the
+                sheet: it is what this screen is about — that row and no other —
+                and it was costing a line of its own to say so. */}
+            <p className="text-[11px] text-ink-3">
+              {entry.row ? T.edit.row(entry.row) : T.sync.pending(1)}
+            </p>
+          </div>
           {/* Outlined rather than filled: this is the one control here that
               cannot be undone, so it has to look like a button without looking
               like the thing to press. */}
@@ -68,24 +79,38 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
         </div>
 
         <div className="flex flex-col gap-3">
-          <output className="py-1 text-center font-mono text-4xl font-semibold tabular">
-            <span className="text-xl text-ink-3">€ </span>{displayTyped(typed)}
-          </output>
+          {/* The day and the amount on one line, in that order, because that is
+              the order the keypad asks for them in — and because neither needs a
+              whole line of a phone to itself. The amount keeps the big mono
+              digits it has on the keypad: it is the number that must not be
+              wrong, and this is the screen for fixing it.
 
-          <input
-            inputMode="decimal"
-            value={typed}
-            onChange={event => setTyped(event.target.value.replace(/[^\d,]/g, ''))}
-            aria-label="Importe"
-            className="rounded-lg border border-line bg-surface px-3 py-2.5 text-center font-mono text-sm"
-          />
-
-          <input
-            value={concept}
-            onChange={event => setConcept(event.target.value)}
-            aria-label={T.add.concept}
-            className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm"
-          />
+              One field where there used to be two. A read-only display over an
+              input showed the same number twice, and on a screen with a keyboard
+              the input can be the display. */}
+          <div className="flex items-stretch gap-2">
+            <input
+              type="date"
+              value={date}
+              max={todayIso()}
+              onChange={event => setDate(event.target.value)}
+              aria-label={T.add.fieldDate}
+              className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2.5
+                         text-sm"
+            />
+            <div className="flex shrink-0 items-center gap-1 rounded-lg border border-line
+                            bg-surface px-3">
+              <input
+                inputMode="decimal"
+                value={typed}
+                onChange={event => setTyped(event.target.value.replace(/[^\d,]/g, ''))}
+                aria-label={T.add.fieldAmount}
+                className="w-24 bg-transparent text-right font-mono text-xl font-semibold
+                           tabular outline-none"
+              />
+              <span aria-hidden="true" className="text-sm text-ink-3">€</span>
+            </div>
+          </div>
 
           <Segmented
             value={String(payer)}
@@ -100,9 +125,6 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
                 icon: <Avatar name={faces[0]} className="h-10 w-10" />,
               },
               {
-                // The name alone, with "Paga" left to the accessible name: the
-                // row is under a heading that already asks the question, and the
-                // word was taking the space the face wanted.
                 label: people[1].name, ariaLabel: T.add.pays(people[1].name),
                 value: '1', tone: 'person-2',
                 icon: <Avatar name={faces[1]} className="h-10 w-10" />,
@@ -112,20 +134,19 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
           />
 
           <input
-            type="date"
-            value={date}
-            max={todayIso()}
-            onChange={event => setDate(event.target.value)}
-            aria-label={formatShortDate(date)}
+            value={concept}
+            onChange={event => setConcept(event.target.value)}
+            aria-label={T.add.concept}
             className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm"
           />
 
           <input
             value={note}
             onChange={event => setNote(event.target.value)}
-            placeholder={T.edit.note}
-            aria-label={T.edit.note}
-            className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm placeholder:text-ink-3"
+            placeholder={T.add.notePlaceholder}
+            aria-label={T.add.fieldNote}
+            className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm
+                       placeholder:text-ink-3"
           />
 
           {/* Cancel next to save, at the size of a button and not a link in the
@@ -151,10 +172,6 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
               {T.edit.save}
             </button>
           </div>
-
-          <p className="text-center text-[11px] text-ink-3">
-            {entry.row ? `Fila ${entry.row}` : T.sync.pending(1)}
-          </p>
         </div>
       </div>
     </div>

@@ -199,6 +199,9 @@ export const T = {
     save: 'Guardar cambios',
     cancel: 'Cancelar',
     voidConfirm: '¿Anular este gasto? La fila se queda en la hoja, sin importes.',
+    /** Which row of the sheet this is, which is the whole subject of the screen.
+     *  It was written inline in the component, in Spanish, where nothing else is. */
+    row: (row: number) => `Fila ${row}`,
     note: 'Nota',
   },
 

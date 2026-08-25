@@ -51,6 +51,39 @@ test('anular is a button, in the corner, away from the way out', async ({ page }
   expect(JSON.stringify(calls)).not.toContain('update')
 })
 
+test('the fields come in the order the keypad asks for them', async ({ page }) => {
+  // Editing and apuntando are the same six questions, and they were in two
+  // different orders: the sheet put the amount first and the day fifth. It now
+  // follows the flow — day, amount, who, concept, observación — and pairs what
+  // fits on one line of a phone.
+  await stubApi(page, LEDGER)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+  await page.getByRole('button', { name: /super/ }).click()
+
+  const dialog = page.getByRole('dialog')
+  const boxes = await Promise.all([
+    dialog.locator('input[type="date"]').boundingBox(),
+    dialog.getByRole('textbox', { name: 'Importe' }).boundingBox(),
+    dialog.getByRole('button', { name: 'Paga Viqui' }).boundingBox(),
+    dialog.getByRole('textbox', { name: 'Concepto' }).boundingBox(),
+    dialog.getByRole('textbox', { name: 'Observaciones' }).boundingBox(),
+  ])
+  // Middles, not tops: the amount sits inside a bordered box with the € beside
+  // it, so its own top is a few pixels below the date field's while the two are
+  // plainly on one line.
+  const rows = boxes.map(box => box!.y + box!.height / 2)
+
+  // The day and the amount share a line; everything after it comes below.
+  expect(Math.abs(rows[0] - rows[1])).toBeLessThan(4)
+  expect(rows[2]).toBeGreaterThan(rows[1])
+  expect(rows[3]).toBeGreaterThan(rows[2])
+  expect(rows[4]).toBeGreaterThan(rows[3])
+
+  // And the amount reads as money rather than as a number: 23.5 is 23,50.
+  await expect(dialog.getByRole('textbox', { name: 'Importe' })).toHaveValue('23,50')
+})
+
 test('saving an edit sends it, and voiding asks first', async ({ page }) => {
   const calls = await stubApi(page, LEDGER)
   await signIn(page)
