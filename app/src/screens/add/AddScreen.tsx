@@ -284,7 +284,21 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
             and in the middle: one glance at the centre of the screen instead of
             one at each end of a row. */}
         <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
-          <p className="text-xs font-semibold text-ink-2">{T.add.step(step + 1, STEPS)}</p>
+          {/* Centred inside a box the full width of the column, not shrunk to
+              fit its own text.
+              
+              This is the header jump again, in its subtlest form yet. A centred
+              element sits at `centre - width / 2`, so its position depends on
+              how wide its text measures — and "Paso 1 de 3" and "Paso 2 de 3"
+              are not the same width in a font whose digits are not the same
+              width. It moved by a fraction of a pixel here and by more than one
+              in CI, which is where it was caught. A constant box with the text
+              centred in it distributes any difference symmetrically, so the
+              middle stays the middle; `tabular` removes the difference as well,
+              for the fonts that offer it. */}
+          <p className="w-full text-center text-xs font-semibold tabular text-ink-2">
+            {T.add.step(step + 1, STEPS)}
+          </p>
           <div className="flex gap-1" aria-hidden="true">
             {[0, 1, 2].map(index => (
               <span

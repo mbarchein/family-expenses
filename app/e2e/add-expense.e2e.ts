@@ -466,9 +466,12 @@ test('the step and its bars are stacked in the middle, and the header keeps its 
       [header, counter, pills].map(locator => locator.boundingBox()))
 
     // One above the other, both centred on the header rather than pushed to
-    // opposite ends of it.
+    // opposite ends of it. The bars are a real box and carry the assertion; the
+    // counter's box spans the column on purpose — see AddScreen — so what is
+    // checked there is that its text is centred within it.
     expect(text!.y).toBeLessThan(bars!.y)
     const middle = box!.x + box!.width / 2
+    await expect(counter).toHaveCSS('text-align', 'center')
     expect(text!.x + text!.width / 2).toBeCloseTo(middle, 0)
     expect(bars!.x + bars!.width / 2).toBeCloseTo(middle, 0)
 
