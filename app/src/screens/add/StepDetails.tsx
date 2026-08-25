@@ -10,7 +10,7 @@ import { useAvatars } from '../../store/avatars'
 import { useIconChoices } from '../../store/iconChoices'
 import { usePlaces } from '../../store/places'
 import type { Draft } from '../../store/draft'
-import type { Bootstrap, Suggestion } from '../../api/types'
+import type { Bootstrap, Entry, Suggestion } from '../../api/types'
 
 /**
  * Eight tiles, two across and four down.
@@ -49,9 +49,12 @@ const TILES = 8
  * is buying the same kind of thing, and no amount of frequency beats being here —
  * and because they are the only control here that can answer the whole screen.
  */
-export function StepDetails({ draft, data, patch, onNext }: {
+export function StepDetails({ draft, data, entries, patch, onNext }: {
   draft: Draft
   data: Bootstrap
+  /** What the list is showing, queue included. The search offers these too, so a
+   *  concept that has not reached the sheet yet can still be found. */
+  entries: Entry[]
   patch: (fields: Partial<Draft>) => void
   onNext: () => void
 }) {
@@ -79,7 +82,7 @@ export function StepDetails({ draft, data, patch, onNext }: {
    * state: the query and the concept are the same string, so tapping a match
    * simply finishes the word.
    */
-  const conceptTiles = useMemo<ConceptTile[]>(() => {
+  const vocabulary = useMemo<ConceptTile[]>(() => {
     // The places are not in here: they are the cards above, and a concept
     // offered twice on one screen is two controls for one field.
     const seen = new Set<string>()
@@ -98,11 +101,25 @@ export function StepDetails({ draft, data, patch, onNext }: {
     for (const chip of data.frequent) {
       add({ concept: chip.concept, icon: chosen[fold(chip.concept)] })
     }
+    // And whatever is in the list on this phone, newest first. The backend's
+    // vocabulary comes from the sheet, so a concept apuntado a minute ago — or
+    // one still sitting in the outbound queue with no signal — would not be in
+    // it. It is on screen, so it is searchable.
+    for (const entry of entries) {
+      if (entry.concept && !entry.voided) {
+        add({ concept: entry.concept, icon: chosen[fold(entry.concept)] })
+      }
+    }
 
-    // Cut to the grid *after* the search, so typing reaches the seventh concept
-    // rather than only reordering the six already on screen.
-    return fuzzyFilter(all, draft.concept, tile => tile.concept).slice(0, TILES)
-  }, [mine, data.frequent, draft.concept, chosen])
+    return all
+  }, [mine, data.frequent, entries, chosen])
+
+  // Cut to the grid *after* the search, so typing reaches the two-hundredth
+  // concept rather than only reordering the eight already on screen.
+  const conceptTiles = useMemo<ConceptTile[]>(
+    () => fuzzyFilter(vocabulary, draft.concept, tile => tile.concept).slice(0, TILES),
+    [vocabulary, draft.concept],
+  )
 
   /**
    * One row for the note, the payment methods first and then the suggested

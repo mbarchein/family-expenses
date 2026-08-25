@@ -333,6 +333,10 @@ function formatDate_(value) {
  * while it is still a monthly habit and lets it fade once it stops, without
  * anyone maintaining a list.
  */
+/** How many concepts the app is given to search. The grid shows eight of them;
+ *  this is the vocabulary behind the search box. */
+var CONCEPTS_SENT = 200;
+
 function frequentConcepts_(entries) {
   var HALF_LIFE_DAYS = 90;
   var today = new Date();
@@ -352,7 +356,13 @@ function frequentConcepts_(entries) {
   return Object.keys(byKey)
     .map(function (key) { return byKey[key]; })
     .sort(function (a, b) { return b.score - a.score; })
-    .slice(0, 8)
+    // Far more than the eight tiles the app shows, and that is the point: the
+    // app filters this list as somebody types and *then* cuts it to eight, so
+    // whatever is not sent here cannot be found by typing it. It used to send
+    // exactly eight, which made the search box able to reorder the tiles already
+    // on screen and nothing else — a concept apuntado once, `Museo`, was
+    // unreachable the next day. Two hundred short strings is a few kilobytes.
+    .slice(0, CONCEPTS_SENT)
     .map(function (bucket) {
       // A concept and nothing else. It used to carry two more things and both
       // were removed for the same reason: they moved a field the user had not

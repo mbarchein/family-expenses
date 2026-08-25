@@ -78,6 +78,12 @@ export function bootstrap(overrides: Partial<Bootstrap> = {}): Bootstrap {
       { concept: 'seguro' },
       { concept: 'pan' },
       // Outside the grid, for the test that typing reaches past the last tile.
+      //
+      // Nine of them here while the backend sent eight, which is how a browser
+      // test for exactly this passed while the real thing was broken: the double
+      // was more generous than production. The backend now sends up to two
+      // hundred — if that ever shrinks to the size of the grid again, the test
+      // that catches it is in `apps-script/test/`, not here.
       { concept: 'lo del jueves' },
     ],
     suggestions: [

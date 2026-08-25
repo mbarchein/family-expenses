@@ -318,3 +318,36 @@ test('the accounts allowed to use the app are listed once each', () => {
 
   assert.deepEqual(emails, ['viqui@example.com', 'mario@example.com'])
 })
+
+test('the vocabulary sent is much longer than the eight tiles shown', () => {
+  // The bug this fixes: the app filters this list as somebody types and *then*
+  // cuts it to eight, so whatever is not sent cannot be found by typing it. With
+  // eight sent, the search box could reorder the tiles already on screen and
+  // nothing else — a `Museo` apuntado once was unreachable the next day.
+  const rows = [['Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id']]
+  const today = new Date()
+  for (let i = 0; i < 40; i++) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i)
+    rows.push([date, `concepto ${i}`, 10 + i, '', 100, '', `id-${i}`])
+  }
+  rows.push([today, 'Museo', 12, '', 100, '', 'id-museo'])
+  world({ ledger: rows })
+
+  const concepts = handleBootstrap_({}, USER).frequent.map(item => item.concept)
+
+  assert.ok(concepts.length > 8, `only ${concepts.length} concepts were sent`)
+  assert.ok(concepts.includes('Museo'), 'a concept used once was not sent at all')
+})
+
+test('the vocabulary is ordered by how recently it was used', () => {
+  // Which is what makes the first eight the right eight before anybody types.
+  const rows = [['Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id']]
+  const today = new Date()
+  const old = new Date(today.getFullYear() - 1, 0, 15)
+  for (let i = 0; i < 3; i++) rows.push([old, 'lo de siempre', 10, '', 100, '', `old-${i}`])
+  rows.push([today, 'lo de hoy', 10, '', 100, '', 'new-1'])
+  world({ ledger: rows })
+
+  const concepts = handleBootstrap_({}, USER).frequent.map(item => item.concept)
+  assert.equal(concepts[0], 'lo de hoy')
+})

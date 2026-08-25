@@ -613,3 +613,51 @@ test('the payer tiles are square-ish, and say the name without the verb', async 
   })
   expect(room).toBeLessThanOrEqual(0)
 })
+
+test('a concept apuntado a minute ago can be found by typing it', async ({ page }) => {
+  // What was reported: `Museo` was entered, and the next day typing `mus` found
+  // nothing. Two causes, one on each side — the backend sent only the eight
+  // concepts the grid shows, so the search had nothing else to look through; and
+  // the app searched only what the backend sent, so a concept still in the
+  // outbound queue was invisible even to the phone that had just typed it.
+  //
+  // This is the second half, so the entry has to stay in the queue: the append
+  // is refused while the bootstrap keeps working, which is a phone with no
+  // signal. Letting the append succeed would prove nothing — the double never
+  // learns about `Museo`, so the concept would vanish from the list the moment
+  // the queue emptied, and that state does not exist against a real sheet.
+  await page.route('**/macros/s/**', async route => {
+    const body = JSON.parse(route.request().postData() ?? '{}')
+    if (body.action === 'append') return route.abort()
+    return route.fulfill({ json: { ok: true, data: bootstrap() } })
+  })
+  await signIn(page)
+
+  await typeAmount(page, '12')
+  await next(page)
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('Museo')
+  await next(page)
+  await page.getByRole('button', { name: 'Guardar' }).click()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+  // Still on this phone and nowhere else, which is the state being tested.
+  await expect(page.getByText(/sin subir|Sin conexión/)).toBeVisible()
+
+  await typeAmount(page, '8')
+  await next(page)
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('mus')
+
+  await expect(page.getByRole('button', { name: 'Museo', exact: true })).toBeVisible()
+})
+
+test('typing reaches a concept the grid never had room for', async ({ page }) => {
+  // The other half, from the app's side: the vocabulary is filtered and only
+  // then cut to eight tiles.
+  await stubApi(page)
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+
+  await expect(page.getByRole('button', { name: 'lo del jueves' })).toHaveCount(0)
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('jueves')
+  await expect(page.getByRole('button', { name: 'lo del jueves' })).toBeVisible()
+})

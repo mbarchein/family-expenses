@@ -338,7 +338,13 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
         <StepAmount draft={draft} people={people} patch={patch} onNext={forward} />
       )}
       {step === 1 && (
-        <StepDetails draft={draft} data={data} patch={patch} onNext={forward} />
+        <StepDetails
+          draft={draft}
+          data={data}
+          entries={ledger.entries}
+          patch={patch}
+          onNext={forward}
+        />
       )}
       {step === 2 && (
         <StepReview
