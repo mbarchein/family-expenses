@@ -65,6 +65,27 @@ test('a row wears the icon of what it was, in the colour of who paid', async ({ 
   await expect(page.getByRole('button', { name: /chuches/ }).locator('svg')).toHaveCount(0)
 })
 
+test('the concept filter has a cross inside it that empties it', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+
+  const field = page.getByRole('searchbox', { name: 'Buscar concepto…' })
+  const clear = page.getByRole('button', { name: 'Borrar la búsqueda' })
+
+  // Nothing to clear, nothing shown: a cross on an empty field is a control
+  // that does nothing, sitting where a thumb will find it.
+  await expect(clear).toHaveCount(0)
+
+  await field.fill('gasolina')
+  await expect(page.getByRole('button', { name: /super/ })).toHaveCount(0)
+
+  await clear.click()
+  await expect(field).toHaveValue('')
+  await expect(page.getByRole('button', { name: /super/ })).toBeVisible()
+  await expect(clear).toHaveCount(0)
+})
+
 test('the strip totals last month, this month and this year', async ({ page }) => {
   await stubApi(page)
   await signIn(page)

@@ -178,6 +178,7 @@ export const T = {
   list: {
     both: 'Ambos',
     search: 'Buscar concepto…',
+    clearSearch: 'Borrar la búsqueda',
     empty: 'Todavía no hay nada apuntado',
     noResults: 'Ningún gasto con ese concepto',
     edit: 'Editar',
