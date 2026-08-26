@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import {
-  LAST_YEAR, MARIO, PREVIOUS_MONTH, TODAY, bootstrap, entry, longLedger, signIn, stubApi,
+  LAST_YEAR, MARIO, PREVIOUS_MONTH, TODAY, VIQUI, bootstrap, entry, longLedger, signIn, stubApi,
   stubGoogle,
 } from './harness'
 
@@ -39,6 +39,30 @@ test('the rows show the observación, after the payer and the day', async ({ pag
   const row = page.getByRole('button', { name: /cena/ })
   await expect(row).toContainText('Mario')
   await expect(row).toContainText('lo pongo yo y me lo pasas')
+})
+
+test('a row wears the icon of what it was, in the colour of who paid', async ({ page }) => {
+  // The row used to carry an eight-pixel dot in the payer's colour and nothing
+  // about the expense. The icon is the same vocabulary the keypad offers, so a
+  // list scrolled with a thumb is recognisable without reading it — and the
+  // colour still says who paid, which is the job the dot was doing.
+  await stubApi(page, bootstrap({
+    entries: [
+      entry({ row: 2300, id: 'e1', date: TODAY, concept: 'super', amount: 30, payer: VIQUI }),
+      // No keyword matches this one, and `iconFor` answers nothing rather than
+      // something approximate: the dot is what is left.
+      entry({ row: 2299, id: 'e2', date: TODAY, concept: 'chuches', amount: 3, payer: MARIO }),
+    ],
+  }))
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+
+  const shopping = page.getByRole('button', { name: /super/ })
+  await expect(shopping.locator('svg')).toHaveCount(1)
+  // Viqui's colour, on the icon rather than beside it.
+  await expect(shopping.locator('svg')).toHaveCSS('color', 'rgb(47, 98, 217)')
+
+  await expect(page.getByRole('button', { name: /chuches/ }).locator('svg')).toHaveCount(0)
 })
 
 test('the strip totals last month, this month and this year', async ({ page }) => {

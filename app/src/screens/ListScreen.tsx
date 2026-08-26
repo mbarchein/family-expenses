@@ -1,17 +1,25 @@
 import { useMemo, useState } from 'react'
+import { Icon } from '../components/Icon'
 import { Segmented } from '../components/Segmented'
 import { Totals } from '../components/Totals'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
 import { formatDayHeading, formatShortDate, todayIso } from '../lib/dates'
+import { fold, iconFor } from '../lib/icons'
 import { formatEur } from '../lib/money'
 import { earliestDay, summarise, yearIsPartial } from '../lib/totals'
 import type { Entry } from '../api/types'
+import { useIconChoices } from '../store/iconChoices'
 import type { Ledger } from '../store/ledger'
 import { EditSheet } from './EditSheet'
 
 export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => void }) {
   const people = ledger.data?.config.people
+  // The same icons the keypad shows, corrections included: a concept that was
+  // given a basket by hand on the way in is the same concept on the way out, and
+  // two screens disagreeing about what something looks like is worse than
+  // neither of them showing it.
+  const { chosen } = useIconChoices()
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<Entry | null>(null)
@@ -100,11 +108,7 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
                   className="flex w-full items-center gap-2.5 border-b border-line py-2 text-left
                              focus-visible:outline focus-visible:outline-2"
                 >
-                  <span
-                    aria-hidden
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ background: entry.payer === 0 ? 'var(--person-1)' : 'var(--person-2)' }}
-                  />
+                  <RowIcon entry={entry} chosen={chosen} />
                   <span className="min-w-0 flex-1">
                     <span
                       className="block truncate text-sm"
@@ -150,6 +154,30 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
         />
       )}
     </div>
+  )
+}
+
+/**
+ * One slot at the head of the row, doing two jobs.
+ *
+ * The colour is who paid, which is what the dot in this position has always
+ * said. The shape is what the expense was, which is new — and the reason the
+ * slot is 24px wide rather than 8. Where there is no icon the dot is what is
+ * left: `iconFor` answers nothing rather than something approximate, because a
+ * guess that misses is a small lie printed on every row of somebody's history.
+ */
+function RowIcon({ entry, chosen }: { entry: Entry; chosen: Record<string, string> }) {
+  const icon = iconFor(entry.concept, chosen[fold(entry.concept)])
+  const colour = entry.voided
+    ? 'var(--ink-3)'
+    : entry.payer === 0 ? 'var(--person-1)' : 'var(--person-2)'
+
+  return (
+    <span aria-hidden className="grid h-6 w-6 shrink-0 place-items-center" style={{ color: colour }}>
+      {icon
+        ? <Icon name={icon} className="h-[22px] w-[22px]" />
+        : <span className="h-2 w-2 rounded-full bg-current" />}
+    </span>
   )
 }
 
