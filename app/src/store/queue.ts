@@ -24,7 +24,22 @@ export type Op =
 
 export type QueuedEntry = Omit<Entry, 'row' | 'voided'>
 
-interface Record_ { op: Op; attempts: number; queuedAt: number }
+interface Record_ { op: Op; attempts: number; queuedAt: number; triedAt?: number }
+
+/**
+ * Two failures closer together than this are one attempt.
+ *
+ * The queue is flushed on every refresh, and a refresh happens when the app
+ * comes back to the foreground — which on a phone includes the on-screen
+ * keyboard closing a second after Guardar was tapped. Counted naively, the save
+ * and that immediate second flush are two attempts, so the strip announced
+ * "reintento 1" while the first attempt was still what the person was watching.
+ *
+ * A burst is collapsed by leaving `triedAt` where it was, so the window is
+ * measured from the attempt that counted rather than sliding forward with every
+ * failure — otherwise a fast enough series would never count at all.
+ */
+const SAME_ATTEMPT_MS = 3_000
 
 export async function enqueue(op: Op): Promise<void> {
   await idb.set('queue', keyOf(op), { op, attempts: 0, queuedAt: Date.now() } satisfies Record_)
@@ -84,8 +99,13 @@ export async function flush(): Promise<{ sent: number; failed: boolean }> {
         continue
       }
       // Counted before giving up, so the next attempt knows it is one.
-      await idb.set('queue', keyOf(record.op),
-        { ...record, attempts: (record.attempts ?? 0) + 1 } satisfies Record_)
+      const now = Date.now()
+      const burst = record.triedAt !== undefined && now - record.triedAt < SAME_ATTEMPT_MS
+      await idb.set('queue', keyOf(record.op), {
+        ...record,
+        attempts: burst ? record.attempts : (record.attempts ?? 0) + 1,
+        triedAt: burst ? record.triedAt : now,
+      } satisfies Record_)
       return { sent, failed: true }
     }
   }

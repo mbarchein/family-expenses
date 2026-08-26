@@ -700,8 +700,16 @@ test('an append the sheet never really did stays on the phone', async ({ page })
   await expect(strip).toBeVisible()
   await expect(strip).not.toContainText('reintento')
 
-  // The second attempt is the first retry, and says so. Coming back to the
-  // foreground is one of the two moments the app retries on.
+  // Nor does a second flush a moment later. Coming back to the foreground is one
+  // of the two moments the app retries on, and on a phone the keyboard closing
+  // does it a second after Guardar — which is still the first attempt as far as
+  // anybody watching is concerned.
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(strip).toBeVisible()
+  await expect(strip).not.toContainText('reintento')
+
+  // Past the window, it is a real second attempt and says so.
+  await new Promise(resolve => setTimeout(resolve, 3_200))
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
   await expect(strip).toContainText('reintento 1')
 
