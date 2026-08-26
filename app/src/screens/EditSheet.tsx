@@ -1,16 +1,18 @@
 import { useId, useState, type FocusEvent } from 'react'
 import { Avatar } from '../components/Avatar'
+import { CategoryField } from '../components/CategoryField'
 import { Segmented } from '../components/Segmented'
 import { T } from '../i18n/strings'
 import { todayIso } from '../lib/dates'
 import { parseAmount, typedFrom, typedFromAmount } from '../lib/money'
-import type { Entry, Person } from '../api/types'
+import type { Category, Entry, Person } from '../api/types'
 import { useAvatars } from '../store/avatars'
 import type { QueuedEntry } from '../store/queue'
 
-export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
+export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }: {
   entry: Entry
   people: [Person, Person]
+  categories: readonly Category[]
   onClose: () => void
   onSave: (entry: QueuedEntry) => Promise<void>
   onVoid: (id: string) => Promise<void>
@@ -23,6 +25,7 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
   const [payer, setPayer] = useState<0 | 1>(entry.payer ?? 0)
   const [date, setDate] = useState(entry.date)
   const [note, setNote] = useState(entry.note)
+  const [category, setCategory] = useState(entry.category)
   const [busy, setBusy] = useState(false)
   const titleId = useId()
   const { faces } = useAvatars()
@@ -55,7 +58,10 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
     const amount = parseAmount(typed)
     if (amount <= 0 || !concept.trim()) return
     setBusy(true)
-    await onSave({ id: entry.id, date, concept: concept.trim(), amount, payer, note })
+    await onSave({
+      id: entry.id, date, concept: concept.trim(), amount, payer, note,
+      category, method: entry.method,
+    })
   }
 
   async function remove() {
@@ -168,6 +174,12 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
             aria-label={T.add.concept}
             className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm"
           />
+
+          {/* Under the concept, because it is about the concept. Never re-guessed
+              here: this row already has a category — possibly one somebody typed
+              into the sheet by hand — and an edit screen that quietly refiles
+              what it was opened to fix is worse than one that shows nothing. */}
+          <CategoryField value={category} categories={categories} onChange={setCategory} />
 
           <input
             value={note}

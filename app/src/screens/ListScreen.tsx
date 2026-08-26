@@ -5,10 +5,10 @@ import { Totals } from '../components/Totals'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
 import { formatDayHeading, formatShortDate, todayIso } from '../lib/dates'
-import { fold, iconFor } from '../lib/icons'
+import { iconOf } from '../lib/categories'
 import { formatEur } from '../lib/money'
 import { earliestDay, summarise, yearIsPartial } from '../lib/totals'
-import type { Entry } from '../api/types'
+import type { Category, Entry } from '../api/types'
 import { useIconChoices } from '../store/iconChoices'
 import type { Ledger, ShownEntry } from '../store/ledger'
 import { EditSheet } from './EditSheet'
@@ -20,6 +20,7 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
   // two screens disagreeing about what something looks like is worse than
   // neither of them showing it.
   const { chosen } = useIconChoices()
+  const categories = ledger.data?.categories ?? []
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<Entry | null>(null)
@@ -131,7 +132,7 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
                   className="flex w-full items-center gap-2.5 border-b border-line py-2 text-left
                              focus-visible:outline focus-visible:outline-2"
                 >
-                  <RowIcon entry={entry} chosen={chosen} />
+                  <RowIcon entry={entry} categories={categories} chosen={chosen} />
                   <span className="min-w-0 flex-1">
                     {/* A row and not a block, so the badge keeps its width and
                         the concept is what gets truncated. The other way round
@@ -177,6 +178,7 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
         <EditSheet
           entry={editing}
           people={people}
+          categories={categories}
           onClose={() => setEditing(null)}
           onSave={async entry => { await ledger.editEntry(entry); setEditing(null) }}
           onVoid={async id => { await ledger.voidEntry(id); setEditing(null) }}
@@ -219,8 +221,12 @@ function UnsavedBadge() {
  * left: `iconFor` answers nothing rather than something approximate, because a
  * guess that misses is a small lie printed on every row of somebody's history.
  */
-function RowIcon({ entry, chosen }: { entry: ShownEntry; chosen: Record<string, string> }) {
-  const icon = iconFor(entry.concept, chosen[fold(entry.concept)])
+function RowIcon({ entry, categories, chosen }: {
+  entry: ShownEntry
+  categories: readonly Category[]
+  chosen: Record<string, string>
+}) {
+  const icon = iconOf(entry, categories, chosen)
   const colour = entry.voided
     ? 'var(--ink-3)'
     : entry.payer === 0 ? 'var(--person-1)' : 'var(--person-2)'

@@ -86,6 +86,16 @@ export function bootstrap(overrides: Partial<Bootstrap> = {}): Bootstrap {
       // that catches it is in `apps-script/test/`, not here.
       { concept: 'lo del jueves' },
     ],
+    // The Categorías tab, small but real: two of these share an icon, which is
+    // allowed and which the app is supposed to say out loud.
+    categories: [
+      { name: 'Supermercado', icon: 'cesta', words: ['supermercado', 'super', 'compra'] },
+      { name: 'Combustible', icon: 'combustible', words: ['gasolinera', 'gasolina'] },
+      { name: 'Restaurantes', icon: 'cubiertos', words: ['restaurante', 'cena', 'comedor'] },
+      { name: 'Cafés y bares', icon: 'cubiertos', words: ['cafeteria', 'bar'] },
+      { name: 'Luz', icon: 'bombilla', words: ['electricidad', 'luz'] },
+      { name: 'Colegio', icon: 'mochila', words: ['colegio', 'escolar'] },
+    ],
     suggestions: [
       { text: 'Efectivo', kind: 'method', person: null },
       { text: 'Tarjeta BBVA', kind: 'method', person: MARIO },
@@ -100,8 +110,10 @@ export function bootstrap(overrides: Partial<Bootstrap> = {}): Bootstrap {
   }
 }
 
-export function entry(fields: Omit<Entry, 'note' | 'voided'> & Partial<Entry>): Entry {
-  return { note: '', voided: false, ...fields }
+export function entry(
+  fields: Omit<Entry, 'note' | 'voided' | 'category' | 'method'> & Partial<Entry>,
+): Entry {
+  return { note: '', category: '', method: '', voided: false, ...fields }
 }
 
 /**

@@ -23,6 +23,15 @@ export interface Draft {
   typed: string
   payer: 0 | 1
   concept: string
+  /**
+   * The category, which is a suggestion until somebody looks at it.
+   *
+   * Stored on the draft rather than worked out at save time, because it can be
+   * changed by hand on the second step and that choice has to survive the app
+   * being killed like everything else here does. Empty means unfiled, which is
+   * a real answer: nothing guessed, and nobody chose.
+   */
+  category: string
   note: string
   /**
    * Whether the day is being chosen by hand.
@@ -51,7 +60,7 @@ const KEY = 'current'
 
 export function emptyDraft(payer: 0 | 1): Draft {
   return {
-    step: 0, date: todayIso(), typed: '', payer, concept: '', note: '',
+    step: 0, date: todayIso(), typed: '', payer, concept: '', category: '', note: '',
     pickDate: false, fixed: null,
   }
 }

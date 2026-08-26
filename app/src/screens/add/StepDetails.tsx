@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CategoryField } from '../../components/CategoryField'
 import { ConceptGrid, type ConceptTile } from '../../components/ConceptGrid'
 import { IconMenu } from '../../components/IconMenu'
 import { PlaceCards } from '../../components/PlaceCards'
 import { Pills, type Pill } from '../../components/Pills'
 import { T } from '../../i18n/strings'
+import { categoryFor } from '../../lib/categories'
 import { fold } from '../../lib/icons'
 import { fuzzyFilter } from '../../lib/fuzzy'
 import { useAvatars } from '../../store/avatars'
@@ -65,6 +67,30 @@ export function StepDetails({ draft, data, entries, patch, onNext }: {
   const { chosen, choose } = useIconChoices()
   const { faces, choose: chooseFace } = useAvatars()
   const [menu, setMenu] = useState(false)
+
+  const categories = data.categories ?? []
+
+  /**
+   * The category, re-guessed whenever the concept changes.
+   *
+   * Started at the concept the draft arrived with, so a restored draft — and a
+   * category picked by hand before the app was killed — is not re-guessed on
+   * mount. After that, a new concept means a new guess: the category is derived
+   * from the concept, so changing the concept invalidates the derivation, and a
+   * hand-picked category sticks only until the thing it describes is replaced.
+   */
+  const guessedFor = useRef(draft.concept.trim())
+  useEffect(() => {
+    const concept = draft.concept.trim()
+    if (guessedFor.current === concept) return
+    guessedFor.current = concept
+    const guess = categoryFor(concept, categories, entries)
+    if (guess !== draft.category) patch({ category: guess })
+    // `draft.category` is read and not depended on: including it would re-run
+    // this the moment it is picked by hand, with the concept unchanged, and
+    // overwrite the pick with the guess it was correcting.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.concept, categories, entries, patch])
 
   const mine = useMemo(
     () => (data.suggestions ?? []).filter(
@@ -221,6 +247,17 @@ export function StepDetails({ draft, data, entries, patch, onNext }: {
             <CogIcon />
           </button>
         </div>
+
+        {/* The category the concept was placed in, under the field it comes
+            from. Guessed rather than asked for: the point of the column is
+            totals by kind, and a question on the fast path would be answered
+            with whatever is nearest the thumb. What this shows is the guess, so
+            that a wrong one is visible before it is saved rather than after. */}
+        <CategoryField
+          value={draft.category}
+          categories={categories}
+          onChange={category => patch({ category })}
+        />
 
         <div className="pt-1">
           <p className="pb-1 text-xs font-semibold text-ink-2">{T.add.noteRow}</p>

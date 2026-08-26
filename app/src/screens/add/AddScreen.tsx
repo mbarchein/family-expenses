@@ -224,6 +224,11 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
       amount,
       payer: draft.payer,
       note: draft.note,
+      category: draft.category,
+      // Nothing writes a payment method yet; it still travels inside the note.
+      // Empty rather than absent, because an absent field means "leave the cell
+      // alone" and a new row has no cell to leave alone.
+      method: '',
     })
 
     // After the expense, never before: the entry is the thing that matters and

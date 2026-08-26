@@ -777,3 +777,80 @@ test('a keystroke aimed at a field stays in the field', async ({ page }) => {
 
   await expect(concept).toHaveValue('caña 2,5')
 })
+
+
+/**
+ * The category: the bucket, as opposed to the concept, which is whatever was
+ * typed. Guessed from the concept rather than asked for — a question on the fast
+ * path gets answered with whatever is nearest the thumb — so what the screen has
+ * to do is show the guess before it is saved rather than after.
+ */
+test('the category is guessed from the concept and sent with the expense', async ({ page }) => {
+  const calls = await stubApi(page)
+  await signIn(page)
+
+  await typeAmount(page, '2350')
+  await next(page)
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('Cena en un bar')
+
+  const field = page.getByRole('button', { name: 'Elegir categoría' })
+  await expect(field).toContainText('Restaurantes')
+
+  await next(page)
+  await page.getByRole('button', { name: 'Guardar' }).click()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+  const append = calls.find(call => call.action === 'append')
+  expect(append?.payload.category).toBe('Restaurantes')
+  // The concept stays what was typed. That separation is the whole point.
+  expect(append?.payload.concept).toBe('Cena en un bar')
+})
+
+test('a concept nothing can place is left unfiled rather than guessed at', async ({ page }) => {
+  // An empty category is a question still open. One chosen at random to close it
+  // is worse than the question, because it gets totalled under a heading and
+  // then believed.
+  await stubApi(page)
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('lo del jueves')
+
+  await expect(page.getByRole('button', { name: 'Elegir categoría' }))
+    .toContainText('Sin categoría')
+})
+
+test('a category picked by hand survives, until the concept changes', async ({ page }) => {
+  // The category is derived from the concept, so a new concept means a new
+  // guess — and a hand-picked one sticks only until the thing it describes is
+  // replaced.
+  const calls = await stubApi(page)
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+
+  const concept = page.getByRole('textbox', { name: 'Concepto' })
+  const field = page.getByRole('button', { name: 'Elegir categoría' })
+
+  await concept.fill('Cena en un bar')
+  await expect(field).toContainText('Restaurantes')
+
+  await field.click()
+  await page.getByRole('dialog', { name: 'Elegir categoría' })
+    .getByRole('button', { name: 'Cafés y bares' }).click()
+  await expect(field).toContainText('Cafés y bares')
+
+  // Still there while the concept is what it was.
+  await next(page)
+  await page.getByRole('button', { name: 'Atrás' }).click()
+  await expect(field).toContainText('Cafés y bares')
+
+  // Replaced when the concept is.
+  await concept.fill('gasolinera Repsol')
+  await expect(field).toContainText('Combustible')
+
+  await next(page)
+  await page.getByRole('button', { name: 'Guardar' }).click()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+  expect(calls.find(call => call.action === 'append')?.payload.category).toBe('Combustible')
+})

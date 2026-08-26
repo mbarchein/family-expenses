@@ -6,7 +6,29 @@ export interface Entry {
   amount: number
   payer: 0 | 1 | null   // null when both amount cells are empty
   note: string
+  /** The normalised bucket, from column H. `Restaurantes` while the concept
+   *  stays whatever was typed — "Cena en un bar". Empty for every row filed
+   *  before the column existed, and for a concept nothing could guess. */
+  category: string
+  /** From column I. It used to be mixed into the note, where it could be
+   *  neither filtered nor totalled. */
+  method: string
   voided: boolean
+}
+
+/**
+ * A category as the Categorías tab has it.
+ *
+ * `words` is the guess: what a concept has to contain for this category to be
+ * suggested for it. It lives in the spreadsheet so that a guess which annoys
+ * somebody can be fixed by the person it annoys.
+ */
+export interface Category {
+  name: string
+  /** A name from the app's icon set. Several categories may share one — the app
+   *  says so when it happens rather than refusing. */
+  icon: string
+  words: string[]
 }
 
 export interface Person {
@@ -49,6 +71,7 @@ export interface Bootstrap {
   balance: number
   entries: Entry[]
   frequent: { concept: string }[]
+  categories: Category[]
   suggestions: Suggestion[]
   fixed: Fixed[]
   lastRow: number
@@ -57,6 +80,7 @@ export interface Bootstrap {
 export type ApiAction =
   | 'bootstrap' | 'append' | 'update' | 'voidEntry' | 'assignId'
   | 'saveFixed' | 'fixedDone'
+  | 'saveCategory' | 'deleteCategory'
 
 export class ApiError extends Error {
   constructor(readonly code: string, message: string) {

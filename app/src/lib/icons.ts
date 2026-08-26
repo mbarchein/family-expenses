@@ -78,13 +78,13 @@ export function iconFor(concept: string, chosen?: string): IconName | null {
   if (chosen && isIconName(chosen)) return chosen
   const text = fold(concept)
   if (!text) return null
-  for (const [word, icon] of KEYWORDS) if (matches(text, word)) return icon
+  for (const [word, icon] of KEYWORDS) if (wordMatches(text, word)) return icon
   return null
 }
 
 /** A keyword short enough to hide inside other words. Four characters is where
  *  the list stops being distinctive: `gas`, `bar`, `ropa`, `agua`, `pan`. */
-const SHORT = 4
+export const SHORT = 4
 
 /**
  * Whether a concept contains a keyword as the keyword rather than as letters.
@@ -100,7 +100,7 @@ const SHORT = 4
  * `gas` no longer matches `gastos`. Long keywords keep the substring rule, which
  * is what lets `gasolinera` match `gasolina` and `panaderia` match at all.
  */
-function matches(text: string, word: string): boolean {
+export function wordMatches(text: string, word: string): boolean {
   if (word.length > SHORT) return text.includes(word)
   return text.split(/[^a-z0-9ñ]+/).some(part =>
     part === word || part === `${word}s` || part === `${word}es`)

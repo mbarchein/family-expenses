@@ -175,6 +175,17 @@ export const T = {
     forgetConfirm: '¿Borrar este sitio? Los gastos ya apuntados no se tocan.',
   },
 
+  /** The category: the bucket, as opposed to the concept, which is whatever was
+   *  typed. The two used to be one field. */
+  category: {
+    label: 'Categoría',
+    none: 'Sin categoría',
+    pick: 'Elegir categoría',
+    search: 'Buscar categoría…',
+    close: 'Cerrar',
+    empty: 'No hay categorías en la hoja todavía',
+  },
+
   list: {
     both: 'Ambos',
     search: 'Buscar concepto…',
