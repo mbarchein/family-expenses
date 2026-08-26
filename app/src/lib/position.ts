@@ -86,3 +86,32 @@ function read(position: GeolocationPosition): Fix {
 export function formatCoords(fix: Fix): string {
   return `${fix.lat.toFixed(5)}, ${fix.lon.toFixed(5)}`
 }
+
+/**
+ * Keeps reading the position until it is told to stop, reporting each fix.
+ *
+ * For the one screen that is standing still with the switch on: the first fix a
+ * phone gives indoors is often ±40 m, and thirty seconds later the same phone
+ * knows itself to ±8. Places match within fifteen metres, so the difference
+ * between those two numbers is the difference between a suggestion that comes
+ * back at that doorway and one that never does.
+ *
+ * Only ever started from the switch that says it will save where you are — the
+ * same rule `askForPosition` follows, for the same reason: nothing in this app
+ * reads the position without a control that announced it.
+ *
+ * Returns the way to stop, and stopping is not optional: a watch left running is
+ * a GPS held open on somebody's phone.
+ */
+export function watchPosition(onFix: (fix: Fix) => void): () => void {
+  if (!navigator.geolocation) return () => {}
+  const id = navigator.geolocation.watchPosition(
+    position => onFix(read(position)),
+    // Silent on purpose. The switch already has the fix it was turned on with;
+    // a refinement that fails to arrive is not news, and the errors here are the
+    // same three as everywhere else.
+    () => {},
+    { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
+  )
+  return () => navigator.geolocation.clearWatch(id)
+}

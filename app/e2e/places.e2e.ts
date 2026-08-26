@@ -133,6 +133,36 @@ test.describe('with the location allowed', () => {
     expect(overflows).toBe(false)
   })
 
+  test('the switch draws where the phone thinks it is, and fetches nothing',
+    async ({ page }) => {
+    // Not a map. A map means tiles, and tiles mean asking a server for the
+    // images around a coordinate — which is exactly what section 13 of the
+    // privacy policy and the Sitios screen promise does not happen. So: a
+    // drawing, from coordinates the phone already has.
+    await stubApi(page)
+    await signIn(page)
+    await reachDetails(page)
+    await page.getByRole('textbox', { name: 'Concepto' }).fill('ferretería')
+    await next(page)
+
+    // Watched from here on, so the fonts the whole app loads at startup are not
+    // counted against the switch. What is being claimed is narrow and is the
+    // whole point: turning this on fetches nothing.
+    const outbound: string[] = []
+    page.on('request', request => {
+      const url = request.url()
+      if (!url.startsWith('http://localhost') && !url.includes('/macros/s/')) outbound.push(url)
+    })
+
+    await savePlace(page)
+    await expect(page.getByRole('img', { name: /Dónde estás/ })).toBeVisible()
+    // The accuracy as a number beside it, because a circle is not one.
+    await expect(page.getByText(/±\d+ m/).first()).toBeVisible()
+
+    await page.waitForTimeout(1000)
+    expect(outbound).toEqual([])
+  })
+
   test('the switch off means nothing is saved', async ({ page }) => {
     // The whole reason it is a switch: turning it on is a decision that can be
     // taken back before the expense is written, and the place is written with

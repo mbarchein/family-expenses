@@ -8,6 +8,7 @@ import { alreadyThere, whatIsDue, type Due } from '../../lib/fixed'
 import { todayIso } from '../../lib/dates'
 import { typedFromAmount } from '../../lib/money'
 import { BackIcon } from '../../components/ScreenHeader'
+import { watchPosition } from '../../lib/position'
 import { usePlaces } from '../../store/places'
 import { StepAmount } from './StepAmount'
 import { StepDetails } from './StepDetails'
@@ -56,8 +57,10 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
 
   // No `locate`: this only ever writes a place, and reading the GPS on the way
   // into a flow that may never ask for one is exactly what the option exists to
-  // avoid. The screen that suggests by proximity does its own reading.
-  const { locateNow, knows, rememberAt } = usePlaces()
+  // avoid. The screen that suggests by proximity does its own reading. `nearby`
+  // is measured against whatever fix the store already holds, so taking it costs
+  // nothing and is empty until the switch has asked.
+  const { locateNow, knows, rememberAt, nearby } = usePlaces()
   const [place, setPlace] = useState<PlaceState>({ kind: 'off' })
   const [showDue, setShowDue] = useState(false)
 
@@ -105,6 +108,36 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready])
 
+  /**
+   * While the switch is on and this screen is up, keep improving the fix.
+   *
+   * A phone indoors answers ±40 m at first and ±8 a little later, and places
+   * match within fifteen — so the difference between those two numbers decides
+   * whether the suggestion ever comes back at that doorway. Standing at a till
+   * with the review screen open is exactly the moment that improvement is free.
+   *
+   * The best fix wins, not the latest: a later reading can be worse, and
+   * replacing a ±8 with a ±25 because it arrived second would be a downgrade
+   * dressed as an update. A reading that fails to improve on the one held is
+   * what marks the position as settled, which is the only honest way this screen
+   * can stop saying "afinando" — the watch itself never announces that it is
+   * done.
+   *
+   * Stopped the moment the switch goes off or the screen goes away. A watch left
+   * running is a GPS held open on somebody's phone, and nothing else in this app
+   * reads the position without a control that announced it — this one is started
+   * only from the switch that says it will save where you are.
+   */
+  useEffect(() => {
+    if (place.kind !== 'on' || step !== 2) return
+    return watchPosition(fix => setPlace(current => {
+      if (current.kind !== 'on') return current
+      return fix.accuracy < current.fix.accuracy
+        ? { ...current, fix, improving: true }
+        : { ...current, improving: false }
+    }))
+  }, [place.kind, step])
+
   if (!data || !ready) return null
   const people = data.config.people
   const readOnly = me === -1
@@ -129,7 +162,9 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
     if (fix === 'denied' || fix === 'unavailable') return setPlace({ kind: fix })
     // Whether this doorway and concept are already stored, so the switch can say
     // "you already had this" instead of implying something new was added.
-    setPlace({ kind: 'on', fix, known: knows(fix, draft.concept.trim()) })
+    // `improving` because the watch above starts the moment this lands: the
+    // fix on screen may still get better, and the schematic says so.
+    setPlace({ kind: 'on', fix, known: knows(fix, draft.concept.trim()), improving: true })
   }
 
   /**
@@ -362,6 +397,7 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
           amount={amount}
           readOnly={readOnly}
           place={place}
+          nearby={nearby}
           onTogglePlace={() => void togglePlace()}
           // One call, not a back() per step: two in a row race each other and
           // the second can land before the first popstate has been handled.

@@ -1,7 +1,9 @@
+import { PlaceMap } from '../../components/PlaceMap'
 import { T } from '../../i18n/strings'
 import { formatEur } from '../../lib/money'
 import { formatDayHeading } from '../../lib/dates'
 import { formatCoords, type Fix } from '../../lib/position'
+import type { NearPlace } from '../../store/places'
 import type { Draft } from '../../store/draft'
 import type { Person } from '../../api/types'
 
@@ -9,7 +11,10 @@ import type { Person } from '../../api/types'
 export type PlaceState =
   | { kind: 'off' }
   | { kind: 'asking' }
-  | { kind: 'on'; fix: Fix; known: boolean }
+  /** `improving` is true while the watch is still running: the fix on screen may
+   *  yet get better, and saying so is the difference between a number that looks
+   *  final and one that is still settling. */
+  | { kind: 'on'; fix: Fix; known: boolean; improving: boolean }
   | { kind: 'denied' }
   | { kind: 'unavailable' }
 
@@ -28,13 +33,16 @@ export type PlaceState =
  * cannot be left without one.
  */
 export function StepReview({
-  draft, people, amount, readOnly, place, onTogglePlace, onEdit, onSave, onDiscard,
+  draft, people, amount, readOnly, place, nearby, onTogglePlace, onEdit, onSave, onDiscard,
 }: {
   draft: Draft
   people: readonly [Person, Person]
   amount: number
   readOnly: boolean
   place: PlaceState
+  /** The saved places, measured against the current fix by the store. Drawn on
+   *  the schematic so the dot has something to be near. */
+  nearby: NearPlace[]
   onTogglePlace: () => void
   onEdit: (step: 0 | 1) => void
   onSave: () => void
@@ -77,6 +85,13 @@ export function StepReview({
       </div>
 
       <PlaceSwitch state={place} onToggle={onTogglePlace} />
+
+      {/* Under the switch and only while it is on: a drawing of where the phone
+          thinks it is, from coordinates it already has. Not a map — see the
+          comment on `PlaceMap` for why tiles are not an option here. */}
+      {place.kind === 'on' && (
+        <PlaceMap fix={place.fix} nearby={nearby} improving={place.improving} />
+      )}
 
       <button
         type="button"

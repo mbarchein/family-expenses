@@ -154,6 +154,13 @@ export const T = {
   },
 
   places: {
+    /** The schematic under the switch. Not a map: no tiles, no request, no
+     *  street names — see the comment on `PlaceMap`. */
+    mapLabel: 'Dónde estás, según el móvil',
+    mapYou: 'Tú',
+    mapImproving: 'Afinando la posición…',
+    mapSteady: 'La posición ya no mejora',
+    mapScale: (metres: number) => `${metres} m`,
     // The line that has to be true and has to be visible: nothing here is
     // uploaded, so nobody has to wonder whether it is.
     local: 'Los sitios se guardan solo en este dispositivo. No se suben a la hoja.',
