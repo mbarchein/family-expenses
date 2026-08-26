@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
+import { Avatar } from '../components/Avatar'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
 import { displayTyped, formatEur, parseAmount } from '../lib/money'
 import { splitTransfer } from '../lib/split'
+import { useAvatars } from '../store/avatars'
 import type { Ledger } from '../store/ledger'
 
 /**
@@ -15,6 +17,7 @@ import type { Ledger } from '../store/ledger'
 export function BalanceScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => void }) {
   const people = ledger.data?.config.people
   const balance = ledger.data?.balance ?? 0
+  const { faces } = useAvatars()
   const [typed, setTyped] = useState('')
 
   const split = useMemo(() => splitTransfer(parseAmount(typed), balance), [typed, balance])
@@ -41,7 +44,14 @@ export function BalanceScreen({ ledger, onBack }: { ledger: Ledger; onBack: () =
            style={{ color: balance === 0 ? 'var(--ink)' : `var(--person-${ahead + 1})` }}>
           {formatEur(Math.abs(balance))}
         </p>
-        <p className="mt-1 text-sm text-ink-2">
+        {/* The face beside the sentence, in that person's colour. Two names in
+            a household are told apart faster by the shape than by reading
+            them, which is the whole reason the payer buttons wear these. */}
+        <p className="mt-1 flex items-center justify-center gap-1.5 text-sm text-ink-2">
+          {balance !== 0 && (
+            <Avatar name={faces[ahead]} className="h-5 w-5 shrink-0"
+                    style={{ color: `var(--person-${ahead + 1})` }} />
+          )}
           {balance === 0 ? T.balance.even : T.balance.ahead(people[ahead].name)}
         </p>
       </div>

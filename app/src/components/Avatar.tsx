@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 /**
  * The faces, for the two buttons that say who paid.
@@ -94,9 +94,15 @@ export function isAvatarName(name: string): name is AvatarName {
   return name in AVATARS
 }
 
-export function Avatar({ name, className = 'h-5 w-5' }: { name: AvatarName; className?: string }) {
+export function Avatar({ name, className = 'h-5 w-5', style }: {
+  name: AvatarName
+  className?: string
+  /** For the one place that draws a face in a person's own colour rather than
+   *  inheriting the text around it. */
+  style?: CSSProperties
+}) {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className={className}
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className={className} style={style}
          fill="none" stroke="currentColor" strokeWidth={1.6}
          strokeLinecap="round" strokeLinejoin="round">
       {AVATARS[name] as ReactNode}
