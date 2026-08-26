@@ -57,6 +57,13 @@ export const ICONS = {
   planta: <><path d="M12 20v-7" /><path d="M12 13c-4 0-6-2.2-6-5 3 0 6 1.6 6 5Z" /><path d="M12 13c0-3.4 2.5-5.5 6-5.5 0 3.2-2.2 5.5-6 5.5Z" /><path d="M8.5 20h7" /></>,
   biberon: <><rect x="8.5" y="8" width="7" height="12" rx="2" /><path d="M9.5 8V6h5v2" /><path d="M11 6V4h2v2" /></>,
   movil: <><rect x="7" y="3.5" width="10" height="17" rx="2.5" /><path d="M10.5 17.5h3" /></>,
+  // A backpack, for the school expenses. `libro` used to carry those as well,
+  // which put the same open book on a novel, a course and the September bill for
+  // uniforms and books — three things whose only similarity was the icon. The
+  // domed lid with a line under it is what tells this apart from `maleta` at 22
+  // pixels: a suitcase is a rectangle with a handle over the top, this is a
+  // rounded shape with a lid across it and a pocket at the bottom.
+  mochila: <><path d="M6 13a6 6 0 0 1 12 0v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-6Z" /><path d="M6 13h12" /><path d="M9.5 21v-4h5v4" /></>,
 }
 
 export type IconName = keyof typeof ICONS

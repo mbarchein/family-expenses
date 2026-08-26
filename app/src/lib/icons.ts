@@ -41,8 +41,11 @@ const KEYWORDS: Array<[string, IconName]> = ([
   ['panaderia', 'pan'], ['pan', 'pan'],
   ['ropa', 'camiseta'], ['zapatos', 'camiseta'], ['zara', 'camiseta'],
   ['regalo', 'regalo'], ['cumpleanos', 'regalo'], ['flores', 'regalo'],
-  ['libreria', 'libro'], ['libro', 'libro'], ['colegio', 'libro'], ['escuela', 'libro'],
-  ['guarderia', 'libro'], ['curso', 'libro'],
+  ['libreria', 'libro'], ['libro', 'libro'], ['curso', 'libro'],
+  // School is its own thing, not a book. `material escolar` in September and a
+  // novel in March are not the same expense and should not wear the same shape.
+  ['escolar', 'mochila'], ['colegio', 'mochila'], ['escuela', 'mochila'],
+  ['guarderia', 'mochila'], ['instituto', 'mochila'], ['ampa', 'mochila'],
   ['vacaciones', 'maleta'], ['hotel', 'maleta'], ['viaje', 'maleta'],
   ['autobus', 'bus'], ['tren', 'bus'], ['metro', 'bus'], ['taxi', 'bus'], ['billete', 'bus'],
   ['veterinario', 'huella'], ['mascota', 'huella'], ['perro', 'huella'], ['gato', 'huella'],

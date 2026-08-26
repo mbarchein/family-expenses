@@ -137,6 +137,19 @@ describe('a keyword short enough to hide inside another word', () => {
     expect(iconFor('supermercado Salobreña')).toBe('cesta')
   })
 
+  it('gives school its own shape rather than a book', () => {
+    // `colegio` and `material escolar` used to be books, which put the same open
+    // page on a novel and on the September bill for uniforms.
+    expect(iconFor('material escolar')).toBe('mochila')
+    expect(iconFor('gastos escolares')).toBe('mochila')
+    expect(iconFor('colegio')).toBe('mochila')
+    expect(iconFor('guardería')).toBe('mochila')
+    expect(iconFor('AMPA')).toBe('mochila')
+    // And the book keeps what is actually a book.
+    expect(iconFor('libro')).toBe('libro')
+    expect(iconFor('librería')).toBe('libro')
+  })
+
   it('gives the cup to a cafetería, which is the same concept as a café', () => {
     // Their call, and the reason `cafeteria` is spelled out: `cafe` is short
     // enough to be matched as a whole word now, so it no longer reaches inside.
