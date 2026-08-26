@@ -261,6 +261,10 @@ export const T = {
       unreachable: (host: string) =>
         `No se llega a ${host}. Ni un bloqueador, ni una VPN, ni un DNS del móvil `
         + 'dejan salir la petición — o la dirección del bundle es la equivocada.',
+      notLedger: (host: string) =>
+        `${host} ha contestado JSON, pero no es la hoja: le faltan los nombres o `
+        + 'los apuntes. Suele ser el despliegue contestando a otra cosa.',
+      badCache: 'Lo que había guardado no era la hoja. Descartado y cargando de nuevo.',
     },
   },
 } as const

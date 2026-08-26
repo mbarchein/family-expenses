@@ -229,6 +229,28 @@ export function storedDraft(page: Page): Promise<Record<string, unknown> | null>
   }))
 }
 
+/**
+ * Writes something into the bootstrap cache, to be found on the next load.
+ *
+ * For one test, and it is the test for the worst bug this app has had: a stored
+ * object that is not a ledger is painted before anything else happens, so it
+ * crashes the app before it can reach the network to replace it, and the crash
+ * screen's only button starts the same load again. Reproducing it needs a way to
+ * put the bad value there in the first place.
+ */
+export function poisonCache(page: Page, value: unknown): Promise<void> {
+  return page.evaluate(bad => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('a-medias')
+    request.onsuccess = () => {
+      const tx = request.result.transaction('cache', 'readwrite')
+      tx.objectStore('cache').put(bad, 'bootstrap')
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+    }
+    request.onerror = () => reject(request.error)
+  }), value)
+}
+
 /** Signs in the only way that works without a human: through the button. */
 export async function signIn(page: Page) {
   await page.goto('/')

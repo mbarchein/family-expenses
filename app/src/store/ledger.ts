@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api } from '../api/client'
+import { api, isBootstrap } from '../api/client'
 import { T } from '../i18n/strings'
 import { clearFault, fault, report, state } from '../lib/progress'
 import { ApiError, type Bootstrap, type Entry, type Fixed } from '../api/types'
@@ -107,12 +107,23 @@ export function useLedger(): Ledger {
 
     void (async () => {
       report('cache')
-      const cached = await idb.get<Bootstrap>('cache', CACHE_KEY)
+      const cached = await idb.get<unknown>('cache', CACHE_KEY)
       if (cancelled) return
-      if (cached) {
+      // Checked rather than trusted, because a bad cache entry is the one
+      // failure a reload makes worse: painting from it is the first thing this
+      // effect does, so a stored object that is not a ledger crashes the app
+      // before it can reach the network to replace it, and the crash screen's
+      // only button starts the same load again. It happened — Apps Script's
+      // health answer got cached as the ledger, and `config.people` was
+      // undefined for ever. Throwing the entry away is safe: what is not on the
+      // sheet yet is in the queue, not in here.
+      if (isBootstrap(cached)) {
         setData(cached)
         painted.current = true
         setStatus('ready')
+      } else if (cached !== undefined) {
+        fault(`CACHE: ${T.errors.diagnosis.badCache}`)
+        await idb.del('cache', CACHE_KEY)
       }
       await replayQueue()
       if (cancelled) return
@@ -237,6 +248,16 @@ function handle(err: unknown, setStatus: (s: Status) => void, setError: (m: stri
     if (err.code === 'NETWORK') {
       if (painted) return
       setError(T.errors.network)
+      return setStatus('error')
+    }
+    // An answer that is not the ledger is treated like a dead network on
+    // purpose: written down, and shown only when there is nothing else to show.
+    // A cached ledger on screen is worth more than a screen that says the
+    // deployment is confused, and the next refresh will say the same thing
+    // again if it still is.
+    if (err.code === 'NOT_LEDGER') {
+      if (painted) return
+      setError(err.message)
       return setStatus('error')
     }
     setError(err.message)

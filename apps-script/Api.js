@@ -74,9 +74,27 @@ function doPost(e) {
  * curling it from CI, tells those apart at a glance. The last of them was real:
  * the Node test files were pushed alongside the sources for an afternoon, and
  * `require` at the top level of one file broke every request to all of them.
+ *
+ * It answers `ok: false` on purpose, and that is the part not to tidy. A GET can
+ * arrive here without anybody asking for one: fetch turns a 302 into a GET, and
+ * an Apps Script POST *is* a 302 to script.googleusercontent.com — so when that
+ * hop goes wrong the app's POST lands on `doGet`. While this returned
+ * `{ ok: true, data: {...} }` the app could not tell that answer from a
+ * bootstrap: it cached `{ service, status }` as the ledger, and every reload
+ * painted from the cache and crashed on `config.people` before reaching the
+ * network again. A health check has to be unmistakable for data, not merely
+ * harmless.
  */
 function doGet() {
-  return json_({ ok: true, data: { service: 'a-medias', status: 'ok' } });
+  return json_({
+    ok: false,
+    service: 'a-medias',
+    status: 'ok',
+    error: {
+      code: 'GET',
+      message: 'a-medias is alive. Every action is a POST; see the top of Api.js.'
+    }
+  });
 }
 
 function parseBody_(e) {

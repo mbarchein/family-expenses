@@ -224,8 +224,8 @@ test('doGet answers without a token, and carries no ledger with it', () => {
   world()
   const answer = JSON.parse(doGet().getContent())
 
-  assert.equal(answer.ok, true)
-  assert.equal(answer.data.service, 'a-medias')
+  assert.equal(answer.service, 'a-medias')
+  assert.equal(answer.status, 'ok')
   // Deliberately nothing else. Anything it looked up could fail on its own and
   // muddy the single bit of information it exists to carry, and a public
   // endpoint is not a place to put a household's expenses.
@@ -233,6 +233,20 @@ test('doGet answers without a token, and carries no ledger with it', () => {
   for (const leak of ['compra', 'Viqui', 'Mario', 'id-', 'diferencia']) {
     assert.ok(!carried.includes(leak), `doGet leaked ${leak}`)
   }
+})
+
+test('the health answer cannot be mistaken for an action succeeding', () => {
+  // A GET arrives here without anybody asking for one: an Apps Script POST is a
+  // 302, fetch follows a 302 as a GET, and the app's POST lands on doGet. While
+  // this answered `{ ok: true, data: {...} }` the app could not tell that from a
+  // bootstrap — it cached `{ service, status }` as the ledger, and every reload
+  // painted from the cache and crashed before reaching the network again.
+  world()
+  const answer = JSON.parse(doGet().getContent())
+
+  assert.equal(answer.ok, false, 'the app reads ok:true as "this is your data"');
+  assert.equal(answer.data, undefined, 'nothing may sit where the ledger sits')
+  assert.equal(answer.error.code, 'GET')
 })
 
 test('an unknown action is refused before anything is read', () => {

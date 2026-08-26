@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { bootstrap, stubApi, stubGoogle } from './harness'
+import { bootstrap, poisonCache, signIn, stubApi, stubGoogle } from './harness'
 
 /**
  * The splash screen, which has to say what it is waiting for.
@@ -192,4 +192,53 @@ test('a page that is not JSON is quoted rather than thrown away', async ({ page 
   await expect(page.getByText(/no es JSON/).first()).toBeVisible()
   await page.getByText('Detalles').click()
   await expect(page.locator('details')).toContainText('Se necesita autorización')
+})
+
+
+/**
+ * The health check answering as if it were the ledger.
+ *
+ * The worst failure this app has had, and the only one a reload made worse.
+ * Apps Script answers a POST with a 302, fetch follows a 302 as a GET, and a GET
+ * lands on `doGet` — which used to answer `{ ok: true, data: { service, status } }`,
+ * the same envelope a real action uses. So the app cached `{ service, status }`
+ * as the ledger, and from then on every load painted from the cache and died on
+ * `config.people` before it could reach the network to replace it. The screen
+ * said "La app se ha atascado" and its only button reloaded into the same crash.
+ *
+ * Two halves, one test each: nothing that shape is ever believed, and anything
+ * of that shape already stored is thrown away rather than painted.
+ */
+
+const HEALTH = { service: 'a-medias', status: 'ok' }
+
+test('an answer that is not the ledger is refused rather than cached', async ({ page }) => {
+  await stubGoogle(page)
+  await page.route('**/macros/s/**', route => route.fulfill({ json: { ok: true, data: HEALTH } }))
+
+  await page.goto('/')
+  await page.getByTestId('google-sign-in').click()
+
+  await expect(page.getByText(/no es la hoja/).first()).toBeVisible()
+
+  // And the cache is clean, which is the half that mattered: with the backend
+  // answering properly again, a reload opens the app rather than the crash.
+  await stubApi(page)
+  await page.reload()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+})
+
+test('a cache that is not the ledger is thrown away, not painted', async ({ page }) => {
+  // Their phone, on the morning this was reported: the bad value is already on
+  // the disk, and no amount of reloading gets past it. The fix has to heal a
+  // phone that is already in that state without anybody clearing site data.
+  await stubGoogle(page)
+  await stubApi(page)
+  await signIn(page)
+  await poisonCache(page, HEALTH)
+
+  await page.reload()
+
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+  await expect(page.getByText('La app se ha atascado')).toHaveCount(0)
 })

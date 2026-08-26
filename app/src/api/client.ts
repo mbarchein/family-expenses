@@ -141,8 +141,35 @@ async function reachable(): Promise<boolean> {
   }
 }
 
+/**
+ * Whether an answer to `bootstrap` is one.
+ *
+ * Cheap, and load-bearing. `call` returns whatever was under `data`, and there is
+ * one answer this endpoint can give that is valid JSON, has `ok: true`, and is
+ * not the ledger at all: the health check. Apps Script answers a POST with a 302,
+ * fetch follows a 302 as a GET, and when that hop goes wrong the POST arrives at
+ * `doGet` — so the app was handed `{ service, status }`, wrote it to the cache as
+ * the ledger, and from then on every load painted from the cache and died on
+ * `config.people` before it could reach the network and replace it. A reload
+ * could not clear it, because the reload is what read it.
+ *
+ * `doGet` no longer answers in that shape. This is the half of the fix that does
+ * not depend on which version of the backend is deployed, or on the next thing
+ * that learns to answer for it.
+ */
+export function isBootstrap(value: unknown): value is Bootstrap {
+  const data = value as Partial<Bootstrap> | null | undefined
+  return !!data && typeof data === 'object'
+    && !!data.config && Array.isArray(data.config.people) && data.config.people.length === 2
+    && Array.isArray(data.entries)
+}
+
 export const api = {
-  bootstrap: (limit?: number) => call<Bootstrap>('bootstrap', { limit }),
+  bootstrap: async (limit?: number) => {
+    const data = await call<unknown>('bootstrap', { limit })
+    if (!isBootstrap(data)) throw new ApiError('NOT_LEDGER', T.errors.diagnosis.notLedger(host()))
+    return data
+  },
   append: (entry: Omit<Entry, 'row' | 'voided'>) => call<Entry>('append', entry),
   update: (entry: Omit<Entry, 'row' | 'voided'>) => call<Entry>('update', entry),
   voidEntry: (id: string) => call<Entry>('voidEntry', { id }),
