@@ -365,6 +365,76 @@ function claimColumn_(sheet, column, header) {
 }
 
 /**
+ * Brings an existing Categorías tab up to date with the seed, additively.
+ *
+ * The seed is only written when the tab is created, so a tab that already exists
+ * never sees a new category or a new word — and the first real run of
+ * `previewCategorise` against 2,323 rows is exactly what teaches you which words
+ * were missing. This is how those get in without anybody retyping thirty rows.
+ *
+ * Additive on purpose: it appends categories the tab does not have and words a
+ * category does not have, and it removes nothing. This tab is theirs to edit, and
+ * a pass that "corrected" it back to the seed would undo the editing it exists to
+ * support. The one exception is `CATEGORY_RENAMES`, which is a name change rather
+ * than a deletion, and which only fires when the old name is present and the new
+ * one is not.
+ *
+ * Every line it changes is reported, because a function that edits a tab somebody
+ * curates has to be readable afterwards.
+ */
+function updateCategories() {
+  var existing = readCategories_();
+  if (existing.missing) {
+    return report_(['There is no "' + CATEGORIES_SHEET + '" tab. Run setupSpreadsheet() first.']);
+  }
+
+  var lines = [];
+  var byKey = {};
+  existing.items.forEach(function (item) { byKey[fold_(item.name)] = item; });
+
+  CATEGORY_RENAMES.forEach(function (pair) {
+    var from = byKey[fold_(pair[0])];
+    if (!from || byKey[fold_(pair[1])]) return;
+    saveCategory_({ was: pair[0], name: pair[1], icon: from.icon, words: from.words });
+    delete byKey[fold_(pair[0])];
+    byKey[fold_(pair[1])] = { name: pair[1], icon: from.icon, words: from.words };
+    lines.push('RENAMED  ' + pair[0] + ' -> ' + pair[1]);
+  });
+
+  CATEGORY_SEED.forEach(function (row) {
+    var name = row[0];
+    var icon = row[1];
+    var words = splitWords_(row[2]);
+    var current = byKey[fold_(name)];
+
+    if (!current) {
+      saveCategory_({ name: name, icon: icon, words: words });
+      lines.push('ADDED    ' + name + '  [' + icon + ']  ' + words.join(', '));
+      return;
+    }
+
+    // Compared folded, because that is how they are matched against a concept:
+    // `panadería` on the tab and `panaderia` in the seed are the same word.
+    var have = {};
+    current.words.forEach(function (word) { have[word] = true; });
+    var missing = words.filter(function (word) { return !have[word]; });
+    if (!missing.length) return;
+
+    saveCategory_({
+      name: current.name,
+      icon: current.icon || icon,
+      words: current.words.concat(missing)
+    });
+    lines.push('WORDS    ' + current.name + '  +' + missing.join(', '));
+  });
+
+  if (!lines.length) lines.push('Nothing to add: the tab already has every category and word.');
+  lines.push('');
+  lines.push('Nothing was removed. Run previewCategorise() to see what this changes.');
+  return report_(lines);
+}
+
+/**
  * Fills column H for every row that has no category yet.
  *
  * The batch pass the whole category idea rests on. 2,318 rows exist and none of

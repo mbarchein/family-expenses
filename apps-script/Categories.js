@@ -195,33 +195,58 @@ function categoriesSheet_() {
  * happens, and shows what else already wears it, rather than refusing.
  */
 var CATEGORY_SEED = [
-  ['Supermercado', 'cesta', 'supermercado, mercado, super, compra'],
-  ['Panadería', 'pan', 'panadería, pan'],
-  ['Restaurantes', 'cubiertos', 'restaurante, comida, cena, menú, tapas, comedor'],
-  ['Cafés y bares', 'taza', 'cafetería, café, desayuno, bar'],
+  // The food shops are all one line, which is their call: their own concepts had
+  // been distinguishing frutería from supermercado since 2022 and they would
+  // rather have one figure for the food than four. `pan` stays a whole-word match
+  // — `pantalones` is not bread.
+  ['Supermercado', 'cesta',
+    'supermercado, mercado, super, compra, panadería, pan, frutería, fruta, '
+    + 'carnicería, pescadería, verdulería'],
+  ['Restaurantes', 'cubiertos', 'restaurante, comida, cena, menú, tapas, comedor, pizza'],
+  ['Cafés y bares', 'taza', 'cafetería, café, desayuno, bar, cerveza, helado, heladería'],
   ['Salud', 'salud', 'farmacia, medicina, medicamento, dentista, médico, clínica, óptica'],
   ['Combustible', 'combustible', 'gasolinera, gasolina, gasoil, combustible, diésel'],
   ['Coche', 'coche', 'taller, coche, itv, parking'],
-  ['Transporte', 'bus', 'autobús, tren, metro, taxi, billete'],
-  ['Luz', 'bombilla', 'electricidad, luz'],
-  ['Agua', 'gota', 'agua'],
+  ['Transporte', 'bus', 'autobús, tren, metro, taxi, billete, alsa'],
+  ['Luz', 'bombilla', 'electricidad, luz, iberdrola, endesa'],
+  ['Agua', 'gota', 'agua, emasagra'],
   ['Gas', 'llama', 'calefacción, butano, gas'],
   ['Internet y teléfono', 'senal', 'internet, fibra, teléfono'],
   ['Móvil', 'movil', 'móvil'],
-  ['Vivienda', 'casa', 'hipoteca, alquiler, comunidad, piso'],
+  // Their word, and it covers more than the building: the cleaning — which their
+  // ledger calls `nómina María` — and the transfer to the account the mortgage and
+  // the standing bills come out of.
+  ['Hogar', 'casa', 'hipoteca, alquiler, comunidad, piso, limpieza, nómina, traspaso'],
   ['Seguros', 'escudo', 'seguro'],
   ['Impuestos y recibos', 'recibo', 'impuesto, basura, multa, ibi, recibo, factura'],
   ['Banco', 'banco', 'banco, comisión, hucha'],
-  ['Colegio', 'mochila', 'escolar, colegio, escuela, guardería, instituto, ampa'],
+  ['Colegio', 'mochila',
+    'escolar, colegio, escuela, guardería, instituto, ampa, papelería'],
+  ['Música', 'nota', 'orquesta, conservatorio, música, solfeo'],
   ['Libros', 'libro', 'librería, libro, curso'],
-  ['Ropa', 'camiseta', 'ropa, zapatos'],
+  ['Ropa', 'camiseta', 'ropa, zapatos, pantalón, camisa'],
   ['Regalos', 'regalo', 'regalo, cumpleaños, flores'],
-  ['Ocio', 'entrada', 'cine, teatro, concierto, ocio, lotería'],
-  ['Deporte', 'pesa', 'gimnasio, deporte, pádel'],
+  ['Ocio', 'entrada', 'cine, teatro, concierto, ocio, lotería, entrada'],
+  ['Deporte', 'pesa', 'gimnasio, deporte, pádel, bádminton'],
   ['Peluquería', 'tijeras', 'peluquería, barbería'],
   ['Viajes', 'maleta', 'vacaciones, hotel, viaje'],
   ['Mascotas', 'huella', 'veterinario, mascota, perro, gato'],
   ['Casa y arreglos', 'herramienta', 'ferretería, fontanero, obra'],
   ['Jardín', 'planta', 'jardín, plantas, maceta'],
   ['Bebé', 'biberon', 'pañales, bebé, niño']
+];
+
+/**
+ * Categories that changed name after a spreadsheet already had them.
+ *
+ * `Vivienda` became `Hogar` because that is what the two of them call it, and
+ * because the cleaning and the transfer that pays the mortgage belong in the same
+ * bucket as the mortgage. Applied only when the old name is on the tab and the
+ * new one is not, so it happens once and re-running it does nothing.
+ *
+ * Two categories both meaning "the house" would be worse than either name: every
+ * row filed after the change would land in one of them at random.
+ */
+var CATEGORY_RENAMES = [
+  ['Vivienda', 'Hogar']
 ];

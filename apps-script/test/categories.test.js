@@ -330,3 +330,126 @@ test('with no tab it says which function to run rather than guessing', () => {
   assert.match(categoriseRows(), /There is no "Categorías" tab/)
   assert.deepEqual(sheets.gastos.writes, [])
 })
+
+/* ── keeping an existing tab up to date ───────────────────────────────── */
+
+/**
+ * The seed only runs when the tab is created, so a tab that already exists never
+ * sees a new category or a new word — and the first real run of the batch pass
+ * over 2,323 rows is exactly what teaches you which words were missing.
+ *
+ * These tests are about restraint: it adds, it never removes, and it is safe to
+ * run twice.
+ */
+
+test('a category the tab does not have is added', () => {
+  const sheets = world([['Supermercado', 'cesta', 'super']])
+  updateCategories()
+
+  const names = sheets['Categorías'].values.slice(1).map(row => row[0])
+  assert.ok(names.includes('Música'), 'the new category arrived')
+  assert.ok(names.includes('Restaurantes'))
+})
+
+test('missing words are appended and existing ones are left alone', () => {
+  // `iberdrola` and `endesa` are what the real ledger asked for, and `mi luz` is
+  // something somebody added by hand. Both have to survive.
+  const sheets = world([['Luz', 'bombilla', 'luz, mi luz']])
+  updateCategories()
+
+  const row = sheets['Categorías'].values.slice(1).find(line => line[0] === 'Luz')
+  assert.match(row[2], /mi luz/)
+  assert.match(row[2], /iberdrola/)
+  assert.match(row[2], /endesa/)
+})
+
+test('nothing is ever removed, including a word the seed does not know', () => {
+  // The tab is theirs to edit. A pass that corrected it back to the seed would
+  // undo the editing it exists to support.
+  const sheets = world([['Ocio', 'entrada', 'cine, ficzone, isla de capri']])
+  updateCategories()
+
+  const row = sheets['Categorías'].values.slice(1).find(line => line[0] === 'Ocio')
+  assert.match(row[2], /ficzone/)
+  assert.match(row[2], /isla de capri/)
+})
+
+test('an icon somebody changed by hand is kept', () => {
+  const sheets = world([['Deporte', 'huella', 'deporte']])
+  updateCategories()
+
+  const row = sheets['Categorías'].values.slice(1).find(line => line[0] === 'Deporte')
+  assert.equal(row[1], 'huella', 'their icon, not the seed’s')
+})
+
+test('Vivienda becomes Hogar, once', () => {
+  // Two categories both meaning "the house" would be worse than either name:
+  // every row filed after the change would land in one of them at random.
+  const sheets = world([['Vivienda', 'casa', 'hipoteca, alquiler']])
+  const first = updateCategories()
+
+  const names = sheets['Categorías'].values.slice(1).map(row => row[0])
+  assert.ok(names.includes('Hogar'))
+  assert.ok(!names.includes('Vivienda'))
+  assert.match(first, /RENAMED\s+Vivienda -> Hogar/)
+
+  // And running it again neither renames anything nor adds a second Hogar.
+  const again = updateCategories()
+  assert.ok(!again.includes('RENAMED'))
+  assert.equal(
+    sheets['Categorías'].values.slice(1).filter(row => row[0] === 'Hogar').length, 1)
+})
+
+test('running it twice changes nothing the second time', () => {
+  world([['Supermercado', 'cesta', 'super']])
+  updateCategories()
+  assert.match(updateCategories(), /Nothing to add/)
+})
+
+test('the cleaning and the transfer are filed under Hogar', () => {
+  // Their correction, and the reason the category is called Hogar rather than
+  // Vivienda: `nómina María` is the cleaner being paid, and the transfer goes to
+  // the account the mortgage comes out of. Neither is an income.
+  const sheets = filedWorld(
+    [['nomina María'], ['nómina Maria'], ['Traspaso a cuenta común'], ['hipoteca']],
+    CATEGORY_SEED.map(row => [row[0], row[1], row[2]]),
+  )
+  categoriseRows()
+
+  assert.deepEqual(filed(sheets), ['Hogar', 'Hogar', 'Hogar', 'Hogar'])
+})
+
+test('the food shops all land in Supermercado, and pan is still a whole word', () => {
+  const sheets = filedWorld(
+    [['fruteria'], ['Frutería'], ['carniceria'], ['pescadería'], ['pan'], ['pantalones']],
+    CATEGORY_SEED.map(row => [row[0], row[1], row[2]]),
+  )
+  categoriseRows()
+
+  assert.deepEqual(filed(sheets), [
+    'Supermercado', 'Supermercado', 'Supermercado', 'Supermercado', 'Supermercado', 'Ropa',
+  ])
+})
+
+test('the fixed suppliers are words, and the orchestra has a category', () => {
+  const sheets = filedWorld(
+    [['Iberdrola'], ['Endesa'], ['Emasagra'], ['Alsa'], ['orquesta'], ['Orquesta Irene']],
+    CATEGORY_SEED.map(row => [row[0], row[1], row[2]]),
+  )
+  categoriseRows()
+
+  assert.deepEqual(filed(sheets),
+    ['Luz', 'Luz', 'Agua', 'Transporte', 'Música', 'Música'])
+})
+
+test('Corte inglés is not a school, and gastos varios is not gas', () => {
+  // The two collisions worth naming. `inglés` was nearly added as a word for the
+  // English classes, which would have filed a department store under Colegio.
+  const sheets = filedWorld(
+    [['Corte inglés'], ['gastos varios'], ['Inglés Irene']],
+    CATEGORY_SEED.map(row => [row[0], row[1], row[2]]),
+  )
+  categoriseRows()
+
+  assert.deepEqual(filed(sheets), ['', '', ''])
+})

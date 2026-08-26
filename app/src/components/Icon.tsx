@@ -63,6 +63,10 @@ export const ICONS = {
   // domed lid with a line under it is what tells this apart from `maleta` at 22
   // pixels: a suitcase is a rectangle with a handle over the top, this is a
   // rounded shape with a lid across it and a pocket at the bottom.
+  // Two beamed quavers, for the orchestra: 29 rows on this ledger and no shape
+  // in the set that meant music. A single note was drawn first and reads as a
+  // magnifying glass at 22 pixels; the beam across the top is what says music.
+  nota: <><circle cx="7.5" cy="17.5" r="2.5" /><circle cx="17" cy="15.5" r="2.5" /><path d="M10 17.5V6l9.5-2v11.5" /><path d="M10 9.5 19.5 7.5" /></>,
   mochila: <><path d="M6 13a6 6 0 0 1 12 0v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-6Z" /><path d="M6 13h12" /><path d="M9.5 21v-4h5v4" /></>,
 }
 
