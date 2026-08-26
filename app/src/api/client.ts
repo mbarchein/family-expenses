@@ -164,19 +164,52 @@ export function isBootstrap(value: unknown): value is Bootstrap {
     && Array.isArray(data.entries)
 }
 
+/**
+ * A written row, come back from the sheet.
+ *
+ * The guard on `bootstrap` was not enough, and this is the half that cost an
+ * expense. An append whose answer is not a row has not been appended — but the
+ * queue only knew whether the call *resolved*, so a health answer of
+ * `{ ok: true, data: { service, status } }` counted as delivered: the operation
+ * was deleted from the phone, and the row was never written to the sheet. Gone
+ * from both sides, with a `sent` of 1 to show for it.
+ *
+ * `row` and `id` are what every one of these actions promises to return. If they
+ * are not there, the upload failed, whatever the envelope said.
+ */
+function writtenRow(value: unknown): Entry {
+  const entry = value as Partial<Entry> | null | undefined
+  if (!entry || typeof entry.row !== 'number' || typeof entry.id !== 'string') {
+    throw new ApiError('NOT_LEDGER', T.errors.diagnosis.notLedger(host()))
+  }
+  return entry as Entry
+}
+
+/** The same, for the two answers that carry a row on the Fijos tab and no entry. */
+function writtenFixed<T extends { row: number }>(value: unknown): T {
+  const answer = value as Partial<T> | null | undefined
+  if (!answer || typeof answer.row !== 'number') {
+    throw new ApiError('NOT_LEDGER', T.errors.diagnosis.notLedger(host()))
+  }
+  return answer as T
+}
+
 export const api = {
   bootstrap: async (limit?: number) => {
     const data = await call<unknown>('bootstrap', { limit })
     if (!isBootstrap(data)) throw new ApiError('NOT_LEDGER', T.errors.diagnosis.notLedger(host()))
     return data
   },
-  append: (entry: Omit<Entry, 'row' | 'voided'>) => call<Entry>('append', entry),
-  update: (entry: Omit<Entry, 'row' | 'voided'>) => call<Entry>('update', entry),
-  voidEntry: (id: string) => call<Entry>('voidEntry', { id }),
-  assignId: (row: number) => call<Entry>('assignId', { row }),
-  saveFixed: (fixed: Omit<Fixed, 'last'>) => call<{ row: number }>('saveFixed', fixed),
+  append: async (entry: Omit<Entry, 'row' | 'voided'>) =>
+    writtenRow(await call<unknown>('append', entry)),
+  update: async (entry: Omit<Entry, 'row' | 'voided'>) =>
+    writtenRow(await call<unknown>('update', entry)),
+  voidEntry: async (id: string) => writtenRow(await call<unknown>('voidEntry', { id })),
+  assignId: async (row: number) => writtenRow(await call<unknown>('assignId', { row })),
+  saveFixed: async (fixed: Omit<Fixed, 'last'>) =>
+    writtenFixed<{ row: number }>(await call<unknown>('saveFixed', fixed)),
   /** Marks a template dealt with up to `due` — confirmed and skipped are the
    *  same fact as far as "do not propose it again" goes. */
-  fixedDone: (row: number, due: string) =>
-    call<{ row: number; last: string }>('fixedDone', { row, due }),
+  fixedDone: async (row: number, due: string) =>
+    writtenFixed<{ row: number; last: string }>(await call<unknown>('fixedDone', { row, due })),
 }

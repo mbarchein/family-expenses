@@ -2,6 +2,7 @@ import { idb } from './db'
 import { api } from '../api/client'
 import { ApiError, type Entry } from '../api/types'
 import { invalidateToken } from '../auth/google'
+import { fault } from '../lib/progress'
 
 /**
  * The outbound queue.
@@ -38,6 +39,19 @@ export async function pendingOps(): Promise<Op[]> {
 }
 
 /**
+ * The most attempts any queued operation has behind it.
+ *
+ * On screen as "reintento 3", which is the difference between an upload that is
+ * taking a moment and one that is not going to work. The field was written on
+ * every enqueue and never incremented, so nothing could tell those apart — the
+ * strip said the same thing at the first attempt and at the thirtieth.
+ */
+export async function pendingAttempts(): Promise<number> {
+  return (await idb.all<Record_>('queue'))
+    .reduce((most, record) => Math.max(most, record.attempts ?? 0), 0)
+}
+
+/**
  * Sends everything, oldest first, stopping at the first failure.
  *
  * Order matters and so does stopping: an update or a void for an entry whose
@@ -63,9 +77,15 @@ export async function flush(): Promise<{ sent: number; failed: boolean }> {
       // poison the queue.
       if (error instanceof ApiError && PERMANENT.has(error.code)) {
         await idb.del('queue', keyOf(record.op))
-        console.error('Dropped an unsendable operation', record.op, error.message)
+        // Written down where a phone can show it, not only where a laptop
+        // could. Dropping an operation is losing an expense somebody typed, and
+        // a console.error is the same thing as saying nothing.
+        fault(`${error.code}: ${describe(record.op)} — ${error.message}`)
         continue
       }
+      // Counted before giving up, so the next attempt knows it is one.
+      await idb.set('queue', keyOf(record.op),
+        { ...record, attempts: (record.attempts ?? 0) + 1 } satisfies Record_)
       return { sent, failed: true }
     }
   }
@@ -86,4 +106,9 @@ function send(op: Op) {
  *  ever reaches the sheet should upload the final state once, not replay both. */
 function keyOf(op: Op): string {
   return op.kind === 'void' ? `void:${op.id}` : `entry:${op.entry.id}`
+}
+
+/** Enough of an operation to recognise which expense was lost. */
+function describe(op: Op): string {
+  return op.kind === 'void' ? `void ${op.id}` : `${op.kind} ${op.entry.concept}`
 }

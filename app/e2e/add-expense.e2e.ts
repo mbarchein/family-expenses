@@ -664,3 +664,64 @@ test('typing reaches a concept the grid never had room for', async ({ page }) =>
   await page.getByRole('textbox', { name: 'Concepto' }).fill('jueves')
   await expect(page.getByRole('button', { name: 'lo del jueves' })).toBeVisible()
 })
+
+
+/**
+ * An upload that says it worked and did not.
+ *
+ * The expense that went missing: the deployment answered the append POST with
+ * its own health check — `{ ok: true, data: { service, status } }`, which is
+ * what Apps Script's redirect produces when it lands on `doGet` — the client
+ * resolved, and the queue deleted the operation as delivered. The row was never
+ * written to the sheet and was no longer on the phone either. Gone from both
+ * sides, with nothing on screen to say so.
+ */
+test('an append the sheet never really did stays on the phone', async ({ page }) => {
+  await page.route('**/macros/s/**', async route => {
+    const body = JSON.parse(route.request().postData() ?? '{}')
+    if (body.action === 'append') {
+      return route.fulfill({ json: { ok: true, data: { service: 'a-medias', status: 'ok' } } })
+    }
+    return route.fulfill({ json: { ok: true, data: bootstrap() } })
+  })
+  await signIn(page)
+
+  await typeAmount(page, '1250')
+  await next(page)
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('Museo')
+  await next(page)
+  await page.getByRole('button', { name: 'Guardar' }).click()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+  // Still queued. The first attempt says only Guardando…: it is a try, not a
+  // retry, and a save that announced a retry as it was tapped would make every
+  // ordinary save look like a repair.
+  const strip = page.getByRole('status').filter({ hasText: /Guardando/ })
+  await expect(strip).toBeVisible()
+  await expect(strip).not.toContainText('reintento')
+
+  // The second attempt is the first retry, and says so. Coming back to the
+  // foreground is one of the two moments the app retries on.
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(strip).toContainText('reintento 1')
+
+  // And still in the list, because the list shows the queue as well as the
+  // sheet. An expense somebody typed does not disappear because a server
+  // answered nonsense.
+  await page.getByRole('button', { name: 'Gastos' }).click()
+  await expect(page.getByRole('button', { name: /Museo/ })).toBeVisible()
+})
+
+test('a save that works says nothing about retries', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+
+  await typeAmount(page, '900')
+  await next(page)
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('pan')
+  await next(page)
+  await page.getByRole('button', { name: 'Guardar' }).click()
+
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+  await expect(page.getByText(/reintento/)).toHaveCount(0)
+})
