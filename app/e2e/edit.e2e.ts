@@ -119,3 +119,29 @@ test('saving an edit sends it, and voiding asks first', async ({ page }) => {
   await expect(page.getByRole('dialog')).toBeHidden()
   await expect.poll(() => calls.some(call => call.action === 'voidEntry')).toBe(true)
 })
+
+
+test('the amount takes the width and the caret lands at its end', async ({ page }) => {
+  // Correcting an amount means deleting the one already there, and a tap used to
+  // put the caret wherever the finger landed — so the way to fix 43,50 was tap,
+  // drag the caret to the end, then start pressing backspace.
+  await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+  await page.getByRole('button', { name: /super/ }).click()
+
+  const amount = page.getByRole('textbox', { name: 'Importe' })
+  const date = page.getByLabel('Fecha')
+
+  // The number that must not be wrong gets more room than dd/mm/yyyy does.
+  const widths = await Promise.all([amount, date].map(field =>
+    field.evaluate(node => node.getBoundingClientRect().width)))
+  expect(widths[0]).toBeGreaterThan(widths[1])
+
+  await amount.click()
+  await page.keyboard.press('Backspace')
+  await page.keyboard.press('Backspace')
+  // 326,72 with its last two characters gone, which is what a caret at the end
+  // means and what tapping in the middle would not have given.
+  await expect(amount).toHaveValue('326,')
+})

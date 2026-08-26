@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useState, type FocusEvent } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Segmented } from '../components/Segmented'
 import { T } from '../i18n/strings'
@@ -26,6 +26,25 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
   const [busy, setBusy] = useState(false)
   const titleId = useId()
   const { faces } = useAvatars()
+
+  /**
+   * Caret at the end of the amount, on focus.
+   *
+   * Correcting an amount means deleting the one that is there, and a tap put the
+   * caret wherever the finger landed — so the way to fix 43,50 was to tap, drag
+   * the caret to the end, and only then start pressing backspace.
+   *
+   * Deferred by a frame on purpose: on a touch screen the browser positions the
+   * caret from the tap *after* focus fires, so setting it here directly is
+   * immediately undone.
+   */
+  function toEnd(event: FocusEvent<HTMLInputElement>) {
+    const field = event.currentTarget
+    requestAnimationFrame(() => {
+      const end = field.value.length
+      field.setSelectionRange(end, end)
+    })
+  }
 
   async function save() {
     const amount = parseAmount(typed)
@@ -88,6 +107,10 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
               One field where there used to be two. A read-only display over an
               input showed the same number twice, and on a screen with a keyboard
               the input can be the display. */}
+          {/* The date takes only what a date needs and the amount takes the
+              rest. It was the other way round, which gave eight characters of
+              dd/mm/yyyy the whole width and the number that must not be wrong a
+              six-digit box. */}
           <div className="flex items-stretch gap-2">
             <input
               type="date"
@@ -95,18 +118,19 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
               max={todayIso()}
               onChange={event => setDate(event.target.value)}
               aria-label={T.add.fieldDate}
-              className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2.5
+              className="w-36 shrink-0 rounded-lg border border-line bg-surface px-2.5 py-2.5
                          text-sm"
             />
-            <div className="flex shrink-0 items-center gap-1 rounded-lg border border-line
-                            bg-surface px-3">
+            <div className="flex min-w-0 flex-1 items-center gap-1 rounded-lg border
+                            border-line bg-surface px-3">
               <input
                 inputMode="decimal"
                 value={typed}
                 onChange={event => setTyped(typedFrom(event.target.value))}
+                onFocus={toEnd}
                 aria-label={T.add.fieldAmount}
-                className="w-24 bg-transparent text-right font-mono text-xl font-semibold
-                           tabular outline-none"
+                className="min-w-0 flex-1 bg-transparent text-right font-mono text-xl
+                           font-semibold tabular outline-none"
               />
               <span aria-hidden="true" className="text-sm text-ink-3">€</span>
             </div>
