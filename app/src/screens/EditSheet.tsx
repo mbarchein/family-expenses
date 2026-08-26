@@ -34,16 +34,21 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
    * caret wherever the finger landed — so the way to fix 43,50 was to tap, drag
    * the caret to the end, and only then start pressing backspace.
    *
-   * Deferred by a frame on purpose: on a touch screen the browser positions the
-   * caret from the tap *after* focus fires, so setting it here directly is
-   * immediately undone.
+   * Set twice, and both are needed. On a touch screen the browser positions the
+   * caret from the tap *after* focus fires, so the deferred one is what survives
+   * there. And the deferred one alone leaves a frame in which the caret is still
+   * wherever it was, which is enough for a keystroke to land in the middle of the
+   * number — a test pressing backspace immediately after the tap found exactly
+   * that, and a fast thumb is the same event in a different order.
    */
   function toEnd(event: FocusEvent<HTMLInputElement>) {
     const field = event.currentTarget
-    requestAnimationFrame(() => {
+    const place = () => {
       const end = field.value.length
       field.setSelectionRange(end, end)
-    })
+    }
+    place()
+    requestAnimationFrame(place)
   }
 
   async function save() {

@@ -139,6 +139,10 @@ test('the amount takes the width and the caret lands at its end', async ({ page 
   expect(widths[0]).toBeGreaterThan(widths[1])
 
   await amount.click()
+  // Waited for, not assumed: a key pressed before the field has the focus goes
+  // nowhere, and this test would then be measuring Playwright's timing rather
+  // than where the caret is.
+  await expect(amount).toBeFocused()
   await page.keyboard.press('Backspace')
   await page.keyboard.press('Backspace')
   // 326,72 with its last two characters gone, which is what a caret at the end
