@@ -246,12 +246,37 @@ function merge(server: Entry[], local: Map<string, QueuedEntry>,
 
 function handle(err: unknown, setStatus: (s: Status) => void, setError: (m: string) => void,
                 painted: boolean) {
+  // The auth layer's own handover to the sign-in button. Deliberately not
+  // recorded as a fault: it has already written down why Google did not answer,
+  // and overwriting that with the words "interaction required" throws away the
+  // only half worth reading.
+  const handover = !(err instanceof ApiError) && String(err).includes('interaction required')
+
+  // Written down whatever happens next, including for the failures the app
+  // copes with silently — the queue will retry, there is a cached ledger on
+  // screen. Those are invisible from outside and are usually the clue to
+  // whatever the user is actually complaining about.
+  if (err instanceof ApiError) fault(`${err.code}: ${err.message}`)
+  else if (!handover) fault(String(err))
+
+  /**
+   * A ledger already on screen is never replaced while the phone has no network.
+   *
+   * What was reported: no connection, and the app would not open — it said there
+   * was none instead of showing what it had. Offline, `loadGsi()` cannot load
+   * Google, so the token request gives up and the app went to the sign-in
+   * screen, over the top of a perfectly good cached ledger.
+   *
+   * And every screen that failure could lead to needs the network it has just
+   * been told there is none of: signing in again, retrying, "no se ha podido
+   * conectar". All three are a worse answer than yesterday's numbers with the
+   * strip above the tab bar saying there is no connection. Online, none of this
+   * applies and the behaviour is unchanged — a dead token there is worth
+   * interrupting somebody for, because they can do something about it.
+   */
+  if (painted && !navigator.onLine) return
+
   if (err instanceof ApiError) {
-    // Written down whatever happens next, including for the failures the app
-    // copes with silently — the queue will retry, there is a cached ledger on
-    // screen. Those are invisible from outside and are usually the clue to
-    // whatever the user is actually complaining about.
-    fault(`${err.code}: ${err.message}`)
     if (err.code === 'FORBIDDEN') return setStatus('forbidden')
     if (err.code === 'UNAUTHENTICATED') return setStatus('needsAuth')
     // A network failure with a cached bootstrap on screen is not an error the
@@ -283,12 +308,7 @@ function handle(err: unknown, setStatus: (s: Status) => void, setError: (m: stri
     setError(err.message)
     return setStatus('error')
   }
-  // Not recorded as a fault, deliberately: this is the auth layer's own signal
-  // that it is handing over to the button, and it has already written down why
-  // Google did not answer. Overwriting that with the words "interaction
-  // required" throws away the only half of it worth reading.
-  if (String(err).includes('interaction required')) return setStatus('needsAuth')
-  fault(String(err))
+  if (handover) return setStatus('needsAuth')
   setError(String(err))
   setStatus('error')
 }

@@ -242,3 +242,37 @@ test('a cache that is not the ledger is thrown away, not painted', async ({ page
   await expect(page.getByText('Paso 1 de 3')).toBeVisible()
   await expect(page.getByText('La app se ha atascado')).toHaveCount(0)
 })
+
+
+test('with no network and a cache, the app opens on what it had', async ({ page }) => {
+  // What was reported: no connection, and the app would not open — it said there
+  // was none instead of showing what it already had. Offline the token request
+  // cannot reach Google, so it hands over to the sign-in button, and that landed
+  // on top of a perfectly good cached ledger. Signing in is the one thing that
+  // cannot work without the network it has just been told there is none of.
+  await stubGoogle(page)
+  await stubApi(page)
+  await signIn(page)
+
+  // The next morning, offline. The stored token has expired, so the app has to
+  // ask Google for a new one — and offline the GSI script cannot even be
+  // fetched, which is what sent it to the sign-in screen. Nothing is stubbed on
+  // this load: the real script request is blocked, exactly as a dead network
+  // blocks it. The bundle itself still loads here; the service worker covers
+  // that in real life and has its own test.
+  await page.evaluate(() => localStorage.removeItem('a-medias:token'))
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'onLine', { get: () => false })
+  })
+  await page.route('**/gsi/client*', route => route.abort())
+  await page.route('**/macros/s/**', route => route.abort())
+  await page.reload()
+
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+  await expect(page.getByTestId('google-sign-in')).toHaveCount(0)
+  await expect(page.getByText('No se ha podido conectar')).toHaveCount(0)
+
+  // Yesterday's numbers are there to be read.
+  await page.getByRole('button', { name: 'Gastos' }).click()
+  await expect(page.getByRole('button', { name: /super/ })).toBeVisible()
+})
