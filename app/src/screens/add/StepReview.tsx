@@ -62,6 +62,15 @@ export function StepReview({
         <Row label={T.add.fieldConcept} onEdit={() => onEdit(1)}>
           {draft.concept || <span className="text-ink-3">{T.add.needConcept}</span>}
         </Row>
+        {/* The category and the method each get a line, because each is now a
+            column of its own: a screen for checking before saving has to show
+            everything that is about to be written. */}
+        <Row label={T.category.label} onEdit={() => onEdit(1)}>
+          {draft.category || <span className="text-ink-3">{T.category.none}</span>}
+        </Row>
+        <Row label={T.add.methodRow} onEdit={() => onEdit(1)}>
+          {draft.method || <span className="text-ink-3">{T.add.noMethod}</span>}
+        </Row>
         <Row label={T.add.fieldNote} onEdit={() => onEdit(1)} last>
           {draft.note || <span className="text-ink-3">{T.add.noNote}</span>}
         </Row>

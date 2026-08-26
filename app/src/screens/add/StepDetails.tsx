@@ -148,18 +148,21 @@ export function StepDetails({ draft, data, entries, patch, onNext }: {
   )
 
   /**
-   * One row for the note, the payment methods first and then the suggested
-   * observations. They share it because column `observaciones` holds a single
-   * value: two rows feeding one field would be two controls contradicting each
-   * other.
+   * Two rows, because they are two columns now.
+   *
+   * They shared one field for as long as the payment method travelled inside the
+   * observaciones — two rows feeding one value would have been two controls
+   * contradicting each other. With column I of its own, "Tarjeta BBVA" and "lo
+   * pongo yo y me lo pasas" can both be said about the same expense, which they
+   * could not before.
    */
-  const notePills = useMemo<Pill[]>(() => {
-    const rank = { method: 0, note: 1, concept: 2 }
-    return mine
-      .filter(item => item.kind === 'method' || item.kind === 'note')
-      .sort((a, b) => rank[a.kind] - rank[b.kind])
-      .map(item => ({ key: item.text, label: item.text, pinned: true }))
-  }, [mine])
+  const methodPills = useMemo<Pill[]>(() => mine
+    .filter(item => item.kind === 'method')
+    .map(item => ({ key: item.text, label: item.text, pinned: true })), [mine])
+
+  const notePills = useMemo<Pill[]>(() => mine
+    .filter(item => item.kind === 'note')
+    .map(item => ({ key: item.text, label: item.text, pinned: true })), [mine])
 
   /** Everything the menu can label: the two lists, and the places' concepts. */
   const known = useMemo(() => {
@@ -258,6 +261,18 @@ export function StepDetails({ draft, data, entries, patch, onNext }: {
           categories={categories}
           onChange={category => patch({ category })}
         />
+
+        {methodPills.length > 0 && (
+          <div className="pt-1">
+            <p className="pb-1 text-xs font-semibold text-ink-2">{T.add.methodRow}</p>
+            <Pills
+              items={methodPills}
+              active={draft.method}
+              onPick={method => patch({ method })}
+              label={T.add.methodRow}
+            />
+          </div>
+        )}
 
         <div className="pt-1">
           <p className="pb-1 text-xs font-semibold text-ink-2">{T.add.noteRow}</p>

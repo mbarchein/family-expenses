@@ -78,9 +78,13 @@ export const T = {
     fieldConcept: 'Concepto',
     fieldNote: 'Observaciones',
     noNote: 'Sin observaciones',
+    noMethod: 'Sin especificar',
     discard: 'Descartar este gasto',
     conceptRow: 'Conceptos frecuentes',
-    noteRow: 'Medio de pago y observaciones',
+    /** Two rows now, because they are two columns. They shared one field while
+     *  the method travelled inside the observaciones. */
+    methodRow: 'Medio de pago',
+    noteRow: 'Observaciones',
     /** The free-text half of that row. The pills cover what is written down in
      *  the Sugerencias tab; this is for everything nobody thought of. */
     notePlaceholder: 'Escribe una observación',

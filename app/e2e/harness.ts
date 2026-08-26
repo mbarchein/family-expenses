@@ -101,6 +101,9 @@ export function bootstrap(overrides: Partial<Bootstrap> = {}): Bootstrap {
       { text: 'Tarjeta BBVA', kind: 'method', person: MARIO },
       { text: 'Tarjeta Viqui', kind: 'method', person: VIQUI },
       { text: 'farmacia', kind: 'concept', person: null },
+      // A `note` suggestion, so the two pill rows can be told apart: the methods
+      // fill column I and these fill the observaciones.
+      { text: 'a medias', kind: 'note', person: null },
     ],
     // No recurring templates by default: the banner has to be absent, not empty,
     // on every screen that is not about it.

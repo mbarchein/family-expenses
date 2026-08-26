@@ -160,9 +160,11 @@ test('saving sends the amount, the payer and the payment method', async ({ page 
     concept: 'super',
     amount: 23.5,
     payer: 1,
-    // The whole reason the Sugerencias tab exists: this lands in column
-    // `observaciones`, and it is the only thing that writes there.
-    note: 'Tarjeta BBVA',
+    // Column I, its own. It used to land in `observaciones` alongside the free
+    // text, which meant one expense could not say both how it was paid and
+    // anything else about itself — and nothing could be totalled by card.
+    method: 'Tarjeta BBVA',
+    note: '',
   })
   expect(String(sent.id)).toHaveLength(36)
 
@@ -528,7 +530,7 @@ test('an observación can be typed, not only picked from the pills', async ({ pa
     .toMatchObject({ note: 'lo pongo yo y me lo pasas' })
 })
 
-test('a pill fills the same field the keyboard writes into', async ({ page }) => {
+test('a note pill fills the same field the keyboard writes into', async ({ page }) => {
   // One field and one draft key, so there is no second state to disagree with
   // the first: tapping a pill fills the box, and typing over it is just typing.
   await stubApi(page)
@@ -538,14 +540,32 @@ test('a pill fills the same field the keyboard writes into', async ({ page }) =>
   await next(page)
   const note = page.getByRole('textbox', { name: 'Observaciones' })
 
-  await page.getByRole('button', { name: 'Efectivo' }).click()
-  await expect(note).toHaveValue('Efectivo')
+  await page.getByRole('button', { name: 'a medias', exact: true }).click()
+  await expect(note).toHaveValue('a medias')
 
   await note.fill('a medias con mi hermana')
   await expect(note).toHaveValue('a medias con mi hermana')
   // And the pill is no longer the one that is on.
-  await expect(page.getByRole('button', { name: 'Efectivo' }))
+  await expect(page.getByRole('button', { name: 'a medias', exact: true }))
     .not.toHaveAttribute('aria-pressed', 'true')
+})
+
+test('the method and the observación are two fields now', async ({ page }) => {
+  // They shared one while the method travelled inside the observaciones, so an
+  // expense could say how it was paid or something about itself, never both.
+  const calls = await stubApi(page)
+  await signIn(page)
+
+  await typeAmount(page, '40')
+  await next(page)
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('cena')
+  await page.getByRole('button', { name: 'Efectivo' }).click()
+  await page.getByRole('textbox', { name: 'Observaciones' }).fill('lo pongo yo')
+  await next(page)
+  await page.getByRole('button', { name: 'Guardar' }).click()
+
+  await expect.poll(() => calls.find(call => call.action === 'append')?.payload)
+    .toMatchObject({ method: 'Efectivo', note: 'lo pongo yo' })
 })
 
 test('the payer buttons wear a face, and each one can be changed', async ({ page }) => {

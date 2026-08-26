@@ -32,6 +32,15 @@ export interface Draft {
    * a real answer: nothing guessed, and nobody chose.
    */
   category: string
+  /**
+   * How it was paid, on its way to column I.
+   *
+   * Its own field because it is its own column now. It used to share
+   * `observaciones` with the free text, which meant "Tarjeta BBVA" and "lo pongo
+   * yo y me lo pasas" could not both be said about one expense — and nothing
+   * could be totalled by card.
+   */
+  method: string
   note: string
   /**
    * Whether the day is being chosen by hand.
@@ -60,8 +69,8 @@ const KEY = 'current'
 
 export function emptyDraft(payer: 0 | 1): Draft {
   return {
-    step: 0, date: todayIso(), typed: '', payer, concept: '', category: '', note: '',
-    pickDate: false, fixed: null,
+    step: 0, date: todayIso(), typed: '', payer, concept: '', category: '',
+    method: '', note: '', pickDate: false, fixed: null,
   }
 }
 

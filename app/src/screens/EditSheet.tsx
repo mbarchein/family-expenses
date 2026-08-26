@@ -25,6 +25,7 @@ export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }
   const [payer, setPayer] = useState<0 | 1>(entry.payer ?? 0)
   const [date, setDate] = useState(entry.date)
   const [note, setNote] = useState(entry.note)
+  const [method, setMethod] = useState(entry.method)
   const [category, setCategory] = useState(entry.category)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
@@ -76,7 +77,7 @@ export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }
     setBusy(true)
     await onSave({
       id: entry.id, date, concept: concept.trim(), amount, payer, note,
-      category, method: entry.method,
+      category, method,
     })
   }
 
@@ -198,6 +199,18 @@ export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }
               into the sheet by hand — and an edit screen that quietly refiles
               what it was opened to fix is worse than one that shows nothing. */}
           <CategoryField value={category} categories={categories} onChange={setCategory} />
+
+          {/* Its own field, because it is its own column. One box and not pills:
+              the pills belong on the way in, where the fast path is, and this
+              screen has to be able to show a method that is not on the
+              Sugerencias tab — an old row's, or one typed on the other phone. */}
+          <input
+            value={method}
+            onChange={event => setMethod(event.target.value)}
+            aria-label={T.add.methodRow}
+            placeholder={T.add.methodRow}
+            className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm"
+          />
 
           <input
             value={note}
