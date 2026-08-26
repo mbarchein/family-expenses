@@ -248,19 +248,34 @@ jobs:
       # an authorization prompt, a 404 or an HTML error page all fail this, and
       # the body is printed so the next person reads the reason rather than
       # guessing at it.
+      # Asked more than once, because the answer is not instant. The step above
+      # creates a version and points the deployment at it, and Apps Script takes
+      # a few seconds to serve it — asked immediately, the URL answers an HTML
+      # error page for a deployment that is perfectly fine. That happened, the
+      # deploy went red, and re-running the same job with no change went green.
+      #
+      # A check that cries wolf is worse than no check here, because this is the
+      # one that found the real outage: the afternoon the Node test files were
+      # pushed alongside the sources, this is what said so. It has to be
+      # believable when it fails, so it now fails only after ninety seconds of
+      # asking.
       - name: Check the deployment answers as itself
         env:
           EXEC_URL: ${{ vars.VITE_API_URL }}
         run: |
-          answer=$(curl -sS -L --max-time 45 "$EXEC_URL" || true)
-          printf 'The deployment says: %s\n' "$(printf '%s' "$answer" | head -c 400)"
-          if printf '%s' "$answer" | grep -q '"service":"a-medias"'; then
-            echo "::notice::The deployment answers as itself."
-            exit 0
-          fi
-          echo "::error::$EXEC_URL did not answer as this app. The phone will get" \
-               "'Failed to fetch' from this. If the body above is HTML: a login page means the" \
-               "deployment is not published for «cualquier persona»; «Se necesita autorización»" \
-               "means the owner must authorize the current version; a 404 means this URL is not" \
-               "that deployment any more. See DEPLOY.md."
+          for attempt in 1 2 3 4 5 6; do
+            answer=$(curl -sS -L --max-time 30 "$EXEC_URL" || true)
+            if printf '%s' "$answer" | grep -q '"service":"a-medias"'; then
+              echo "::notice::The deployment answers as itself (attempt $attempt)."
+              exit 0
+            fi
+            printf 'Attempt %s — the deployment says: %s\n' \
+              "$attempt" "$(printf '%s' "$answer" | head -c 400)"
+            sleep 15
+          done
+          echo "::error::$EXEC_URL never answered as this app, over six tries and ninety" \
+               "seconds. The phone will get 'Failed to fetch' from this. If the bodies above" \
+               "are HTML: a login page means the deployment is not published for «cualquier" \
+               "persona»; «Se necesita autorización» means the owner must authorize the current" \
+               "version; a 404 means this URL is not that deployment any more. See DEPLOY.md."
           exit 1
