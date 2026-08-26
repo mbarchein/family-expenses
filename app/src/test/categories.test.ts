@@ -141,3 +141,24 @@ describe('words that only mean anything as the whole concept', () => {
     expect(guessCategory('inglés irene marzo', school)).toBe('')
   })
 })
+
+describe('an exact word beats a contained one from any category', () => {
+  // Written with the contained word first on purpose: passing means the row
+  // order did not decide it. `inglés` is a word of Educación and `Corte inglés`
+  // is a department store, and which one is higher on the tab must not matter.
+  const BOTH: Category[] = [
+    { name: 'Educación', icon: 'mochila', words: ['ingles'] },
+    { name: 'Ropa', icon: 'camiseta', words: ['=corte ingles'] },
+  ]
+
+  it('gives the shop to Ropa and the lessons to Educación', () => {
+    expect(guessCategory('Corte inglés', BOTH)).toBe('Ropa')
+    expect(guessCategory('Inglés Irene', BOTH)).toBe('Educación')
+  })
+
+  it('agrees with the backend, which is the whole point', () => {
+    // Both passes in the same order in both places: that batch files two
+    // thousand old rows and this files the next one.
+    expect(guessCategory('corte inglés agosto', BOTH)).toBe('Educación')
+  })
+})

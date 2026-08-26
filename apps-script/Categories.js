@@ -104,10 +104,22 @@ function guessCategory_(concept, categories) {
   if (!text) return '';
   var parts = text.split(' ');
 
-  for (var i = 0; i < categories.length; i++) {
-    var words = categories[i].words;
-    for (var j = 0; j < words.length; j++) {
-      if (wordMatches_(text, parts, words[j])) return categories[i].name;
+  // The exact words first, across every category, and only then the rest.
+  //
+  // "The whole concept is this" is a more specific claim than "the concept
+  // contains this", so it wins — and it has to win regardless of which row is
+  // higher up the tab. Inside one category the sort already put the exact ones
+  // first; across categories nothing did, and that gap is the same one that keeps
+  // biting: `inglés` in Educación would take `Corte inglés`, a department store,
+  // purely because Educación sits above Ropa. `=corte inglés` in Ropa now settles
+  // it, whatever the order.
+  for (var pass = 0; pass < 2; pass++) {
+    for (var i = 0; i < categories.length; i++) {
+      var words = categories[i].words;
+      for (var j = 0; j < words.length; j++) {
+        if ((words[j].charAt(0) === '=') !== (pass === 0)) continue;
+        if (wordMatches_(text, parts, words[j])) return categories[i].name;
+      }
     }
   }
   return '';
@@ -236,7 +248,7 @@ var CATEGORY_SEED = [
   // — `pantalones` is not bread.
   ['Supermercado', 'cesta',
     'supermercado, mercado, super, compra, panadería, pan, frutería, fruta, '
-    + 'carnicería, pescadería, verdulería, pedido'],
+    + 'carnicería, pescadería, verdulería, pedido, contreras'],
   ['Restaurantes', 'cubiertos',
     'restaurante, comida, cena, menú, tapas, comedor, pizza, altramuces'],
   ['Cafés y bares', 'taza',
@@ -244,7 +256,7 @@ var CATEGORY_SEED = [
   ['Salud', 'salud', 'farmacia, medicina, medicamento, dentista, médico, clínica, óptica'],
   ['Combustible', 'combustible', 'gasolinera, gasolina, gasoil, combustible, diésel'],
   ['Coche', 'coche', 'taller, coche, itv, parking'],
-  ['Transporte', 'bus', 'autobús, tren, metro, taxi, billete, alsa'],
+  ['Transporte', 'bus', 'autobús, tren, metro, taxi, billete, alsa, bonobús'],
   ['Luz', 'bombilla', 'electricidad, luz, iberdrola, endesa'],
   ['Agua', 'gota', 'agua, emasagra'],
   ['Gas', 'llama', 'calefacción, butano, gas'],
@@ -261,15 +273,20 @@ var CATEGORY_SEED = [
   ['Impuestos y recibos', 'recibo',
     'impuesto, tributo, basura, multa, ibi, recibo, factura'],
   ['Banco', 'banco', 'banco, comisión, hucha'],
-  // `=inglés irene` for the English lessons. As a plain word `inglés` would file
-  // `Corte inglés` — a department store — under the school.
-  ['Colegio', 'mochila',
+  // Their word, said five times over: excursions, the violin, the English, the
+  // tutors. `inglés` is a plain word here and `Corte inglés` — a department store
+  // — is kept out of it by `=corte inglés` under Ropa, which wins because an exact
+  // word beats a contained one whatever the row order. See `guessCategory_`.
+  ['Educación', 'mochila',
     'escolar, colegio, escuela, guardería, instituto, ampa, papelería, orontes, '
-    + 'oeg, mariela, =inglés irene'],
+    + 'oeg, mariela, inglés, excursión, violín, comesaña, cl'],
   ['Música', 'nota', 'orquesta, conservatorio, música, solfeo'],
-  ['Libros', 'libro', 'librería, libro, curso'],
-  ['Ropa', 'camiseta', 'ropa, zapatos, pantalón, camisa'],
-  ['Regalos', 'regalo', 'regalo, cumpleaños, flores'],
+  ['Libros', 'libro', 'librería, libro, curso, picasso, flash'],
+    // The two exact ones are the department store, their own typo of it included.
+  // Without them `inglés` under Educación would take both.
+  ['Ropa', 'camiseta',
+    'ropa, zapatos, pantalón, camisa, zara, =corte inglés, =corte ingés'],
+  ['Regalos', 'regalo', 'regalo, cumple, cumpleaños, flores'],
   ['Ocio', 'entrada', 'cine, teatro, concierto, ocio, lotería, entrada, ficzone'],
   ['Deporte', 'pesa', 'gimnasio, deporte, pádel, bádminton'],
   ['Peluquería', 'tijeras', 'peluquería, barbería'],
@@ -292,5 +309,8 @@ var CATEGORY_SEED = [
  * row filed after the change would land in one of them at random.
  */
 var CATEGORY_RENAMES = [
-  ['Vivienda', 'Hogar']
+  ['Vivienda', 'Hogar'],
+  // `Colegio` held a private tutor, the English lessons and the violin. They
+  // called it educación five times over before I stopped calling it a school.
+  ['Colegio', 'Educación']
 ];

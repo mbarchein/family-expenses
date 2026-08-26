@@ -507,18 +507,17 @@ test('the fixed suppliers are words, and the orchestra has a category', () => {
     ['Luz', 'Luz', 'Agua', 'Transporte', 'Música', 'Música'])
 })
 
-test('Corte inglés is not a school, and gastos varios is not gas', () => {
-  // The two collisions worth naming. `inglés` was nearly added as a word for the
-  // English classes, which would have filed a department store under Colegio —
-  // the lessons are reached by `=inglés irene` instead, so the shop stays out of
-  // it and the classes still land.
+test('Corte inglés is a shop, and gastos varios is not gas', () => {
+  // The collision this whole exact-word business exists for. `inglés` is a word
+  // of Educación now, and the department store is kept out of it by `=corte
+  // inglés` under Ropa — which wins even though Ropa sits lower on the tab.
   const sheets = filedWorld(
     [['Corte inglés'], ['gastos varios'], ['Inglés Irene']],
     CATEGORY_SEED.map(row => [row[0], row[1], row[2]]),
   )
   categoriseRows()
 
-  assert.deepEqual(filed(sheets), ['', '', 'Colegio'])
+  assert.deepEqual(filed(sheets), ['Ropa', '', 'Educación'])
 })
 
 /* ── words that only mean anything as the whole concept ───────────────── */
@@ -537,16 +536,29 @@ test('=maría is the cleaner, and a present for María is not', () => {
   assert.deepEqual(filed(sheets), ['Hogar', 'Hogar', 'Regalos', 'Regalos'])
 })
 
-test('=inglés irene is the lessons, and Corte inglés is a shop', () => {
+test('the English is the lessons, and the Corte is the shop', () => {
   const sheets = filedWorld(
     [['Inglés Irene'], ['inglés irene'], ['Corte inglés'], ['Corte Ingés']],
     CATEGORY_SEED.map(row => [row[0], row[1], row[2]]),
   )
   categoriseRows()
 
-  // The last one is their own typo for the shop. Still not the school, which is
-  // all that is being claimed here.
-  assert.deepEqual(filed(sheets), ['Colegio', 'Colegio', '', ''])
+  // The last is their own typo for the shop, which is why it is on the tab as an
+  // exact word of its own.
+  assert.deepEqual(filed(sheets), ['Educación', 'Educación', 'Ropa', 'Ropa'])
+})
+
+test('an exact word beats a contained one from a category higher up', () => {
+  // The rule, on its own. Written this way round on purpose: the category with
+  // the contained word is first, so passing means the order did not decide it.
+  world([
+    ['Educación', 'mochila', 'inglés'],
+    ['Ropa', 'camiseta', '=corte inglés'],
+  ])
+  const items = readCategories_().items
+
+  assert.equal(guessCategory_('Corte inglés', items), 'Ropa')
+  assert.equal(guessCategory_('clases de inglés', items), 'Educación')
 })
 
 test('the exact words are tried before the rest', () => {
@@ -568,6 +580,33 @@ test('tributos are taxes', () => {
     ['Impuestos y recibos', 'Impuestos y recibos', 'Impuestos y recibos'])
 })
 
+test('the eleven they sent last land where they said', () => {
+  const sheets = filedWorld([
+    ['excursión'], ['excursiones colegio'], ['violín'], ['Comesaña'], ['cl'],
+    ['Picasso'], ['flash'], ['Contreras'], ['Zara'], ['bonobús'],
+    ['cumple'], ['cumpleaños Eva'], ['regalo eva'],
+  ], CATEGORY_SEED.map(row => [row[0], row[1], row[2]]))
+  categoriseRows()
+
+  assert.deepEqual(filed(sheets), [
+    'Educación', 'Educación', 'Educación', 'Educación', 'Educación',
+    'Libros', 'Libros', 'Supermercado', 'Ropa', 'Transporte',
+    'Regalos', 'Regalos', 'Regalos',
+  ])
+})
+
+test('cl is a word and not two letters inside one', () => {
+  // Two characters, so it has to be the whole word: Salud has `clínica`, and the
+  // pair must not collide.
+  const sheets = filedWorld(
+    [['cl'], ['clínica'], ['cl irene']],
+    CATEGORY_SEED.map(row => [row[0], row[1], row[2]]),
+  )
+  categoriseRows()
+
+  assert.deepEqual(filed(sheets), ['Educación', 'Salud', 'Educación'])
+})
+
 test('everything else they answered lands where they said', () => {
   const sheets = filedWorld([
     ['BBVA abono'], ['BBVA retención'], ['Acacio'], ['oeg'], ['Mariela'],
@@ -579,8 +618,8 @@ test('everything else they answered lands where they said', () => {
   categoriseRows()
 
   assert.deepEqual(filed(sheets), [
-    'Hogar', 'Hogar', 'Internet y teléfono', 'Colegio', 'Colegio',
-    'Restaurantes', 'Colegio', 'Ocio', 'Cafés y bares',
+    'Hogar', 'Hogar', 'Internet y teléfono', 'Educación', 'Educación',
+    'Restaurantes', 'Educación', 'Ocio', 'Cafés y bares',
     'Viajes', 'Viajes', 'Viajes', 'Supermercado',
     '',
   ])
