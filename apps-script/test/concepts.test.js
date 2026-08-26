@@ -10,7 +10,7 @@
 
 const test = require('node:test')
 const assert = require('node:assert')
-const { sheet, install, load, LEDGER_HEADERS, LEDGER_COLS } = require('./fake-sheets')
+const { sheet, install, load, LEDGER_HEADERS, LEDGER_COLS, FIXED_HEADERS_ROW } = require('./fake-sheets')
 
 const CONFIG = [
   ['clave', 'valor'],
@@ -39,7 +39,7 @@ function world(pairs) {
     gastos: sheet('gastos', ledgerOf(pairs), LEDGER_COLS),
     Config: sheet('Config', CONFIG, 2),
     Sugerencias: sheet('Sugerencias', [['texto', 'tipo', 'ámbito']], 26),
-    Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),
+    Fijos: sheet('Fijos', [FIXED_HEADERS_ROW], 26),
   })
   load()
 }
@@ -134,7 +134,7 @@ test('it writes nothing at all', () => {
     gastos: sheet('gastos', ledgerOf([['super', 3], ['supermercado', 2]]), LEDGER_COLS),
     Config: sheet('Config', CONFIG, 2),
     Sugerencias: sheet('Sugerencias', [['texto', 'tipo', 'ámbito']], 26),
-    Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),
+    Fijos: sheet('Fijos', [FIXED_HEADERS_ROW], 26),
   }
   install(sheets)
   load()

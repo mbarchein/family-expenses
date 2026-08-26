@@ -63,6 +63,10 @@ export interface Fixed {
   from: string
   /** The last due date confirmed or skipped, `YYYY-MM-DD` or empty. */
   last: string
+  /** From column I of the Fijos tab. What the expense it produces gets filed
+   *  as, so a bill that arrives every month is filed the same way every month
+   *  without anybody choosing again. */
+  category: string
 }
 
 export interface Bootstrap {

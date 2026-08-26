@@ -152,6 +152,11 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
       pickDate: true,
       payer: item.payer ?? draft.payer,
       concept: item.concept,
+      // The template's own, so a bill that arrives every month is filed the same
+      // way every month without anybody choosing again. Empty falls through to
+      // the guess on the second step, exactly as a typed concept does.
+      category: item.category,
+      method: '',
       note: '',
       fixed: { row: item.row, due: item.due },
       step: known ? 2 : 0,

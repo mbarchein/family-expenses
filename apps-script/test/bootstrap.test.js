@@ -10,7 +10,7 @@
 
 const test = require('node:test')
 const assert = require('node:assert')
-const { sheet, install, load, LEDGER_HEADERS, LEDGER_COLS } = require('./fake-sheets')
+const { sheet, install, load, LEDGER_HEADERS, LEDGER_COLS, FIXED_HEADERS_ROW } = require('./fake-sheets')
 
 const iso = date => {
   const month = String(date.getMonth() + 1).padStart(2, '0')

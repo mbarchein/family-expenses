@@ -22,6 +22,9 @@ export interface Due {
   payer: 0 | 1 | null
   /** `YYYY-MM-DD`, and the date the expense gets if it is confirmed. */
   due: string
+  /** The template's category, so the expense it produces is filed the same way
+   *  every month without anybody choosing again. */
+  category: string
 }
 
 export interface Template {
@@ -37,6 +40,8 @@ export interface Template {
   from: string
   /** The last due date confirmed or skipped. */
   last: string
+  /** What the expense it produces gets filed as. */
+  category: string
 }
 
 /**
@@ -69,6 +74,7 @@ export function whatIsDue(templates: readonly Template[], today: string): Due[] 
         concept: template.concept,
         amount: template.amount,
         payer: template.payer,
+        category: template.category,
         due,
       })
     }

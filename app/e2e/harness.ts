@@ -286,6 +286,7 @@ export function fixed(over: Partial<Fixed> = {}): Fixed {
     active: true,
     from: '',
     last: '',
+    category: '',
     ...over,
   }
 }

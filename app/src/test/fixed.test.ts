@@ -9,6 +9,7 @@ const template = (over: Partial<Template> = {}): Template => ({
   payer: 0,
   months: 1,
   active: true,
+  category: 'Hogar',
   from: '',
   last: '',
   ...over,
@@ -107,7 +108,10 @@ describe('whatIsDue', () => {
 
 describe('alreadyThere', () => {
   const entry = (date: string, concept: string, voided = false) => ({ date, concept, voided })
-  const due = { row: 2, concept: 'alquiler', amount: 700, payer: 0 as const, due: '2026-08-01' }
+  const due = {
+    row: 2, concept: 'alquiler', amount: 700, payer: 0 as const,
+    due: '2026-08-01', category: 'Hogar',
+  }
 
   it('finds the row somebody pasted from the bank', () => {
     // The case the whole check exists for: the rent is already in the ledger

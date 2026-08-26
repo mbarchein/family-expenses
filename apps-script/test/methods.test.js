@@ -9,7 +9,7 @@
 
 const test = require('node:test')
 const assert = require('node:assert')
-const { sheet, install, load, LEDGER_HEADERS, LEDGER_COLS } = require('./fake-sheets')
+const { sheet, install, load, LEDGER_HEADERS, LEDGER_COLS, FIXED_HEADERS_ROW } = require('./fake-sheets')
 load()
 
 const CONFIG = [
@@ -37,7 +37,7 @@ function world(rows, suggestions) {
     gastos: sheet('gastos', values, LEDGER_COLS),
     Config: sheet('Config', CONFIG, 2),
     Sugerencias: sheet('Sugerencias', suggestions || SUGGESTIONS, 26),
-    Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),
+    Fijos: sheet('Fijos', [FIXED_HEADERS_ROW], 26),
   }
   install(sheets)
   load()
@@ -139,11 +139,69 @@ test('a formula in either column stops the whole pass', () => {
     gastos: sheet('gastos', values, LEDGER_COLS, { '2,6': '=A2' }),
     Config: sheet('Config', CONFIG, 2),
     Sugerencias: sheet('Sugerencias', SUGGESTIONS, 26),
-    Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),
+    Fijos: sheet('Fijos', [FIXED_HEADERS_ROW], 26),
   }
   install(sheets)
   load()
 
   assert.match(moveMethods(), /Refusing: 1 cells/)
   assert.deepEqual(sheets.gastos.writes, [])
+})
+
+/* ── the category on a recurring template ─────────────────────────────── */
+
+/**
+ * `categoría` on the Fijos tab, appended after `último`.
+ *
+ * After it and not beside `concepto`, because `último` is written by `fixedDone`
+ * and nothing else — inserting a column would move it out from under that write.
+ * Which makes the write for a template two ranges rather than a wider one, and
+ * that is what these check.
+ */
+
+function fixedWorld(rows) {
+  const values = [FIXED_HEADERS_ROW].concat(rows)
+  const sheets = {
+    gastos: sheet('gastos', [LEDGER_HEADERS], LEDGER_COLS),
+    Config: sheet('Config', CONFIG, 2),
+    Sugerencias: sheet('Sugerencias', SUGGESTIONS, 26),
+    Fijos: sheet('Fijos', values, 26),
+  }
+  install(sheets)
+  load()
+  return sheets
+}
+
+test('a template carries its category out and back', () => {
+  const sheets = fixedWorld([
+    ['gimnasio', 40, 5, 'Mario', 'mensual', 'sí', '', '2026-07-05', 'Deporte'],
+  ])
+
+  const read = readFixed_().items[0]
+  assert.equal(read.category, 'Deporte')
+  assert.equal(read.last, '2026-07-05', 'último still read from its own column')
+
+  saveFixed_({ row: 2, concept: 'gimnasio', amount: 40, day: 5, payer: 1, months: 1,
+    active: true, from: '', category: 'Salud' })
+
+  assert.equal(sheets.Fijos.values[1][FIXED_COL_CATEGORY - 1], 'Salud')
+  // The one cell this must never touch.
+  assert.equal(sheets.Fijos.values[1][FIXED_COL_LAST - 1], '2026-07-05')
+})
+
+test('a template that says nothing about its category keeps it', () => {
+  // An older phone sends no category at all, and that has to mean "leave it".
+  const sheets = fixedWorld([
+    ['gimnasio', 40, 5, 'Mario', 'mensual', 'sí', '', '2026-07-05', 'Deporte'],
+  ])
+
+  saveFixed_({ row: 2, concept: 'gimnasio', amount: 40, day: 5, payer: 1, months: 1,
+    active: true, from: '' })
+
+  assert.equal(sheets.Fijos.values[1][FIXED_COL_CATEGORY - 1], 'Deporte')
+})
+
+test('a row from before the column reads as an empty category', () => {
+  fixedWorld([['luz', '', 12, '', 'mensual', 'sí', '', '']])
+  assert.equal(readFixed_().items[0].category, '')
 })

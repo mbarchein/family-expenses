@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { Avatar } from '../components/Avatar'
+import { CategoryField } from '../components/CategoryField'
+import { Icon } from '../components/Icon'
 import { Segmented } from '../components/Segmented'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
+import { iconOf } from '../lib/categories'
 import { dueDay } from '../lib/fixed'
 import { todayIso } from '../lib/dates'
 import { formatEur, parseAmount, typedFromAmount } from '../lib/money'
-import type { Fixed, Person } from '../api/types'
+import type { Category, Fixed, Person } from '../api/types'
 import { useAvatars } from '../store/avatars'
 import type { Ledger } from '../store/ledger'
 
@@ -25,9 +28,15 @@ import type { Ledger } from '../store/ledger'
 export function FixedScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => void }) {
   const people = ledger.data?.config.people
   const [editing, setEditing] = useState<Fixed | null>(null)
+  // Above the early return, where every hook has to be. What the concept box
+  // offers: the same vocabulary the keypad has, which for a recurring bill is
+  // almost always where its name already is.
+  const concepts = useMemo(
+    () => (ledger.data?.frequent ?? []).map(chip => chip.concept), [ledger.data?.frequent])
 
   if (!people) return null
   const rows = [...ledger.fixed].sort((a, b) => a.day - b.day || a.concept.localeCompare(b.concept))
+  const categories = ledger.data?.categories ?? []
 
   return (
     <div className="flex flex-col gap-3 p-4">
@@ -50,6 +59,10 @@ export function FixedScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => 
                          focus-visible:outline focus-visible:outline-2"
               style={{ background: 'var(--surface)', opacity: item.active ? 1 : 0.55 }}
             >
+              {/* The same slot the expense rows have, from the template's own
+                  category — and falling back to guessing from the concept for
+                  the ones filled in before the column existed. */}
+              <FixedIcon fixed={item} categories={categories} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{item.concept}</span>
                 <span className="block text-[11px] text-ink-3">
@@ -80,6 +93,8 @@ export function FixedScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => 
         <Editor
           fixed={editing}
           people={people}
+          categories={categories}
+          concepts={concepts}
           onClose={() => setEditing(null)}
           onSave={async next => { await ledger.saveFixed(next); setEditing(null) }}
         />
@@ -93,19 +108,24 @@ export function FixedScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => 
 function blank(): Fixed {
   return {
     row: 0, concept: '', amount: null, day: 1, payer: null,
-    months: 1, active: true, from: '', last: '',
+    months: 1, active: true, from: '', last: '', category: '',
   }
 }
 
 const CADENCES = [1, 2, 3, 4, 6, 12]
 
-function Editor({ fixed, people, onClose, onSave }: {
+function Editor({ fixed, people, categories, concepts, onClose, onSave }: {
   fixed: Fixed
   people: readonly [Person, Person]
+  categories: readonly Category[]
+  /** For the concept box's own list. A recurring bill's name is nearly always
+   *  one the ledger already knows. */
+  concepts: readonly string[]
   onClose: () => void
   onSave: (fixed: Omit<Fixed, 'last'>) => Promise<void>
 }) {
   const { faces } = useAvatars()
+  const conceptsId = useId()
   const [draft, setDraft] = useState(fixed)
   const [typed, setTyped] = useState(draft.amount === null ? '' : typedFromAmount(draft.amount))
   const [saving, setSaving] = useState(false)
@@ -149,13 +169,33 @@ function Editor({ fixed, people, onClose, onSave }: {
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
         <Field label={T.add.concept}>
+          {/* A native `datalist` rather than the grid of tiles the keypad uses.
+              This screen is opened once per bill and never in a queue, so what
+              it needs is not a fast path but the spelling the ledger already
+              has — typing `alq` and picking `alquiler` is what keeps a template
+              from becoming a 721st distinct concept. */}
           <input
             value={draft.concept}
             onChange={event => setDraft({ ...draft, concept: event.target.value })}
             aria-label={T.add.concept}
+            list={conceptsId}
             autoComplete="off"
             className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-base text-ink
                        focus-visible:outline focus-visible:outline-2"
+          />
+          <datalist id={conceptsId}>
+            {concepts.map(concept => <option key={concept} value={concept} />)}
+          </datalist>
+        </Field>
+
+        <Field label={T.category.label}>
+          {/* What the expense this produces gets filed as, so a bill that
+              arrives every month is filed the same way every month without
+              anybody choosing again. */}
+          <CategoryField
+            value={draft.category}
+            categories={categories}
+            onChange={category => setDraft({ ...draft, category })}
           />
         </Field>
 
@@ -274,5 +314,25 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <p className="text-xs font-semibold text-ink-2">{label}</p>
       {children}
     </div>
+  )
+}
+
+
+/**
+ * The template's icon, from its category.
+ *
+ * The same slot the expense rows carry, so a list of bills is recognised by
+ * shape rather than read. Falls back to guessing from the concept for the
+ * templates filled in before the column existed, and to nothing at all when
+ * neither has an answer — a guess that misses is a small lie on every row.
+ */
+function FixedIcon({ fixed, categories }: { fixed: Fixed; categories: readonly Category[] }) {
+  const icon = iconOf(fixed, categories)
+  return (
+    <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center text-ink-2">
+      {icon
+        ? <Icon name={icon} className="h-6 w-6" />
+        : <span className="h-2 w-2 rounded-full bg-current opacity-40" />}
+    </span>
   )
 }

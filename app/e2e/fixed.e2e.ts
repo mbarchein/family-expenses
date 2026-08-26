@@ -62,6 +62,8 @@ test('a template with no amount lands on the keypad instead', async ({ page }) =
   // Straight on to the second step, with the concept already there.
   await page.getByRole('button', { name: '4', exact: true }).click()
   await page.getByRole('button', { name: 'Siguiente' }).click()
+  // The add flow's own concept box, which has no list and so is still a
+  // textbox — unlike the one in the fijo editor.
   await expect(page.getByRole('textbox', { name: 'Concepto' })).toHaveValue('luz')
 })
 
@@ -113,6 +115,10 @@ test('two missed months are two proposals, oldest first', async ({ page }) => {
   await expect(items.first()).not.toContainText(firstOfThisMonth().slice(-2))
 })
 
+// The concept box on this screen is a `combobox` and not a `textbox`: it carries
+// a `datalist` of the concepts the ledger already knows, and an input with a list
+// is a combobox in the accessibility tree. The one on the add flow has no list and
+// is still a textbox.
 test('a template can be created from the phone', async ({ page }) => {
   // The tab exists because of this: an editor needs a door that is there when
   // the list is empty, and the proposals appear only when something is owed.
@@ -123,7 +129,7 @@ test('a template can be created from the phone', async ({ page }) => {
   await expect(page.getByText('Todavía no hay ningún fijo')).toBeVisible()
   await page.getByRole('button', { name: 'Nuevo fijo' }).click()
 
-  await page.getByRole('textbox', { name: 'Concepto' }).fill('comunidad')
+  await page.getByRole('combobox', { name: 'Concepto' }).fill('comunidad')
   await page.getByRole('textbox', { name: 'Importe fijo' }).fill('62,50')
   await page.getByRole('textbox', { name: 'Día del mes' }).fill('5')
   await page.getByRole('combobox', { name: 'Cada cuánto' }).selectOption('3')
@@ -146,7 +152,7 @@ test('an amount left empty means "ask me every time"', async ({ page }) => {
   await page.getByRole('button', { name: 'Fijos' }).click()
   await page.getByRole('button', { name: 'Nuevo fijo' }).click()
 
-  await page.getByRole('textbox', { name: 'Concepto' }).fill('luz')
+  await page.getByRole('combobox', { name: 'Concepto' }).fill('luz')
   await expect(page.getByRole('textbox', { name: 'Importe fijo' }))
     .toHaveAttribute('placeholder', 'Preguntar cada vez')
   await page.getByRole('button', { name: 'Guardar fijo' }).click()
@@ -186,7 +192,7 @@ test('a template can be saved with no signal, and says it is on its way',
   await page.getByRole('button', { name: 'Fijos' }).click()
   await page.getByRole('button', { name: 'Nuevo fijo' }).click()
 
-  await page.getByRole('textbox', { name: 'Concepto' }).fill('gimnasio')
+  await page.getByRole('combobox', { name: 'Concepto' }).fill('gimnasio')
   await page.getByRole('textbox', { name: 'Importe fijo' }).fill('40')
   await page.getByRole('button', { name: 'Guardar fijo' }).click()
 
@@ -196,4 +202,63 @@ test('a template can be saved with no signal, and says it is on its way',
   // And the template is on the screen rather than nowhere: the queue has it, so
   // saying otherwise would be the same lie the expenses list used to tell.
   await expect(page.getByText('gimnasio')).toBeVisible()
+})
+
+
+test('a template carries a category, and hands it to the expense it proposes',
+  async ({ page }) => {
+  // The payoff of the column: a bill that arrives every month is filed the same
+  // way every month without anybody choosing again.
+  const calls = await stubApi(page, bootstrap({
+    fixed: [fixed({ concept: 'alquiler', amount: 700, day: 1, category: 'Hogar' })],
+  }))
+  await signIn(page)
+
+  await page.getByRole('button', { name: /fijo vencido/ }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Siguiente' }).click()
+  await page.getByRole('button', { name: 'Guardar' }).click()
+
+  await expect.poll(() => calls.find(call => call.action === 'append')?.payload)
+    .toMatchObject({ concept: 'alquiler', amount: 700, category: 'Hogar' })
+})
+
+test('the editor takes a category and offers the concepts the ledger knows',
+  async ({ page }) => {
+  const calls = await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Fijos' }).click()
+  await page.getByRole('button', { name: 'Nuevo fijo' }).click()
+
+  // The concept box has a list rather than a grid of tiles: this screen is opened
+  // once per bill, and what it needs is the spelling the ledger already has.
+  const options = await page.locator('datalist option').evaluateAll(
+    nodes => nodes.map(node => (node as HTMLOptionElement).value))
+  expect(options).toContain('gasolina')
+
+  await page.getByRole('combobox', { name: 'Concepto' }).fill('gasolina')
+  await page.getByRole('button', { name: 'Elegir categoría' }).click()
+  await page.getByRole('dialog', { name: 'Elegir categoría' })
+    .getByRole('button', { name: 'Combustible' }).click()
+  await page.getByRole('button', { name: 'Guardar fijo' }).click()
+
+  await expect.poll(() => calls.find(call => call.action === 'saveFixed')?.payload)
+    .toMatchObject({ concept: 'gasolina', category: 'Combustible' })
+})
+
+test('a template wears the icon of its category in the list', async ({ page }) => {
+  await stubApi(page, bootstrap({
+    fixed: [
+      fixed({ row: 2, concept: 'alquiler', day: 1, category: 'Luz' }),
+      // No category and a concept nothing can guess from: no icon at all, which
+      // is deliberate — a guess that misses is a small lie on every row.
+      fixed({ row: 3, concept: 'lo del jueves', day: 2, category: '' }),
+    ],
+  }))
+  await signIn(page)
+  // Exact, because two due templates put a "Hay 2 fijos vencidos" banner on the
+  // screen and that matches a loose `Fijos` too.
+  await page.getByRole('button', { name: 'Fijos', exact: true }).click()
+
+  await expect(page.getByRole('button', { name: /alquiler/ }).locator('svg')).toHaveCount(1)
+  await expect(page.getByRole('button', { name: /lo del jueves/ }).locator('svg')).toHaveCount(0)
 })

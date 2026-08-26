@@ -49,9 +49,13 @@ function setupSpreadsheet() {
 
   var existingFixed = ss.getSheetByName(FIXED_SHEET);
   if (existingFixed) {
-    // `desde` and `último` arrived after the tab did. Headers and notes only —
-    // never a data cell, and never `último` itself, which is the app's record of
-    // what has already been dealt with.
+    // `desde`, `último` and now `categoría` all arrived after the tab did.
+    // Headers and notes only — never a data cell, and never `último` itself,
+    // which is the app's record of what has already been dealt with.
+    if (existingFixed.getMaxColumns() < FIXED_COLS) {
+      existingFixed.insertColumnsAfter(
+        existingFixed.getMaxColumns(), FIXED_COLS - existingFixed.getMaxColumns());
+    }
     if (!String(existingFixed.getRange(1, 7).getValue()).trim()) {
       existingFixed.getRange(1, 7, 1, 2)
         .setValues([[FIXED_HEADERS[6], FIXED_HEADERS[7]]])
@@ -61,6 +65,8 @@ function setupSpreadsheet() {
     } else {
       report.push('Fijos: already there, left alone');
     }
+    report.push(claimColumn_(existingFixed, FIXED_COL_CATEGORY, FIXED_HEADERS[8])
+      .replace('Ledger:', 'Fijos:'));
   } else {
     var fixed = ss.insertSheet(FIXED_SHEET);
     fixed.getRange(1, 1, 1, FIXED_COLS).setValues([FIXED_HEADERS]).setFontWeight('bold');

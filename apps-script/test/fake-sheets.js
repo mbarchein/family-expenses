@@ -26,6 +26,13 @@ const LEDGER_HEADERS = [
 ]
 const LEDGER_COLS = LEDGER_HEADERS.length
 
+/** The Fijos tab's header row. `categoría` was appended after `último`, so that
+ *  `fixedDone` keeps writing to the same column it always has. */
+const FIXED_HEADERS_ROW = [
+  'concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo', 'desde', 'último',
+  'categoría'
+]
+
 function sheet(name, values, maxColumns, formulas) {
   var writes = []
   // Keyed 'row,column'. Empty for almost every test, and the point of the one
@@ -222,5 +229,6 @@ function load() {
 
 module.exports = {
   sheet: sheet, install: install, load: load,
-  LEDGER_HEADERS: LEDGER_HEADERS, LEDGER_COLS: LEDGER_COLS
+  LEDGER_HEADERS: LEDGER_HEADERS, LEDGER_COLS: LEDGER_COLS,
+  FIXED_HEADERS_ROW: FIXED_HEADERS_ROW
 }

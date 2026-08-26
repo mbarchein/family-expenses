@@ -13,7 +13,7 @@
 
 const test = require('node:test')
 const assert = require('node:assert')
-const { sheet, install, load, LEDGER_HEADERS, LEDGER_COLS } = require('./fake-sheets')
+const { sheet, install, load, LEDGER_HEADERS, LEDGER_COLS, FIXED_HEADERS_ROW } = require('./fake-sheets')
 
 /**
  * Loaded once here, before any test body runs.
@@ -40,7 +40,7 @@ function world(categories) {
     gastos: sheet('gastos', [LEDGER_HEADERS], LEDGER_COLS),
     Config: sheet('Config', CONFIG, 2),
     Sugerencias: sheet('Sugerencias', [['texto', 'tipo', 'ámbito']], 26),
-    Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),
+    Fijos: sheet('Fijos', [FIXED_HEADERS_ROW], 26),
   }
   if (categories) {
     sheets['Categorías'] = sheet('Categorías', [['categoría', 'icono', 'palabras']].concat(categories), 3)
@@ -225,7 +225,7 @@ function filedWorld(rows, categories) {
     gastos: sheet('gastos', ledger(rows), LEDGER_COLS),
     Config: sheet('Config', CONFIG, 2),
     Sugerencias: sheet('Sugerencias', [['texto', 'tipo', 'ámbito']], 26),
-    Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),
+    Fijos: sheet('Fijos', [FIXED_HEADERS_ROW], 26),
     'Categorías': sheet('Categorías',
       [['categoría', 'icono', 'palabras']].concat(categories || GUESSES), 3),
   }
@@ -318,7 +318,7 @@ test('a formula in the category column stops the whole pass', () => {
     gastos: sheet('gastos', ledger([['pan'], ['super']]), LEDGER_COLS, { '3,8': '=B3' }),
     Config: sheet('Config', CONFIG, 2),
     Sugerencias: sheet('Sugerencias', [['texto', 'tipo', 'ámbito']], 26),
-    Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),
+    Fijos: sheet('Fijos', [FIXED_HEADERS_ROW], 26),
     'Categorías': sheet('Categorías', [['categoría', 'icono', 'palabras']].concat(GUESSES), 3),
   }
   install(sheets)
@@ -333,7 +333,7 @@ test('with no tab it says which function to run rather than guessing', () => {
     gastos: sheet('gastos', ledger([['pan']]), LEDGER_COLS),
     Config: sheet('Config', CONFIG, 2),
     Sugerencias: sheet('Sugerencias', [['texto', 'tipo', 'ámbito']], 26),
-    Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),
+    Fijos: sheet('Fijos', [FIXED_HEADERS_ROW], 26),
   }
   install(sheets)
   load()
