@@ -364,6 +364,147 @@ function claimColumn_(sheet, column, header) {
     + ' writes ' + header + ' over it';
 }
 
+/**
+ * Fills column H for every row that has no category yet.
+ *
+ * The batch pass the whole category idea rests on. 2,318 rows exist and none of
+ * them has one, and nobody is going to file them by hand — so a row gets its
+ * category from one of two places, in this order:
+ *
+ *   1. **What this concept was filed as before.** If `Cena en un bar` already
+ *      sits under Restaurantes somewhere, every other row saying the same thing
+ *      belongs there too, whatever the words table thinks. This is what makes the
+ *      pass improve as it is re-run: file ten rows by hand in the app and the
+ *      next run spreads those ten decisions over every row that matches them.
+ *   2. **The words on the Categorías tab.** A guess, and the only guess.
+ *
+ * A row that neither answers is left empty, on purpose. A wrong category is
+ * printed on the row, totalled under a heading and then believed; an empty one is
+ * a question still open. The report says how many are left so the number can be
+ * driven down by editing `palabras` rather than by lowering the bar.
+ *
+ * Never touches the concept, the amounts, the balance formula or the id, and
+ * never a row that already has a category — including one somebody typed by hand
+ * to correct this pass. One write for the whole column: two thousand setValue
+ * calls would time the execution out.
+ */
+function categoriseRows() {
+  return categorise_(false);
+}
+
+/** What `categoriseRows` would do, without writing anything. */
+function previewCategorise() {
+  return categorise_(true);
+}
+
+function categorise_(dryRun) {
+  var config = readConfig_();
+  var categories = readCategories_();
+  if (categories.missing) {
+    return report_(['There is no "' + CATEGORIES_SHEET + '" tab.',
+      'Run setupSpreadsheet() first — this pass files rows into the categories on it.']);
+  }
+  if (!categories.items.length) {
+    return report_(['The ' + CATEGORIES_SHEET + ' tab is empty. Nothing to file rows into.']);
+  }
+
+  var sheet = ledgerSheet_(config);
+  var last = lastDataRow_(sheet);
+  if (last < 2) return report_(['The ledger has no rows.']);
+
+  var range = sheet.getRange(2, 1, last - 1, COL_LAST);
+  var rows = range.getValues();
+  var column = sheet.getRange(2, COL_CATEGORY, last - 1, 1);
+  var formulas = column.getFormulas().filter(function (row) { return row[0]; }).length;
+  if (formulas) {
+    return report_(['Refusing: ' + formulas + ' cells in the category column hold formulas.',
+      'Writing values over a formula is damage nobody notices for a year.']);
+  }
+
+  // What each concept has already been filed as. Read from the whole sheet
+  // first, so a decision made on row 2,300 reaches row 12.
+  var known = {};
+  rows.forEach(function (row) {
+    var already = String(row[COL_CATEGORY - 1] == null ? '' : row[COL_CATEGORY - 1]).trim();
+    if (!already) return;
+    var key = conceptKey_(bareConcept_(row[COL_CONCEPT - 1]));
+    if (key) known[key] = already;
+  });
+
+  var values = [];
+  var filled = 0;
+  var byReason = { reused: 0, guessed: 0 };
+  var counts = {};
+  var unfiled = {};
+  var unfiledRows = 0;
+
+  rows.forEach(function (row) {
+    var current = String(row[COL_CATEGORY - 1] == null ? '' : row[COL_CATEGORY - 1]).trim();
+    if (current) { values.push([current]); return; }
+
+    var concept = bareConcept_(row[COL_CONCEPT - 1]);
+    if (!concept) { values.push(['']); return; }
+
+    var key = conceptKey_(concept);
+    var found = known[key] || '';
+    if (found) byReason.reused++;
+    else {
+      found = guessCategory_(concept, categories.items);
+      if (found) byReason.guessed++;
+    }
+
+    if (!found) {
+      unfiledRows++;
+      unfiled[concept] = (unfiled[concept] || 0) + 1;
+      values.push(['']);
+      return;
+    }
+    filled++;
+    counts[found] = (counts[found] || 0) + 1;
+    values.push([found]);
+  });
+
+  if (!dryRun && filled) {
+    column.setValues(values);
+    SpreadsheetApp.flush();
+  }
+
+  var lines = [
+    (dryRun ? 'WOULD FILE' : 'FILED') + ':          ' + filled + ' of ' + (last - 1) + ' rows',
+    '  from a concept already filed: ' + byReason.reused,
+    '  from the words on the tab:    ' + byReason.guessed,
+    'Still without a category:  ' + unfiledRows + ' rows',
+    ''
+  ];
+
+  Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })
+    .forEach(function (name) { lines.push('  ' + counts[name] + '  ' + name); });
+
+  // The concepts left over, commonest first. This list is the work: every line
+  // is a word to add to `palabras`, or a category that does not exist yet.
+  var left = Object.keys(unfiled).sort(function (a, b) { return unfiled[b] - unfiled[a]; });
+  if (left.length) {
+    lines.push('');
+    lines.push('Unfiled concepts, commonest first — add a word for these:');
+    left.slice(0, 40).forEach(function (concept) {
+      lines.push('  ' + unfiled[concept] + '  ' + concept);
+    });
+    if (left.length > 40) lines.push('  … and ' + (left.length - 40) + ' more');
+  }
+  if (dryRun) {
+    lines.push('');
+    lines.push('Nothing written. Run categoriseRows() to do it.');
+  }
+  return report_(lines);
+}
+
+/** The concept as it reads, with the voided mark taken off the front: a
+ *  tombstone belongs under the same category as the thing it is a tombstone of. */
+function bareConcept_(value) {
+  var text = String(value == null ? '' : value).trim();
+  return text.indexOf(VOID_MARK) === 0 ? text.substring(VOID_MARK.length).trim() : text;
+}
+
 function plural_(count, noun) {
   return count + ' ' + noun + (count === 1 ? '' : 's');
 }

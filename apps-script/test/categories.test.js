@@ -188,3 +188,145 @@ test('bootstrap carries the categories the app needs to draw the second step', (
   assert.equal(answer.categories[0].name, 'Supermercado')
   assert.equal(answer.categories[0].icon, 'cesta')
 })
+
+/* ── the batch pass ───────────────────────────────────────────────────── */
+
+/**
+ * Filling column H for rows that have none.
+ *
+ * The pass the whole idea rests on: 2,318 rows exist and none of them has a
+ * category. So the tests are about the order of the two answers — what this
+ * concept was filed as before beats what the words guess — and about everything
+ * it must not touch on the way.
+ */
+
+function ledger(rows) {
+  const values = [LEDGER_HEADERS]
+  rows.forEach(([concept, category], index) => {
+    values.push([new Date(2026, 6, 1 + index), concept, 10 + index, '', 100, '',
+      `id-${index}`, category || '', ''])
+  })
+  return values
+}
+
+function filedWorld(rows, categories) {
+  const sheets = {
+    gastos: sheet('gastos', ledger(rows), LEDGER_COLS),
+    Config: sheet('Config', CONFIG, 2),
+    Sugerencias: sheet('Sugerencias', [['texto', 'tipo', 'ámbito']], 26),
+    Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),
+    'Categorías': sheet('Categorías',
+      [['categoría', 'icono', 'palabras']].concat(categories || GUESSES), 3),
+  }
+  install(sheets)
+  load()
+  return sheets
+}
+
+/** Column H, row 2 down. */
+function filed(sheets) {
+  return sheets.gastos.values.slice(1).map(row => row[COL_CATEGORY - 1])
+}
+
+test('the words file the rows nobody has filed', () => {
+  const sheets = filedWorld([['supermercado Salobreña'], ['gasolinera Repsol'], ['pan']])
+  const answer = categoriseRows()
+
+  assert.deepEqual(filed(sheets), ['Supermercado', 'Combustible', 'Panadería'])
+  assert.match(answer, /FILED:\s+3 of 3 rows/)
+})
+
+test('a concept already filed beats the words, and spreads', () => {
+  // The reason re-running this improves it: file one row by hand in the app and
+  // the next pass carries that decision to every row saying the same thing —
+  // even backwards, to rows above the one that was filed.
+  const sheets = filedWorld([
+    ['Cena en un bar'],
+    ['pan'],
+    ['Cena en un bar', 'Comer fuera'],
+    ['cena en un bar'],
+  ])
+  const answer = categoriseRows()
+
+  assert.deepEqual(filed(sheets),
+    ['Comer fuera', 'Panadería', 'Comer fuera', 'Comer fuera'])
+  // Two newly filled from the known concept; the third already had it.
+  assert.match(answer, /from a concept already filed: 2/)
+  assert.match(answer, /from the words on the tab:\s+1/)
+})
+
+test('a row that already has a category is left exactly as it is', () => {
+  // Including one somebody typed by hand to correct this pass. Overwriting that
+  // would make the correction pointless and the pass untrustworthy.
+  const sheets = filedWorld([['pan', 'Desayunos'], ['pan']])
+  categoriseRows()
+
+  assert.deepEqual(filed(sheets), ['Desayunos', 'Desayunos'])
+})
+
+test('a concept that looks like nothing is left empty and reported', () => {
+  // A wrong category is printed on the row, totalled under a heading and then
+  // believed. An empty one is a question still open, and the report is where the
+  // work shows up: every line is a word to add to `palabras`.
+  const sheets = filedWorld([['lo del jueves'], ['lo del jueves'], ['pan']])
+  const answer = categoriseRows()
+
+  assert.deepEqual(filed(sheets), ['', '', 'Panadería'])
+  assert.match(answer, /Still without a category:\s+2 rows/)
+  assert.match(answer, /Unfiled concepts, commonest first/)
+  assert.match(answer, /2\s+lo del jueves/)
+})
+
+test('a voided row is filed under the concept it is a tombstone of', () => {
+  const sheets = filedWorld([['[anulado] pan']])
+  categoriseRows()
+  assert.deepEqual(filed(sheets), ['Panadería'])
+})
+
+test('the preview writes nothing at all', () => {
+  const sheets = filedWorld([['pan'], ['supermercado']])
+  const answer = previewCategorise()
+
+  assert.match(answer, /WOULD FILE:\s+2 of 2 rows/)
+  assert.match(answer, /Nothing written/)
+  assert.deepEqual(sheets.gastos.writes, [])
+})
+
+test('it writes the category column and nothing else', () => {
+  const sheets = filedWorld([['pan'], ['supermercado']])
+  categoriseRows()
+
+  assert.equal(sheets.gastos.writes.length, 1, 'one write for the column, not one per row')
+  assert.equal(sheets.gastos.writes[0].column, COL_CATEGORY)
+  assert.equal(sheets.gastos.writes[0].row, 2)
+  assert.ok(sheets.gastos.writes[0].values.every(row => row.length === 1), 'one column wide')
+})
+
+test('a formula in the category column stops the whole pass', () => {
+  const sheets = {
+    gastos: sheet('gastos', ledger([['pan'], ['super']]), LEDGER_COLS, { '3,8': '=B3' }),
+    Config: sheet('Config', CONFIG, 2),
+    Sugerencias: sheet('Sugerencias', [['texto', 'tipo', 'ámbito']], 26),
+    Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),
+    'Categorías': sheet('Categorías', [['categoría', 'icono', 'palabras']].concat(GUESSES), 3),
+  }
+  install(sheets)
+  load()
+
+  assert.match(categoriseRows(), /Refusing: 1 cells in the category column hold formulas/)
+  assert.deepEqual(sheets.gastos.writes, [])
+})
+
+test('with no tab it says which function to run rather than guessing', () => {
+  const sheets = {
+    gastos: sheet('gastos', ledger([['pan']]), LEDGER_COLS),
+    Config: sheet('Config', CONFIG, 2),
+    Sugerencias: sheet('Sugerencias', [['texto', 'tipo', 'ámbito']], 26),
+    Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),
+  }
+  install(sheets)
+  load()
+
+  assert.match(categoriseRows(), /There is no "Categorías" tab/)
+  assert.deepEqual(sheets.gastos.writes, [])
+})
