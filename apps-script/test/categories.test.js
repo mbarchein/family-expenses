@@ -490,6 +490,19 @@ test('the exact words are tried before the rest', () => {
   assert.equal(words[0], '=maria', 'the exact one first, whatever its length')
 })
 
+test('tributos are taxes', () => {
+  // Singular on the tab so it reaches both: `tributo` is long enough to match
+  // inside a word, which is what makes `tributos` land too.
+  const sheets = filedWorld(
+    [['tributos'], ['Tributo IBI'], ['tributos municipales']],
+    CATEGORY_SEED.map(row => [row[0], row[1], row[2]]),
+  )
+  categoriseRows()
+
+  assert.deepEqual(filed(sheets),
+    ['Impuestos y recibos', 'Impuestos y recibos', 'Impuestos y recibos'])
+})
+
 test('everything else they answered lands where they said', () => {
   const sheets = filedWorld([
     ['BBVA abono'], ['BBVA retención'], ['Acacio'], ['oeg'], ['Mariela'],

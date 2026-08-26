@@ -241,7 +241,8 @@ var CATEGORY_SEED = [
   ['Hogar', 'casa',
     'hipoteca, alquiler, comunidad, piso, limpieza, nómina, traspaso, bbva, =maría'],
   ['Seguros', 'escudo', 'seguro'],
-  ['Impuestos y recibos', 'recibo', 'impuesto, basura, multa, ibi, recibo, factura'],
+  ['Impuestos y recibos', 'recibo',
+    'impuesto, tributo, basura, multa, ibi, recibo, factura'],
   ['Banco', 'banco', 'banco, comisión, hucha'],
   // `=inglés irene` for the English lessons. As a plain word `inglés` would file
   // `Corte inglés` — a department store — under the school.
