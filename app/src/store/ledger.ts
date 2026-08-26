@@ -5,7 +5,8 @@ import { clearFault, fault, report, state } from '../lib/progress'
 import { ApiError, type Bootstrap, type Entry, type Fixed } from '../api/types'
 import { idb } from './db'
 import {
-  enqueue, flush, pendingAttempts, pendingCount, pendingOps, type QueuedEntry,
+  enqueue, flush, pendingAttempts, pendingCount, pendingOps,
+  type QueuedEntry, type QueuedFixed,
 } from './queue'
 
 export type Status = 'loading' | 'ready' | 'needsAuth' | 'forbidden' | 'error'
@@ -52,6 +53,7 @@ export function useLedger(): Ledger {
   const [data, setData] = useState<Bootstrap | null>(null)
   const [local, setLocal] = useState<Map<string, QueuedEntry>>(new Map())
   const [voided, setVoided] = useState<Set<string>>(new Set())
+  const [queuedFixed, setQueuedFixed] = useState<QueuedFixed[]>([])
   const [pending, setPending] = useState(0)
   const [attempts, setAttempts] = useState(0)
 
@@ -68,12 +70,15 @@ export function useLedger(): Ledger {
     const ops = await pendingOps()
     const map = new Map<string, QueuedEntry>()
     const gone = new Set<string>()
+    const templates: QueuedFixed[] = []
     for (const op of ops) {
       if (op.kind === 'void') gone.add(op.id)
+      else if (op.kind === 'fixed') templates.push(op.fixed)
       else map.set(op.entry.id, op.entry)
     }
     setLocal(map)
     setVoided(gone)
+    setQueuedFixed(templates)
     setPending(await pendingCount())
     setAttempts(await pendingAttempts())
   }, [])
@@ -179,9 +184,24 @@ export function useLedger(): Ledger {
     void refresh()
   }, [refresh])
 
+  /**
+   * Queued, like an expense.
+   *
+   * It went straight to the network before, so with no signal the button failed
+   * and whatever had been typed was gone — and a template is more typing than an
+   * expense: a concept, an amount, a day, a cadence and a payer.
+   *
+   * The key is the row for a template that has one, so two edits to the same
+   * template collapse into the final state rather than being replayed in turn.
+   * A new one has no row yet and carries an id generated here instead; without
+   * that, two new templates queued offline would share a key and the second
+   * would quietly replace the first.
+   */
   const saveFixed = useCallback(async (fixed: Omit<Fixed, 'last'>) => {
-    await api.saveFixed(fixed)
-    await refresh()
+    const key = fixed.row > 0 ? String(fixed.row) : `new:${crypto.randomUUID()}`
+    await enqueue({ kind: 'fixed', key, fixed })
+    setPending(await pendingCount())
+    void refresh()
   }, [refresh])
 
   /**
@@ -215,7 +235,7 @@ export function useLedger(): Ledger {
     editEntry: entry => mutate('update', entry),
     voidEntry,
     claimRow,
-    fixed: data?.fixed ?? [],
+    fixed: mergeFixed(data?.fixed ?? [], queuedFixed),
     saveFixed,
     settleFixed,
     refresh,
@@ -242,6 +262,34 @@ function merge(server: Entry[], local: Map<string, QueuedEntry>,
   return [...byId.values()]
     .map(entry => (voided.has(entry.id) ? { ...entry, voided: true } : entry))
     .sort((a, b) => (a.date === b.date ? b.row - a.row : b.date.localeCompare(a.date)))
+}
+
+/**
+ * The templates the tab has, plus the ones still on their way to it.
+ *
+ * Without this a template saved with no signal disappeared from the Fijos screen
+ * until it uploaded — the queue had it, so nothing was lost, but the screen said
+ * otherwise, which is the same lie the expenses list used to tell.
+ *
+ * A queued edit wins over the tab's copy of the same row: it is either newer or
+ * identical. A queued new one has no row yet, so it is appended.
+ */
+function mergeFixed(server: Fixed[], queued: QueuedFixed[]): Fixed[] {
+  if (!queued.length) return server
+  const byRow = new Map<number, Fixed>()
+  for (const item of server) byRow.set(item.row, item)
+
+  const added: Fixed[] = []
+  for (const item of queued) {
+    const existing = item.row > 0 ? byRow.get(item.row) : undefined
+    // `last` is the tab's own record of what has been dealt with, and saving a
+    // template never touches it — so it comes from the server's copy, not from
+    // the queue, which has no business knowing it.
+    const merged = { ...item, last: existing?.last ?? '' }
+    if (existing) byRow.set(item.row, merged)
+    else added.push(merged)
+  }
+  return [...byRow.values(), ...added]
 }
 
 function handle(err: unknown, setStatus: (s: Status) => void, setError: (m: string) => void,

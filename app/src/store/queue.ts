@@ -1,6 +1,6 @@
 import { idb } from './db'
 import { api } from '../api/client'
-import { ApiError, type Entry } from '../api/types'
+import { ApiError, type Entry, type Fixed } from '../api/types'
 import { invalidateToken } from '../auth/google'
 import { fault } from '../lib/progress'
 
@@ -21,8 +21,23 @@ export type Op =
   | { kind: 'append'; entry: QueuedEntry }
   | { kind: 'update'; entry: QueuedEntry }
   | { kind: 'void'; id: string }
+  /**
+   * A recurring template, on its way to the Fijos tab.
+   *
+   * Here for the same reason the expenses are: saving one used to go straight to
+   * the network, so with no signal the button failed and whatever had been typed
+   * was gone. A template is less money than an expense and more typing.
+   *
+   * `key` is what makes a retry safe. An existing template is identified by its
+   * row, so two edits to the same one collapse into the final state; a new one
+   * has no row yet, so it carries an id generated on the phone — without it, two
+   * new templates queued offline would share the key `fixed:0` and the second
+   * would eat the first.
+   */
+  | { kind: 'fixed'; key: string; fixed: QueuedFixed }
 
 export type QueuedEntry = Omit<Entry, 'row' | 'voided'>
+export type QueuedFixed = Omit<Fixed, 'last'>
 
 interface Record_ { op: Op; attempts: number; queuedAt: number; triedAt?: number }
 
@@ -119,16 +134,21 @@ function send(op: Op) {
     case 'append': return api.append(op.entry)
     case 'update': return api.update(op.entry)
     case 'void': return api.voidEntry(op.id)
+    case 'fixed': return api.saveFixed(op.fixed)
   }
 }
 
 /** Keyed by entry, not by operation: editing a queued entry twice before it
  *  ever reaches the sheet should upload the final state once, not replay both. */
 function keyOf(op: Op): string {
-  return op.kind === 'void' ? `void:${op.id}` : `entry:${op.entry.id}`
+  if (op.kind === 'void') return `void:${op.id}`
+  if (op.kind === 'fixed') return `fixed:${op.key}`
+  return `entry:${op.entry.id}`
 }
 
 /** Enough of an operation to recognise which expense was lost. */
 function describe(op: Op): string {
-  return op.kind === 'void' ? `void ${op.id}` : `${op.kind} ${op.entry.concept}`
+  if (op.kind === 'void') return `void ${op.id}`
+  if (op.kind === 'fixed') return `fixed ${op.fixed.concept}`
+  return `${op.kind} ${op.entry.concept}`
 }

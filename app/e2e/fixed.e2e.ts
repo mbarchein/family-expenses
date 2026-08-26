@@ -170,3 +170,30 @@ test('an existing template opens with its values and can be switched off', async
   await expect.poll(() => calls.find(call => call.action === 'saveFixed')?.payload)
     .toMatchObject({ row: 4, concept: 'gimnasio', active: false })
 })
+
+
+test('a template can be saved with no signal, and says it is on its way',
+  async ({ page }) => {
+  // It went straight to the network before, so with no signal the button failed
+  // and everything typed was gone — a concept, an amount, a day, a cadence and a
+  // payer, which is more typing than an expense.
+  await page.route('**/macros/s/**', async route => {
+    const body = JSON.parse(route.request().postData() ?? '{}')
+    if (body.action === 'saveFixed') return route.abort()
+    return route.fulfill({ json: { ok: true, data: bootstrap() } })
+  })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Fijos' }).click()
+  await page.getByRole('button', { name: 'Nuevo fijo' }).click()
+
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('gimnasio')
+  await page.getByRole('textbox', { name: 'Importe fijo' }).fill('40')
+  await page.getByRole('button', { name: 'Guardar fijo' }).click()
+
+  // The strip says it is going up, exactly as it does for an expense.
+  await expect(page.getByRole('status').filter({ hasText: /Guardando/ })).toBeVisible()
+
+  // And the template is on the screen rather than nowhere: the queue has it, so
+  // saying otherwise would be the same lie the expenses list used to tell.
+  await expect(page.getByText('gimnasio')).toBeVisible()
+})
