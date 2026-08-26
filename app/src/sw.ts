@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
-import { precacheAndRoute } from 'workbox-precaching'
+import { createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching'
+import { NavigationRoute, registerRoute } from 'workbox-routing'
 import { clientsClaim } from 'workbox-core'
 
 declare const self: ServiceWorkerGlobalScope
@@ -15,6 +16,21 @@ declare const self: ServiceWorkerGlobalScope
  * exists for.
  */
 precacheAndRoute(self.__WB_MANIFEST)
+
+/**
+ * Every address is the same document.
+ *
+ * The screens have their own paths now — `/gastos`, `/fijos/4`, `/iconos` — so
+ * those are addresses a phone can be sitting on when it goes into a lift, and
+ * the precache only knows `index.html`. Without this, a reload on any screen but
+ * the keypad left the precache route with nothing to match and went to the
+ * network for a document that does not exist on the server either: offline it
+ * showed the browser's own error page, which is the app failing to open at all.
+ *
+ * `vercel.json` performs exactly this rewrite when there is a server. This is
+ * the same rewrite for when there is not.
+ */
+registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')))
 
 self.skipWaiting()
 clientsClaim()
