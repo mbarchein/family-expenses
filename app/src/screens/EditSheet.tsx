@@ -1,4 +1,4 @@
-import { useId, useState, type FocusEvent } from 'react'
+import { useId, useState, type SyntheticEvent } from 'react'
 import { Avatar } from '../components/Avatar'
 import { CategoryField } from '../components/CategoryField'
 import { Segmented } from '../components/Segmented'
@@ -37,21 +37,20 @@ export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }
    * caret wherever the finger landed — so the way to fix 43,50 was to tap, drag
    * the caret to the end, and only then start pressing backspace.
    *
-   * Set twice, and both are needed. On a touch screen the browser positions the
-   * caret from the tap *after* focus fires, so the deferred one is what survives
-   * there. And the deferred one alone leaves a frame in which the caret is still
-   * wherever it was, which is enough for a keystroke to land in the middle of the
-   * number — a test pressing backspace immediately after the tap found exactly
-   * that, and a fast thumb is the same event in a different order.
+   * On three events, and not on a timer. Focus alone is not enough: the browser
+   * positions the caret from the tap *after* focus fires, so anything set there
+   * is immediately undone. Deferring by a frame instead only moved the problem —
+   * it left a window in which the caret was still wherever the tap had put it,
+   * and CI found a backspace landing inside the number rather than at its end.
+   *
+   * `pointerup` and `click` are the moments after the browser has had its say, so
+   * setting it there is deterministic rather than a race. All three are the same
+   * idempotent call, and `focus` is the one that covers arriving here by keyboard.
    */
-  function toEnd(event: FocusEvent<HTMLInputElement>) {
+  function toEnd(event: SyntheticEvent<HTMLInputElement>) {
     const field = event.currentTarget
-    const place = () => {
-      const end = field.value.length
-      field.setSelectionRange(end, end)
-    }
-    place()
-    requestAnimationFrame(place)
+    const end = field.value.length
+    field.setSelectionRange(end, end)
   }
 
   async function save() {
@@ -139,6 +138,8 @@ export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }
                 value={typed}
                 onChange={event => setTyped(typedFrom(event.target.value))}
                 onFocus={toEnd}
+                onPointerUp={toEnd}
+                onClick={toEnd}
                 aria-label={T.add.fieldAmount}
                 className="min-w-0 flex-1 bg-transparent text-right font-mono text-xl
                            font-semibold tabular outline-none"

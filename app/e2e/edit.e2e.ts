@@ -138,14 +138,18 @@ test('the amount takes the width and the caret lands at its end', async ({ page 
     field.evaluate(node => node.getBoundingClientRect().width)))
   expect(widths[0]).toBeGreaterThan(widths[1])
 
+  // A tap lands wherever the finger does, and the box is wide with the number
+  // right-aligned in it, so the browser's own answer here is nowhere near the
+  // end. What the field promises is the end.
   await amount.click()
-  // Waited for, not assumed: a key pressed before the field has the focus goes
-  // nowhere, and this test would then be measuring Playwright's timing rather
-  // than where the caret is.
   await expect(amount).toBeFocused()
+  await expect.poll(() => amount.evaluate(
+    (node: HTMLInputElement) => node.selectionStart === node.value.length,
+  )).toBe(true)
+
+  // Which is what makes deleting the old amount two presses rather than a drag
+  // and then two presses.
   await page.keyboard.press('Backspace')
   await page.keyboard.press('Backspace')
-  // 326,72 with its last two characters gone, which is what a caret at the end
-  // means and what tapping in the middle would not have given.
   await expect(amount).toHaveValue('326,')
 })
