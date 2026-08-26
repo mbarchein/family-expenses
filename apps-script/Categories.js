@@ -57,14 +57,20 @@ function readCategories_() {
   return { items: items, missing: false };
 }
 
-/** `pan, panadería` as ['pan', 'panaderia'], folded, longest first. Matching a
- *  concept walks this list in order, so `gasolina` has to be tried before `gas`. */
+/**
+ * `pan, panadería` as ['pan', 'panaderia'], folded — the exact ones first and
+ * then longest first, which is the order they are tried in: `gasolina` has to be
+ * tried before `gas`, and `=maria` before either.
+ */
 function splitWords_(raw) {
   return String(raw == null ? '' : raw)
     .split(/[,;\n]/)
     .map(function (word) { return fold_(word).replace(/\s+/g, ' ').trim(); })
     .filter(function (word) { return word; })
-    .sort(function (a, b) { return b.length - a.length; });
+    .sort(function (a, b) {
+      var exact = (b.charAt(0) === '=') - (a.charAt(0) === '=');
+      return exact || b.length - a.length;
+    });
 }
 
 /**
@@ -90,7 +96,19 @@ function guessCategory_(concept, categories) {
   return '';
 }
 
+/**
+ * `=algo` matches only when the whole concept is `algo`.
+ *
+ * There for one real case, and it is a case with no other answer. `maria` on its
+ * own is the cleaner being paid; `regalo maría` is a present for somebody called
+ * María. As an ordinary word `maria` would take both, and it would take the
+ * present because Hogar sits above Regalos on the tab — a category order nobody
+ * chose deciding what a row means.
+ *
+ * So: the words that are only meaningful as the entire concept can say so.
+ */
 function wordMatches_(text, parts, word) {
+  if (word.charAt(0) === '=') return text === word.substring(1);
   if (word.length > SHORT_WORD) return text.indexOf(word) !== -1;
   for (var i = 0; i < parts.length; i++) {
     if (parts[i] === word || parts[i] === word + 's' || parts[i] === word + 'es') return true;
@@ -201,9 +219,11 @@ var CATEGORY_SEED = [
   // — `pantalones` is not bread.
   ['Supermercado', 'cesta',
     'supermercado, mercado, super, compra, panadería, pan, frutería, fruta, '
-    + 'carnicería, pescadería, verdulería'],
-  ['Restaurantes', 'cubiertos', 'restaurante, comida, cena, menú, tapas, comedor, pizza'],
-  ['Cafés y bares', 'taza', 'cafetería, café, desayuno, bar, cerveza, helado, heladería'],
+    + 'carnicería, pescadería, verdulería, pedido'],
+  ['Restaurantes', 'cubiertos',
+    'restaurante, comida, cena, menú, tapas, comedor, pizza, altramuces'],
+  ['Cafés y bares', 'taza',
+    'cafetería, café, desayuno, bar, cerveza, helado, heladería, isla de capri'],
   ['Salud', 'salud', 'farmacia, medicina, medicamento, dentista, médico, clínica, óptica'],
   ['Combustible', 'combustible', 'gasolinera, gasolina, gasoil, combustible, diésel'],
   ['Coche', 'coche', 'taller, coche, itv, parking'],
@@ -211,25 +231,31 @@ var CATEGORY_SEED = [
   ['Luz', 'bombilla', 'electricidad, luz, iberdrola, endesa'],
   ['Agua', 'gota', 'agua, emasagra'],
   ['Gas', 'llama', 'calefacción, butano, gas'],
-  ['Internet y teléfono', 'senal', 'internet, fibra, teléfono'],
+  ['Internet y teléfono', 'senal', 'internet, fibra, teléfono, acacio'],
   ['Móvil', 'movil', 'móvil'],
   // Their word, and it covers more than the building: the cleaning — which their
   // ledger calls `nómina María` — and the transfer to the account the mortgage and
   // the standing bills come out of.
-  ['Hogar', 'casa', 'hipoteca, alquiler, comunidad, piso, limpieza, nómina, traspaso'],
+  // `=maría` and not `maría`: on its own it is the cleaner being paid, while
+  // `regalo maría` is a present for somebody of that name. See `wordMatches_`.
+  ['Hogar', 'casa',
+    'hipoteca, alquiler, comunidad, piso, limpieza, nómina, traspaso, bbva, =maría'],
   ['Seguros', 'escudo', 'seguro'],
   ['Impuestos y recibos', 'recibo', 'impuesto, basura, multa, ibi, recibo, factura'],
   ['Banco', 'banco', 'banco, comisión, hucha'],
+  // `=inglés irene` for the English lessons. As a plain word `inglés` would file
+  // `Corte inglés` — a department store — under the school.
   ['Colegio', 'mochila',
-    'escolar, colegio, escuela, guardería, instituto, ampa, papelería'],
+    'escolar, colegio, escuela, guardería, instituto, ampa, papelería, orontes, '
+    + 'oeg, mariela, =inglés irene'],
   ['Música', 'nota', 'orquesta, conservatorio, música, solfeo'],
   ['Libros', 'libro', 'librería, libro, curso'],
   ['Ropa', 'camiseta', 'ropa, zapatos, pantalón, camisa'],
   ['Regalos', 'regalo', 'regalo, cumpleaños, flores'],
-  ['Ocio', 'entrada', 'cine, teatro, concierto, ocio, lotería, entrada'],
+  ['Ocio', 'entrada', 'cine, teatro, concierto, ocio, lotería, entrada, ficzone'],
   ['Deporte', 'pesa', 'gimnasio, deporte, pádel, bádminton'],
   ['Peluquería', 'tijeras', 'peluquería, barbería'],
-  ['Viajes', 'maleta', 'vacaciones, hotel, viaje'],
+  ['Viajes', 'maleta', 'vacaciones, hotel, viaje, hamburgo, salobreña, moclín'],
   ['Mascotas', 'huella', 'veterinario, mascota, perro, gato'],
   ['Casa y arreglos', 'herramienta', 'ferretería, fontanero, obra'],
   ['Jardín', 'planta', 'jardín, plantas, maceta'],

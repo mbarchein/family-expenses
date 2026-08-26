@@ -49,9 +49,26 @@ export function guessCategory(concept: string, categories: readonly Category[]):
   if (!text) return ''
 
   for (const category of categories) {
-    for (const word of category.words) if (wordMatches(text, word)) return category.name
+    for (const word of category.words) if (matchesWord(text, word)) return category.name
   }
   return ''
+}
+
+/**
+ * `=algo` on the tab matches only when the whole concept is `algo`.
+ *
+ * One real case with no other answer: `maria` on its own is the cleaner being
+ * paid, and `regalo maría` is a present for somebody called María. As an ordinary
+ * word it would take both — and it would take the present, because the category
+ * holding it sits higher on the tab. A category order nobody chose is not a good
+ * reason for a row to mean something else.
+ *
+ * The same rule as `wordMatches_` in the backend, and it has to stay the same
+ * rule: that pass files two thousand old rows and this files the next one.
+ */
+function matchesWord(text: string, word: string): boolean {
+  if (word.startsWith('=')) return text === word.slice(1)
+  return wordMatches(text, word)
 }
 
 /** The icon a category wears, or null when the tab names one this app cannot

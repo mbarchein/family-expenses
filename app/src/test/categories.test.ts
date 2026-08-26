@@ -118,3 +118,26 @@ describe('alsoWearing', () => {
     expect(alsoWearing('cesta', CATEGORIES, 'Supermercado')).toEqual([])
   })
 })
+
+describe('words that only mean anything as the whole concept', () => {
+  const HOUSE: Category[] = [
+    { name: 'Hogar', icon: 'casa', words: ['=maria', 'limpieza'] },
+    { name: 'Regalos', icon: 'regalo', words: ['regalo'] },
+  ]
+
+  it('takes the bare concept and leaves the phrase alone', () => {
+    // `maria` on its own is the cleaner being paid; `regalo maría` is a present
+    // for somebody of that name. As a plain word it would take both — and it
+    // would take the present, because Hogar sits above Regalos.
+    expect(guessCategory('maria', HOUSE)).toBe('Hogar')
+    expect(guessCategory('María', HOUSE)).toBe('Hogar')
+    expect(guessCategory('Regalo María', HOUSE)).toBe('Regalos')
+  })
+
+  it('matches a phrase exactly too, punctuation and accents aside', () => {
+    const school: Category[] = [{ name: 'Colegio', icon: 'mochila', words: ['=ingles irene'] }]
+    expect(guessCategory('Inglés Irene', school)).toBe('Colegio')
+    expect(guessCategory('Corte inglés', school)).toBe('')
+    expect(guessCategory('inglés irene marzo', school)).toBe('')
+  })
+})

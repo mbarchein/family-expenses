@@ -444,12 +444,66 @@ test('the fixed suppliers are words, and the orchestra has a category', () => {
 
 test('Corte inglés is not a school, and gastos varios is not gas', () => {
   // The two collisions worth naming. `inglés` was nearly added as a word for the
-  // English classes, which would have filed a department store under Colegio.
+  // English classes, which would have filed a department store under Colegio —
+  // the lessons are reached by `=inglés irene` instead, so the shop stays out of
+  // it and the classes still land.
   const sheets = filedWorld(
     [['Corte inglés'], ['gastos varios'], ['Inglés Irene']],
     CATEGORY_SEED.map(row => [row[0], row[1], row[2]]),
   )
   categoriseRows()
 
-  assert.deepEqual(filed(sheets), ['', '', ''])
+  assert.deepEqual(filed(sheets), ['', '', 'Colegio'])
+})
+
+/* ── words that only mean anything as the whole concept ───────────────── */
+
+test('=maría is the cleaner, and a present for María is not', () => {
+  // Their own answer, and the case that needed a rule rather than a word:
+  // `maria` on its own is the cleaning being paid, `regalo maría` is a present.
+  // As a plain word it would take both, and it would take the present, because
+  // Hogar sits above Regalos on the tab.
+  const sheets = filedWorld(
+    [['maria'], ['María'], ['Regalo María'], ['regalo maria elia']],
+    CATEGORY_SEED.map(row => [row[0], row[1], row[2]]),
+  )
+  categoriseRows()
+
+  assert.deepEqual(filed(sheets), ['Hogar', 'Hogar', 'Regalos', 'Regalos'])
+})
+
+test('=inglés irene is the lessons, and Corte inglés is a shop', () => {
+  const sheets = filedWorld(
+    [['Inglés Irene'], ['inglés irene'], ['Corte inglés'], ['Corte Ingés']],
+    CATEGORY_SEED.map(row => [row[0], row[1], row[2]]),
+  )
+  categoriseRows()
+
+  // The last one is their own typo for the shop. Still not the school, which is
+  // all that is being claimed here.
+  assert.deepEqual(filed(sheets), ['Colegio', 'Colegio', '', ''])
+})
+
+test('the exact words are tried before the rest', () => {
+  world([['Hogar', 'casa', 'nómina, =maría, hipoteca']])
+  const words = readCategories_().items[0].words
+  assert.equal(words[0], '=maria', 'the exact one first, whatever its length')
+})
+
+test('everything else they answered lands where they said', () => {
+  const sheets = filedWorld([
+    ['BBVA abono'], ['BBVA retención'], ['Acacio'], ['oeg'], ['Mariela'],
+    ['Altramuces'], ['Orontes'], ['Ficzone'], ['Isla de Capri'],
+    ['tienda hamburgo'], ['Salobreña'], ['Moclín'], ['pedido'],
+    // And the one they said to leave alone.
+    ['ro'],
+  ], CATEGORY_SEED.map(row => [row[0], row[1], row[2]]))
+  categoriseRows()
+
+  assert.deepEqual(filed(sheets), [
+    'Hogar', 'Hogar', 'Internet y teléfono', 'Colegio', 'Colegio',
+    'Restaurantes', 'Colegio', 'Ocio', 'Cafés y bares',
+    'Viajes', 'Viajes', 'Viajes', 'Supermercado',
+    '',
+  ])
 })
