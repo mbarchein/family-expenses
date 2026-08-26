@@ -3,7 +3,7 @@ import { Avatar } from '../components/Avatar'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
 import { formatShortDate } from '../lib/dates'
-import { displayTyped, formatEur, parseAmount } from '../lib/money'
+import { formatEur, parseAmount } from '../lib/money'
 import { splitTransfer } from '../lib/split'
 import { earliestDay, latestDay } from '../lib/totals'
 import { useAvatars } from '../store/avatars'
@@ -66,18 +66,6 @@ export function BalanceScreen({ ledger, onBack }: { ledger: Ledger; onBack: () =
         <h2 className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
           {T.balance.splitTitle}
         </h2>
-        <label className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2.5">
-          <span className="text-sm text-ink-3">{T.balance.splitPrompt}</span>
-          <input
-            inputMode="decimal"
-            value={typed}
-            onChange={event => setTyped(event.target.value.replace(/[^\d,]/g, ''))}
-            placeholder="0"
-            className="min-w-0 flex-1 bg-transparent text-right font-mono text-lg tabular outline-none"
-          />
-          <span className="text-ink-3">€</span>
-        </label>
-
         {parseAmount(typed) > 0 && (
           <>
             <div className="flex gap-1.5">
@@ -92,11 +80,25 @@ export function BalanceScreen({ ledger, onBack }: { ledger: Ledger; onBack: () =
               ))}
             </div>
             <p className="text-center text-[11px] text-ink-3">{outcome(split.residual)}</p>
-            <p className="text-center font-mono text-[11px] text-ink-3">
-              {displayTyped(typed)} €
-            </p>
           </>
         )}
+
+        {/* Last, under the answer it produces. The on-screen keyboard covers
+            everything below the focused field, so with the field on top the two
+            halves somebody is typing at — how much, and what it would leave —
+            were exactly what the keyboard hid. The same reasoning put the
+            concept grid above its search box on the second step. */}
+        <label className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2.5">
+          <span className="text-sm text-ink-3">{T.balance.splitPrompt}</span>
+          <input
+            inputMode="decimal"
+            value={typed}
+            onChange={event => setTyped(event.target.value.replace(/[^\d,]/g, ''))}
+            placeholder="0"
+            className="min-w-0 flex-1 bg-transparent text-right font-mono text-lg tabular outline-none"
+          />
+          <span className="text-ink-3">€</span>
+        </label>
       </section>
 
       <section className="flex flex-col gap-2">
