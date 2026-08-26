@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
+import { formatShortDate } from '../lib/dates'
 import { displayTyped, formatEur, parseAmount } from '../lib/money'
 import { splitTransfer } from '../lib/split'
+import { earliestDay, latestDay } from '../lib/totals'
 import { useAvatars } from '../store/avatars'
 import type { Ledger } from '../store/ledger'
 
@@ -28,6 +30,10 @@ export function BalanceScreen({ ledger, onBack }: { ledger: Ledger; onBack: () =
     }
     return totals
   }, [ledger.entries])
+  // Both ends of what is being added up. A total whose stretch of time is left
+  // to be guessed at from the rows above it is a total of nothing in particular.
+  const from = useMemo(() => earliestDay(ledger.entries), [ledger.entries])
+  const to = useMemo(() => latestDay(ledger.entries), [ledger.entries])
 
   if (!people) return null
 
@@ -94,9 +100,16 @@ export function BalanceScreen({ ledger, onBack }: { ledger: Ledger; onBack: () =
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
-          {T.balance.contributed}
-        </h2>
+        <div>
+          <h2 className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
+            {T.balance.contributed}
+          </h2>
+          <p className="text-[11px] text-ink-3">
+            {from && to
+              ? T.balance.contributedRange(formatShortDate(from), formatShortDate(to))
+              : T.balance.contributedEmpty}
+          </p>
+        </div>
         <div className="flex h-7 overflow-hidden rounded-md text-[11px] font-bold text-white">
           <span className="grid place-items-center font-mono"
                 style={{ flex: Math.max(share, 1), background: 'var(--person-1)' }}>

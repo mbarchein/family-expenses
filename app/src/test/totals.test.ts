@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { earliestDay, summarise, yearIsPartial } from '../lib/totals'
+import { earliestDay, summarise, yearIsPartial, latestDay } from '../lib/totals'
 
 const entry = (date: string, amount: number, voided = false) => ({ date, amount, voided })
 
@@ -75,5 +75,16 @@ describe('yearIsPartial', () => {
     expect(yearIsPartial('2026-01-01', '2026-08-24')).toBe(false)
     expect(yearIsPartial('2025-11-30', '2026-08-24')).toBe(false)
     expect(yearIsPartial(null, '2026-08-24')).toBe(false)
+  })
+})
+
+describe('latestDay', () => {
+  it('is the last day present, whatever order the rows arrive in', () => {
+    expect(latestDay([{ date: '2026-01-04' }, { date: '2026-08-26' }, { date: '2026-03-01' }]))
+      .toBe('2026-08-26')
+  })
+
+  it('is null for an empty list, so the range can say there is none', () => {
+    expect(latestDay([])).toBe(null)
   })
 })

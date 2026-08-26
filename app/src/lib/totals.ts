@@ -54,6 +54,15 @@ export function earliestDay(entries: readonly { date: string }[]): string | null
   return earliest
 }
 
+/** The latest day present, or null for an empty list. The pair with
+ *  `earliestDay` is what lets a total say which stretch of time it is a total
+ *  of, rather than leaving somebody to guess from the rows above it. */
+export function latestDay(entries: readonly { date: string }[]): string | null {
+  let latest: string | null = null
+  for (const entry of entries) if (!latest || entry.date > latest) latest = entry.date
+  return latest
+}
+
 /** True when the loaded window cannot see the whole of `today`'s year. */
 export function yearIsPartial(from: string | null, today: string): boolean {
   return Boolean(from) && from! > `${today.slice(0, 4)}-01-01`

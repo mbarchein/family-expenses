@@ -218,7 +218,12 @@ export const T = {
     splitResult: 'Quedaríais a la par',
     splitCent: 'A la par, salvo un céntimo que no se puede partir',
     splitShort: (amount: string) => `Aún quedaría una diferencia de ${amount}`,
-    contributed: 'Aportado en lo que se ve',
+    /** "Aportado en lo que se ve" before, which named the app's own limitation
+     *  and not the thing being shown. The stretch of time is said underneath
+     *  instead, with both ends of it, so the bar is a total of something. */
+    contributed: 'Quién ha puesto cuánto',
+    contributedRange: (from: string, to: string) => `Del ${from} al ${to}`,
+    contributedEmpty: 'Todavía no hay gastos que repartir',
   },
 
   auth: {
