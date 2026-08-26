@@ -10,7 +10,7 @@
 
 const test = require('node:test')
 const assert = require('node:assert')
-const { sheet, install, load } = require('./fake-sheets')
+const { sheet, install, load, LEDGER_HEADERS, LEDGER_COLS } = require('./fake-sheets')
 
 const CONFIG = [
   ['clave', 'valor'],
@@ -23,7 +23,7 @@ const CONFIG = [
 
 /** A ledger of nothing but concepts: `[concepto, veces]`. */
 function ledgerOf(pairs) {
-  const rows = [['Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id']]
+  const rows = [LEDGER_HEADERS]
   let n = 0
   for (const [concept, times] of pairs) {
     for (let i = 0; i < times; i++) {
@@ -36,7 +36,7 @@ function ledgerOf(pairs) {
 
 function world(pairs) {
   install({
-    gastos: sheet('gastos', ledgerOf(pairs), 7),
+    gastos: sheet('gastos', ledgerOf(pairs), LEDGER_COLS),
     Config: sheet('Config', CONFIG, 2),
     Sugerencias: sheet('Sugerencias', [['texto', 'tipo', 'ámbito']], 26),
     Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),
@@ -131,7 +131,7 @@ test('it writes nothing at all', () => {
   // Read-only is the promise this function is run on: it is pointed at a real
   // household ledger by somebody who has been told it only looks.
   const sheets = {
-    gastos: sheet('gastos', ledgerOf([['super', 3], ['supermercado', 2]]), 7),
+    gastos: sheet('gastos', ledgerOf([['super', 3], ['supermercado', 2]]), LEDGER_COLS),
     Config: sheet('Config', CONFIG, 2),
     Sugerencias: sheet('Sugerencias', [['texto', 'tipo', 'ámbito']], 26),
     Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),

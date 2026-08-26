@@ -21,6 +21,24 @@ var COL_CONCEPT = 2;
 var COL_BALANCE = 5;
 var COL_NOTE = 6;
 var COL_ID = 7;
+/**
+ * The two columns added after the fact, both at the end.
+ *
+ * At the end and not where they would read best, which is a deliberate choice
+ * about a ledger with 2,318 rows of somebody's history in it. Inserting a column
+ * shifts every letter after it: `persona_1_columna` and `persona_2_columna` in
+ * Config would have to be rewritten by hand, the balance formula in E would move,
+ * and the id column with it. Appending shifts nothing at all.
+ *
+ * `categoría` is the normalised bucket — Restaurantes — while the concept in
+ * column B stays whatever was typed, "Cena en un bar". `forma de pago` used to
+ * be mixed into the observaciones, where it could not be counted or filtered.
+ */
+var COL_CATEGORY = 8;
+var COL_METHOD = 9;
+/** How wide a row is. Every read and every format copy spans this, so the next
+ *  column is added here and nowhere else. */
+var COL_LAST = COL_METHOD;
 
 var VOID_MARK = '[anulado] ';
 

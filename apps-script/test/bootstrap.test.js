@@ -10,7 +10,7 @@
 
 const test = require('node:test')
 const assert = require('node:assert')
-const { sheet, install, load } = require('./fake-sheets')
+const { sheet, install, load, LEDGER_HEADERS, LEDGER_COLS } = require('./fake-sheets')
 
 const iso = date => {
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -30,7 +30,7 @@ const CONFIG = [
 
 /** A ledger like theirs: a couple of thousand rows, ending today. */
 function ledgerRows(count) {
-  const rows = [['Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id']]
+  const rows = [LEDGER_HEADERS]
   const today = new Date()
   for (let i = count; i > 0; i--) {
     const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i)
@@ -45,7 +45,7 @@ function ledgerRows(count) {
 
 function world(over = {}) {
   const sheets = install({
-    gastos: sheet('gastos', over.ledger || ledgerRows(900), 7),
+    gastos: sheet('gastos', over.ledger || ledgerRows(900), LEDGER_COLS),
     Config: sheet('Config', CONFIG, 2),
     Sugerencias: sheet('Sugerencias', over.suggestions || [
       ['texto', 'tipo', 'ámbito'], ['Efectivo', 'medio', ''],
@@ -90,7 +90,7 @@ test('a ledger denser than the ceiling is cut to it, not to nothing', () => {
   // volume inside the window — which is worth knowing, because it means the
   // "the year starts on…" note over the list is a corner and not the norm.
   const today = new Date()
-  const rows = [['Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id']]
+  const rows = [LEDGER_HEADERS]
   for (let day = 400; day > 0; day--) {
     for (let n = 0; n < 10; n++) {
       const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - day)
@@ -339,7 +339,7 @@ test('a concept from years before the window is still searchable', () => {
   // year at the most. On a ledger that starts in 2022, a concept last used in
   // 2023 could not be found by typing it — and nothing in the app could say so,
   // because the search box worked, it simply had nothing to search.
-  const rows = [['Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id']]
+  const rows = [LEDGER_HEADERS]
   rows.push([new Date(2022, 4, 12), 'Museo del Prado', 18, '', 100, '', 'old-1'])
   rows.push([new Date(2023, 8, 3), 'peluqueria', 12, '', 100, '', 'old-2'])
   // Four hundred recent rows, so the window really does leave 2022 behind: with
@@ -366,7 +366,7 @@ test('a concept from years before the window is still searchable', () => {
 })
 
 test('a voided row is not offered back as a concept', () => {
-  const rows = [['Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id']]
+  const rows = [LEDGER_HEADERS]
   rows.push([new Date(2026, 0, 5), '[anulado] museo', '', '', 100, '', 'v-1'])
   rows.push([new Date(2026, 0, 6), 'pan', 2, '', 100, '', 'v-2'])
   world({ ledger: rows })
@@ -380,7 +380,7 @@ test('the vocabulary sent is much longer than the eight tiles shown', () => {
   // cuts it to eight, so whatever is not sent cannot be found by typing it. With
   // eight sent, the search box could reorder the tiles already on screen and
   // nothing else — a `Museo` apuntado once was unreachable the next day.
-  const rows = [['Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id']]
+  const rows = [LEDGER_HEADERS]
   const today = new Date()
   for (let i = 0; i < 40; i++) {
     const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i)
@@ -397,7 +397,7 @@ test('the vocabulary sent is much longer than the eight tiles shown', () => {
 
 test('the vocabulary is ordered by how recently it was used', () => {
   // Which is what makes the first eight the right eight before anybody types.
-  const rows = [['Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id']]
+  const rows = [LEDGER_HEADERS]
   const today = new Date()
   const old = new Date(today.getFullYear() - 1, 0, 15)
   for (let i = 0; i < 3; i++) rows.push([old, 'lo de siempre', 10, '', 100, '', `old-${i}`])
@@ -406,4 +406,94 @@ test('the vocabulary is ordered by how recently it was used', () => {
 
   const concepts = handleBootstrap_({}, USER).frequent.map(item => item.concept)
   assert.equal(concepts[0], 'lo de hoy')
+})
+
+/**
+ * The two columns appended after the fact: `categoría` in H and `forma de pago`
+ * in I.
+ *
+ * At the end and not where they would read best, because inserting a column into
+ * a ledger with years in it shifts every letter after it — the two person columns
+ * named in Config, the balance formula in E, the id column. Appending shifts
+ * nothing, and these tests are about the part that is easy to get wrong instead:
+ * a row is now nine cells wide everywhere it is read, written or copied.
+ */
+
+test('a row carries its category and its payment method', () => {
+  const rows = [LEDGER_HEADERS]
+  rows.push([new Date(2026, 7, 20), 'Cena en un bar', 40, '', 100, 'con Ana', 'id-1',
+    'Restaurantes', 'Tarjeta'])
+  world({ ledger: rows })
+
+  const answer = handleBootstrap_({}, { email: 'mario@example.com' })
+  const entry = answer.entries[0]
+
+  // The concept stays what was typed and the category is the bucket it belongs
+  // to. That separation is the whole point of the column.
+  assert.equal(entry.concept, 'Cena en un bar')
+  assert.equal(entry.category, 'Restaurantes')
+  assert.equal(entry.method, 'Tarjeta')
+  assert.equal(entry.note, 'con Ana')
+})
+
+test('rows from before the two columns read as empty, not as undefined', () => {
+  // Every one of the 2,318 existing rows is this case, and `undefined` reaching
+  // the app is a category that renders as the word undefined.
+  const rows = [LEDGER_HEADERS]
+  rows.push([new Date(2026, 7, 20), 'pan', 1.4, '', 100, '', 'id-1'])
+  world({ ledger: rows })
+
+  const entry = handleBootstrap_({}, { email: 'mario@example.com' }).entries[0]
+  assert.equal(entry.category, '')
+  assert.equal(entry.method, '')
+})
+
+test('an append writes both new cells', () => {
+  const sheets = world({ ledger: [LEDGER_HEADERS, [new Date(2026, 7, 1), 'pan', 1, '', 100, '', 'id-0']] })
+
+  const written = appendEntry_(readConfig_(), {
+    id: 'new-1', date: '2026-08-26', concept: 'Cena en un bar', amount: 40, payer: 1,
+    note: '', category: 'Restaurantes', method: 'Tarjeta',
+  }, { email: 'mario@example.com' })
+
+  assert.equal(written.category, 'Restaurantes')
+  assert.equal(written.method, 'Tarjeta')
+  const row = sheets.gastos.values[2]
+  assert.equal(row[COL_CATEGORY - 1], 'Restaurantes')
+  assert.equal(row[COL_METHOD - 1], 'Tarjeta')
+})
+
+test('an edit that says nothing about the category leaves it alone', () => {
+  // A phone running a version of the app that has never heard of these columns
+  // sends no category at all. That has to mean "leave it as it is" and not
+  // "empty it", or one old handset would undo the whole batch pass.
+  const sheets = world({
+    ledger: [LEDGER_HEADERS,
+      [new Date(2026, 7, 1), 'Cena', 40, '', 100, '', 'id-1', 'Restaurantes', 'Tarjeta']],
+  })
+
+  updateEntry_(readConfig_(), {
+    id: 'id-1', date: '2026-08-01', concept: 'Cena en un bar', amount: 42, payer: 0, note: '',
+  }, { email: 'mario@example.com' })
+
+  const row = sheets.gastos.values[1]
+  assert.equal(row[COL_CATEGORY - 1], 'Restaurantes')
+  assert.equal(row[COL_METHOD - 1], 'Tarjeta')
+  assert.equal(row[COL_CONCEPT - 1], 'Cena en un bar')
+})
+
+test('an edit that empties the category empties it', () => {
+  const sheets = world({
+    ledger: [LEDGER_HEADERS,
+      [new Date(2026, 7, 1), 'Cena', 40, '', 100, '', 'id-1', 'Restaurantes', 'Tarjeta']],
+  })
+
+  updateEntry_(readConfig_(), {
+    id: 'id-1', date: '2026-08-01', concept: 'Cena', amount: 40, payer: 0, note: '',
+    category: '', method: '',
+  }, { email: 'mario@example.com' })
+
+  const row = sheets.gastos.values[1]
+  assert.equal(row[COL_CATEGORY - 1], '')
+  assert.equal(row[COL_METHOD - 1], '')
 })

@@ -102,6 +102,17 @@ function setupSpreadsheet() {
     report.push('Ledger: column G holds "' + current + '" — MOVE IT or point COL_ID elsewhere');
   }
 
+  // The sheet has to be wide enough before anything can be written into H or I.
+  // A Google sheet starts with 26 columns and this one has never been trimmed,
+  // so this is a guard rather than an expectation — and a write past the last
+  // column throws, which would abort the whole run.
+  if (ledger.getMaxColumns() < COL_LAST) {
+    ledger.insertColumnsAfter(ledger.getMaxColumns(), COL_LAST - ledger.getMaxColumns());
+    report.push('Ledger: widened to ' + COL_LAST + ' columns');
+  }
+  report.push(claimColumn_(ledger, COL_CATEGORY, 'categoría'));
+  report.push(claimColumn_(ledger, COL_METHOD, 'forma de pago'));
+
   console.log(report.join('\n'));
   return report;
 }
@@ -315,6 +326,27 @@ function dumpLedgerShape() {
  */
 /** "1 template", "3 templates". A report that says "1 methods" reads as one
  *  written by nobody, which is a poor advertisement for the numbers in it. */
+/**
+ * Writes a header into an empty column, and refuses to touch an occupied one.
+ *
+ * The same care the id column has always had, now that there are three of these.
+ * A column that already holds something is somebody's data: naming it after what
+ * the app wants would not move that data, it would just make the app read it as
+ * something it is not.
+ */
+function claimColumn_(sheet, column, header) {
+  var letter = String.fromCharCode('A'.charCodeAt(0) + column - 1);
+  var cell = sheet.getRange(1, column);
+  var current = String(cell.getValue() || '').trim();
+  if (!current) {
+    cell.setValue(header).setFontWeight('bold');
+    return 'Ledger: "' + header + '" header written in column ' + letter;
+  }
+  if (current === header) return 'Ledger: the ' + header + ' column was already there';
+  return 'Ledger: column ' + letter + ' holds "' + current + '" — MOVE IT before the app'
+    + ' writes ' + header + ' over it';
+}
+
 function plural_(count, noun) {
   return count + ' ' + noun + (count === 1 ? '' : 's');
 }

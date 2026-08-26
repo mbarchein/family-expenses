@@ -76,7 +76,7 @@ function readTail_(config, limit) {
   if (last < 2) return { balance: 0, entries: [], lastRow: last };
 
   var first = windowStart_(sheet, last, limit);
-  var values = sheet.getRange(first, 1, last - first + 1, COL_ID).getValues();
+  var values = sheet.getRange(first, 1, last - first + 1, COL_LAST).getValues();
 
   var entries = values.map(function (row, i) {
     return rowToEntry_(config, row, first + i);
@@ -108,6 +108,8 @@ function rowToEntry_(config, row, rowNumber) {
     amount: amount,
     payer: payer,
     note: String(row[COL_NOTE - 1] || ''),
+    category: String(row[COL_CATEGORY - 1] || ''),
+    method: String(row[COL_METHOD - 1] || ''),
     voided: voided
   };
 }
@@ -143,8 +145,8 @@ function appendEntry_(config, payload, user) {
     // what gives the new cells the euro format and the date format the sheet
     // has always used; writing raw values into a virgin row would leave it
     // looking foreign among six hundred siblings.
-    sheet.getRange(last, 1, 1, COL_ID)
-      .copyTo(sheet.getRange(row, 1, 1, COL_ID), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+    sheet.getRange(last, 1, 1, COL_LAST)
+      .copyTo(sheet.getRange(row, 1, 1, COL_LAST), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
 
     writeEntryCells_(sheet, config, row, entry);
     sheet.getRange(row, COL_ID).setValue(entry.id);
@@ -253,10 +255,16 @@ function writeEntryCells_(sheet, config, row, entry) {
   sheet.getRange(row, config.people[entry.payer].column).setValue(entry.amount);
 
   if (entry.note !== null) sheet.getRange(row, COL_NOTE).setValue(entry.note);
+  // Both `undefined` on an entry from a version of the app that does not know
+  // about these columns yet, and `undefined` has to mean "leave it as it is"
+  // rather than "empty it": an edit from an old phone must not wipe a category
+  // the batch pass put there.
+  if (entry.category !== null) sheet.getRange(row, COL_CATEGORY).setValue(entry.category);
+  if (entry.method !== null) sheet.getRange(row, COL_METHOD).setValue(entry.method);
 }
 
 function readRow_(sheet, row) {
-  return sheet.getRange(row, 1, 1, COL_ID).getValues()[0];
+  return sheet.getRange(row, 1, 1, COL_LAST).getValues()[0];
 }
 
 function findRowById_(sheet, id) {
@@ -292,7 +300,9 @@ function validateEntry_(config, payload) {
     concept: concept,
     amount: Math.round(amount * 100) / 100,
     payer: payer,
-    note: payload.note === undefined ? null : String(payload.note || '')
+    note: payload.note === undefined ? null : String(payload.note || ''),
+    category: payload.category === undefined ? null : String(payload.category || '').trim(),
+    method: payload.method === undefined ? null : String(payload.method || '').trim()
   };
 }
 

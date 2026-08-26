@@ -10,7 +10,7 @@
 
 const test = require('node:test')
 const assert = require('node:assert')
-const { sheet, install, load } = require('./fake-sheets')
+const { sheet, install, load, LEDGER_HEADERS, LEDGER_COLS } = require('./fake-sheets')
 
 const CONFIG = [
   ['clave', 'valor'],
@@ -21,7 +21,7 @@ const CONFIG = [
   ['hoja_gastos', 'gastos'],
 ]
 
-const HEADERS = ['Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id']
+const HEADERS = LEDGER_HEADERS
 
 /** A ledger from `[concepto, importe]` pairs, one row each. */
 function world(entries, formulas) {
@@ -30,7 +30,7 @@ function world(entries, formulas) {
     rows.push([new Date(2026, 6, 1 + index), concept, amount, '', 100, 'efectivo', `id-${index}`])
   })
   const sheets = {
-    gastos: sheet('gastos', rows, 7, formulas),
+    gastos: sheet('gastos', rows, LEDGER_COLS, formulas),
     Config: sheet('Config', CONFIG, 2),
     Sugerencias: sheet('Sugerencias', [['texto', 'tipo', 'ámbito']], 26),
     Fijos: sheet('Fijos', [['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo']], 26),

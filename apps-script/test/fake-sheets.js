@@ -13,6 +13,19 @@
  * the code parses, runs, and returns the shape the app expects.
  */
 
+/**
+ * The ledger's header row, and how wide a row is.
+ *
+ * Here rather than copied into each test file: `categoría` and `forma de pago`
+ * were appended as columns H and I, and three fixtures declaring their own seven
+ * columns is three places for the next one to be forgotten.
+ */
+const LEDGER_HEADERS = [
+  'Fecha', 'Concepto', 'Viqui', 'Mario', 'diferencia', 'observaciones', 'id',
+  'categoría', 'forma de pago'
+]
+const LEDGER_COLS = LEDGER_HEADERS.length
+
 function sheet(name, values, maxColumns, formulas) {
   var writes = []
   // Keyed 'row,column'. Empty for almost every test, and the point of the one
@@ -69,6 +82,13 @@ function sheet(name, values, maxColumns, formulas) {
           }
           return out
         },
+        clearContent: function () {
+          writes.push({ row: row, column: column, values: [['']] })
+          for (var i = 0; i < height; i++) {
+            for (var j = 0; j < width; j++) put(values, row + i, column + j, '')
+          }
+          return this
+        },
         copyTo: function () { return this },
         setNumberFormat: function () { return this },
         setNote: function () { return this },
@@ -96,6 +116,11 @@ function put(values, row, column, value) {
 function install(sheets, options) {
   var settings = options || {}
   global.SpreadsheetApp = {
+    // Only the member the append reads. `copyTo` here is a no-op that records
+    // nothing, which is right: what it copies is *formatting*, and a fake with
+    // no formatting cannot have an opinion about it. What matters is that the
+    // call does not throw, since it sits between the two writes that do count.
+    CopyPasteType: { PASTE_FORMAT: 'format', PASTE_NORMAL: 'normal' },
     getActiveSpreadsheet: function () {
       return {
         getId: function () { return 'sheet-id' },
@@ -188,4 +213,7 @@ function load() {
   ;(0, eval)(source)
 }
 
-module.exports = { sheet: sheet, install: install, load: load }
+module.exports = {
+  sheet: sheet, install: install, load: load,
+  LEDGER_HEADERS: LEDGER_HEADERS, LEDGER_COLS: LEDGER_COLS
+}
