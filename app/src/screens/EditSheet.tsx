@@ -27,6 +27,18 @@ export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }
   const [note, setNote] = useState(entry.note)
   const [category, setCategory] = useState(entry.category)
   const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+  /**
+   * A row whose amount is below zero: money that came back rather than went out.
+   *
+   * They exist on the sheet — a refund, or one of the two of them putting money
+   * in — and this screen cannot write one: the keypad has no sign and
+   * `typedFromAmount` answers '' for anything not above zero, so the field opened
+   * empty and Guardar did nothing, silently, for ever. Saying so is not support
+   * for negative amounts; it is the difference between a limit and a broken
+   * screen.
+   */
+  const negative = entry.amount < 0
   const titleId = useId()
   const { faces } = useAvatars()
 
@@ -55,7 +67,12 @@ export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }
 
   async function save() {
     const amount = parseAmount(typed)
-    if (amount <= 0 || !concept.trim()) return
+    // Said out loud. This used to `return` on both counts, so the button did
+    // nothing whatsoever and there was no way to find out why — and one of the
+    // two ways to reach it is a row the app itself could not fill in.
+    if (amount <= 0) return setProblem(T.edit.needAmount)
+    if (!concept.trim()) return setProblem(T.edit.needConcept)
+    setProblem(null)
     setBusy(true)
     await onSave({
       id: entry.id, date, concept: concept.trim(), amount, payer, note,
@@ -194,6 +211,15 @@ export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }
           {/* Cancel next to save, at the size of a button and not a link in the
               corner. Saving is twice the width: they are both ways out of this
               screen, and only one of them is the one being looked for. */}
+          {/* Above the buttons, where the answer to "why did nothing happen" has
+              to be. The negative note is shown from the moment the sheet opens,
+              because that one is not something the person did. */}
+          {(negative || problem) && (
+            <p role="alert" className="text-sm" style={{ color: 'var(--danger)' }}>
+              {negative ? T.edit.negative : problem}
+            </p>
+          )}
+
           <div className="flex gap-2">
             <button
               type="button"
@@ -207,7 +233,7 @@ export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }
             <button
               type="button"
               onClick={save}
-              disabled={busy}
+              disabled={busy || negative}
               className="flex-[2] rounded-xl py-3.5 font-bold disabled:opacity-40"
               style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
             >

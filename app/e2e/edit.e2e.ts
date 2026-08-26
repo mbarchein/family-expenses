@@ -153,3 +153,55 @@ test('the amount takes the width and the caret lands at its end', async ({ page 
   await page.keyboard.press('Backspace')
   await expect(amount).toHaveValue('326,')
 })
+
+
+test('an empty amount says so instead of doing nothing', async ({ page }) => {
+  // The button used to `return` on both counts, so pressing Guardar with an
+  // empty amount did nothing whatsoever and there was no way to find out why.
+  const calls = await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+  await page.getByRole('button', { name: /super/ }).click()
+
+  // Emptied with the keyboard, which is both what a thumb does and the only thing
+  // that works here: `fill` and `clear` select the text first, and this field
+  // puts the caret at the end on focus — collapsing that selection, so the insert
+  // replaces nothing and the old amount survives.
+  const amount = page.getByRole('textbox', { name: 'Importe' })
+  await amount.click()
+  await expect(amount).toBeFocused()
+  for (let i = 0; i < 8; i++) await page.keyboard.press('Backspace')
+  await expect(amount).toHaveValue('')
+
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect(page.getByRole('alert')).toHaveText(/Pon un importe/)
+  expect(calls.some(call => call.action === 'update')).toBe(false)
+
+  // And it saves once there is an amount again.
+  await amount.click()
+  await page.keyboard.type('12')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect.poll(() => calls.some(call => call.action === 'update')).toBe(true)
+})
+
+test('a row with a negative amount says the app cannot edit it', async ({ page }) => {
+  // Those exist on their sheet — money that came back rather than went out — and
+  // this screen cannot write one: the keypad has no sign, so the field opened
+  // empty and Guardar did nothing, for ever. Saying so is the difference between
+  // a limit and a broken screen.
+  const calls = await stubApi(page, bootstrap({
+    entries: [entry({
+      row: 2300, id: 'e1', date: TODAY, concept: 'BBVA abono', amount: -40, payer: MARIO,
+    })],
+  }))
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+  await page.getByRole('button', { name: /BBVA abono/ }).click()
+
+  await expect(page.getByRole('alert')).toHaveText(/importe negativo/)
+  await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeDisabled()
+
+  // Anular is still there: voiding does not need the amount to be writable.
+  await expect(page.getByRole('button', { name: 'Anular' })).toBeEnabled()
+  expect(calls.some(call => call.action === 'update')).toBe(false)
+})

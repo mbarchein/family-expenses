@@ -219,6 +219,15 @@ export const T = {
      *  It was written inline in the component, in Spanish, where nothing else is. */
     row: (row: number) => `Fila ${row}`,
     note: 'Nota',
+    /** Said out loud instead of refusing in silence. Pressing Guardar with an
+     *  empty amount used to do nothing at all, which reads as a broken button. */
+    needAmount: 'Pon un importe mayor que cero',
+    needConcept: 'Pon un concepto',
+    /** A row whose amount is below zero — money coming back rather than going
+     *  out. Those exist on their sheet and this screen cannot write one, so it
+     *  says so rather than emptying the field and refusing to save. */
+    negative: 'Este apunte tiene un importe negativo y la app todavía no sabe '
+      + 'editarlos. Cámbialo en la hoja.',
   },
 
   balance: {
