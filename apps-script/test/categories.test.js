@@ -15,6 +15,17 @@ const test = require('node:test')
 const assert = require('node:assert')
 const { sheet, install, load, LEDGER_HEADERS, LEDGER_COLS } = require('./fake-sheets')
 
+/**
+ * Loaded once here, before any test body runs.
+ *
+ * The tests that check the real seed name `CATEGORY_SEED`, which only exists
+ * after `load()` has evaluated the sources — so without this they pass only
+ * because some earlier test happened to load them, and running one on its own
+ * with `--test-name-pattern` fails with `CATEGORY_SEED is not defined`. Found
+ * exactly that way.
+ */
+load()
+
 const CONFIG = [
   ['clave', 'valor'],
   ['persona_1_nombre', 'Viqui'],
@@ -404,6 +415,60 @@ test('running it twice changes nothing the second time', () => {
   world([['Supermercado', 'cesta', 'super']])
   updateCategories()
   assert.match(updateCategories(), /Nothing to add/)
+})
+
+/**
+ * Idempotence, checked over three runs rather than asserted.
+ *
+ * "It only adds" is not the same claim as "running it again does nothing", and
+ * the difference is where the bugs were. Both of these were written as a probe
+ * and both failed: the rename wrote a stripped copy of its words and the append
+ * that followed had nothing to append to, so `hipoteca` was lost and the next run
+ * put it back.
+ */
+test('a tab already matching the seed is not written to at all', () => {
+  const sheets = world(CATEGORY_SEED.map(row => [row[0], row[1], row[2]]))
+
+  assert.match(updateCategories(), /Nothing to add/)
+  assert.match(updateCategories(), /Nothing to add/)
+  assert.deepEqual(sheets['Categorías'].writes, [], 'not one write for a tab that is up to date')
+})
+
+test('a tab that needs words settles after one run', () => {
+  const sheets = world([
+    ['Luz', 'bombilla', 'luz'],
+    ['Cafés y bares', 'taza', 'cafetería'],
+    ['Vivienda', 'casa', 'hipoteca'],
+  ])
+
+  updateCategories()
+  const settled = JSON.parse(JSON.stringify(sheets['Categorías'].values))
+
+  assert.match(updateCategories(), /Nothing to add/)
+  assert.match(updateCategories(), /Nothing to add/)
+  assert.deepEqual(sheets['Categorías'].values, settled, 'the tab stopped changing')
+})
+
+test('a rename keeps the words it was carrying', () => {
+  const sheets = world([['Vivienda', 'casa', 'hipoteca, comunidad']])
+  updateCategories()
+
+  const row = sheets['Categorías'].values.slice(1).find(line => line[0] === 'Hogar')
+  assert.match(row[2], /hipoteca/)
+  assert.match(row[2], /comunidad/)
+})
+
+test('their spelling survives, and new words arrive in the seed’s', () => {
+  // This tab is a document two people read. A word that comes back without its
+  // accent looks like a mistake somebody made, and reordering the line they wrote
+  // is no better — so what they typed stays where they typed it, and the new ones
+  // go on the end.
+  const sheets = world([['Cafés y bares', 'taza', 'cafetería, café']])
+  updateCategories()
+
+  const row = sheets['Categorías'].values.slice(1).find(line => line[0] === 'Cafés y bares')
+  assert.match(row[2], /^cafetería, café, /, 'theirs first, untouched')
+  assert.match(row[2], /heladería/, 'and the new ones with their accents too')
 })
 
 test('the cleaning and the transfer are filed under Hogar', () => {

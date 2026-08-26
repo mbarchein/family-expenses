@@ -395,21 +395,28 @@ function updateCategories() {
   CATEGORY_RENAMES.forEach(function (pair) {
     var from = byKey[fold_(pair[0])];
     if (!from || byKey[fold_(pair[1])]) return;
-    saveCategory_({ was: pair[0], name: pair[1], icon: from.icon, words: from.words });
+    // `raw` and not the folded list, both into the cell and into what the pass
+    // below reads: with it missing, the rename wrote a stripped copy of the words
+    // and the append that followed had nothing to append to, so it replaced them.
+    // A rename lost `hipoteca`, and the next run put it back — which is how a
+    // three-run probe found it.
+    saveCategory_({ was: pair[0], name: pair[1], icon: from.icon, words: from.raw });
     delete byKey[fold_(pair[0])];
-    byKey[fold_(pair[1])] = { name: pair[1], icon: from.icon, words: from.words };
+    byKey[fold_(pair[1])] = {
+      name: pair[1], icon: from.icon, words: from.words, raw: from.raw
+    };
     lines.push('RENAMED  ' + pair[0] + ' -> ' + pair[1]);
   });
 
   CATEGORY_SEED.forEach(function (row) {
     var name = row[0];
     var icon = row[1];
-    var words = splitWords_(row[2]);
     var current = byKey[fold_(name)];
 
     if (!current) {
-      saveCategory_({ name: name, icon: icon, words: words });
-      lines.push('ADDED    ' + name + '  [' + icon + ']  ' + words.join(', '));
+      // A new row gets the seed's own text, accents and all.
+      saveCategory_({ name: name, icon: icon, words: row[2] });
+      lines.push('ADDED    ' + name + '  [' + icon + ']  ' + row[2]);
       return;
     }
 
@@ -417,13 +424,17 @@ function updateCategories() {
     // `panadería` on the tab and `panaderia` in the seed are the same word.
     var have = {};
     current.words.forEach(function (word) { have[word] = true; });
-    var missing = words.filter(function (word) { return !have[word]; });
+    // Written back as text rather than as the folded list. Writing the list would
+    // hand `cafeteria, cafe` to a tab that said `cafetería, café` and reorder the
+    // rest while it was at it — and this tab is a document two people read, where
+    // a word without its accent looks like a mistake somebody made.
+    var missing = rawWords_(row[2]).filter(function (word) { return !have[wordKey_(word)]; });
     if (!missing.length) return;
 
     saveCategory_({
       name: current.name,
       icon: current.icon || icon,
-      words: current.words.concat(missing)
+      words: current.raw ? current.raw + ', ' + missing.join(', ') : missing.join(', ')
     });
     lines.push('WORDS    ' + current.name + '  +' + missing.join(', '));
   });

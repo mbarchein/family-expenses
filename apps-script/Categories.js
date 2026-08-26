@@ -51,10 +51,28 @@ function readCategories_() {
     items.push({
       name: name,
       icon: String(row[1] == null ? '' : row[1]).trim(),
-      words: splitWords_(row[2])
+      words: splitWords_(row[2]),
+      // The cell as it reads, accents and order intact. `words` is for matching;
+      // this is for writing back to a tab two people look at.
+      raw: String(row[2] == null ? '' : row[2]).trim()
     });
   });
   return { items: items, missing: false };
+}
+
+/** The words of a cell as they are written, trimmed and in order. What a person
+ *  typed, kept for when it has to be written back to a tab they read. */
+function rawWords_(raw) {
+  return String(raw == null ? '' : raw)
+    .split(/[,;\n]/)
+    .map(function (word) { return word.trim(); })
+    .filter(function (word) { return word; });
+}
+
+/** How a word is compared: folded, with its inner spaces collapsed. One function
+ *  so that reading the tab and adding to it cannot disagree about what a word is. */
+function wordKey_(word) {
+  return fold_(word).replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -63,9 +81,8 @@ function readCategories_() {
  * tried before `gas`, and `=maria` before either.
  */
 function splitWords_(raw) {
-  return String(raw == null ? '' : raw)
-    .split(/[,;\n]/)
-    .map(function (word) { return fold_(word).replace(/\s+/g, ' ').trim(); })
+  return rawWords_(raw)
+    .map(wordKey_)
     .filter(function (word) { return word; })
     .sort(function (a, b) {
       var exact = (b.charAt(0) === '=') - (a.charAt(0) === '=');
