@@ -229,6 +229,11 @@ export const T = {
      *  interesting part of it, and what somebody who has just tapped Guardar
      *  wants to know is that it is being saved. */
     saving: 'Guardando…',
+    /** Next to Guardando… once the upload is actually repeating itself. It
+     *  counts retries, not attempts: the first try is not a retry, and a save
+     *  that announced "reintento 1" the moment it was tapped made every
+     *  ordinary save look like a repair. */
+    retry: (n: number) => `reintento ${n}`,
     /** Still used where a row has no row number yet, which is the same fact seen
      *  from one entry rather than from the queue. */
     pending: (n: number) => (n === 1 ? '1 gasto sin subir' : `${n} gastos sin subir`),

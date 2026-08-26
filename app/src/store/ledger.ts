@@ -4,7 +4,9 @@ import { T } from '../i18n/strings'
 import { clearFault, fault, report, state } from '../lib/progress'
 import { ApiError, type Bootstrap, type Entry, type Fixed } from '../api/types'
 import { idb } from './db'
-import { enqueue, flush, pendingCount, pendingOps, type QueuedEntry } from './queue'
+import {
+  enqueue, flush, pendingAttempts, pendingCount, pendingOps, type QueuedEntry,
+} from './queue'
 
 export type Status = 'loading' | 'ready' | 'needsAuth' | 'forbidden' | 'error'
 
@@ -14,6 +16,9 @@ export interface Ledger {
   data: Bootstrap | null
   entries: Entry[]
   pending: number
+  /** How many attempts the most-retried queued operation has behind it. Zero
+   *  while an upload is simply in flight. */
+  attempts: number
   addEntry: (entry: QueuedEntry) => Promise<void>
   editEntry: (entry: QueuedEntry) => Promise<void>
   voidEntry: (id: string) => Promise<void>
@@ -36,6 +41,7 @@ export function useLedger(): Ledger {
   const [local, setLocal] = useState<Map<string, QueuedEntry>>(new Map())
   const [voided, setVoided] = useState<Set<string>>(new Set())
   const [pending, setPending] = useState(0)
+  const [attempts, setAttempts] = useState(0)
 
   /**
    * Whether anything is on screen yet.
@@ -57,6 +63,7 @@ export function useLedger(): Ledger {
     setLocal(map)
     setVoided(gone)
     setPending(await pendingCount())
+    setAttempts(await pendingAttempts())
   }, [])
 
   const refresh = useCallback(async () => {
@@ -190,7 +197,7 @@ export function useLedger(): Ledger {
   }, [refresh])
 
   return {
-    status, error, data, pending,
+    status, error, data, pending, attempts,
     entries: merge(data?.entries ?? [], local, voided),
     addEntry: entry => mutate('append', entry),
     editEntry: entry => mutate('update', entry),

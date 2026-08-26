@@ -93,7 +93,16 @@ export default function App() {
             color: 'var(--accent)',
           }}
         >
-          {navigator.onLine ? <><Spinner />{T.sync.saving}</> : T.sync.offline}
+          {navigator.onLine
+            ? <>
+                <Spinner />
+                {T.sync.saving}
+                {/* `attempts` counts tries, and the first one is not a
+                    retry — so nothing is said until the upload is genuinely
+                    repeating itself, and then the count starts at one. */}
+                {ledger.attempts > 1 && <> · {T.sync.retry(ledger.attempts - 1)}</>}
+              </>
+            : T.sync.offline}
         </p>
       )}
 
