@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Avatar } from '../components/Avatar'
 import { Segmented } from '../components/Segmented'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
@@ -6,6 +7,7 @@ import { dueDay } from '../lib/fixed'
 import { todayIso } from '../lib/dates'
 import { formatEur, parseAmount, typedFromAmount } from '../lib/money'
 import type { Fixed, Person } from '../api/types'
+import { useAvatars } from '../store/avatars'
 import type { Ledger } from '../store/ledger'
 
 /**
@@ -103,6 +105,7 @@ function Editor({ fixed, people, onClose, onSave }: {
   onClose: () => void
   onSave: (fixed: Omit<Fixed, 'last'>) => Promise<void>
 }) {
+  const { faces } = useAvatars()
   const [draft, setDraft] = useState(fixed)
   const [typed, setTyped] = useState(draft.amount === null ? '' : typedFromAmount(draft.amount))
   const [saving, setSaving] = useState(false)
@@ -207,8 +210,18 @@ function Editor({ fixed, people, onClose, onSave }: {
             })}
             options={[
               { label: T.fixed.payerAny, value: 'any' },
-              { label: people[0].name, value: '0', tone: 'person-1' },
-              { label: people[1].name, value: '1', tone: 'person-2' },
+              // The same faces the keypad and the edit sheet use. Three segments
+              // side by side leave no room for the stacked tiles, so these are
+              // small and beside the name — enough to be recognised without
+              // reading, which is what they are for.
+              {
+                label: people[0].name, value: '0', tone: 'person-1',
+                icon: <Avatar name={faces[0]} className="h-4 w-4 shrink-0" />,
+              },
+              {
+                label: people[1].name, value: '1', tone: 'person-2',
+                icon: <Avatar name={faces[1]} className="h-4 w-4 shrink-0" />,
+              },
             ]}
             compact
           />
