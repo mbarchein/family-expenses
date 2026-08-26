@@ -501,23 +501,6 @@ test('the food shops share Supermercado, and bread has its own line', () => {
   ])
 })
 
-test('a word that moved category leaves the old one', () => {
-  // `pan` went into Supermercado when the food shops were folded together and
-  // came back out when Panadería was asked for again. Left in both, the higher
-  // row wins and the request quietly has no effect — which is what this is for.
-  const sheets = world([['Supermercado', 'cesta', 'super, panadería, pan, fruta']])
-  const answer = updateCategories()
-
-  const row = sheets['Categorías'].values.slice(1).find(line => line[0] === 'Supermercado')
-  assert.equal(row[2].indexOf('pan'), -1, 'no bread left in the supermarket')
-  assert.match(row[2], /super/)
-  assert.match(row[2], /fruta/)
-  assert.match(answer, /REMOVED\s+Supermercado/)
-
-  // And nothing to do on the way back through.
-  assert.match(updateCategories(), /Nothing to add/)
-})
-
 test('the fixed suppliers are words, and the orchestra has a category', () => {
   const sheets = filedWorld(
     [['Iberdrola'], ['Endesa'], ['Emasagra'], ['Alsa'], ['orquesta'], ['Orquesta Irene']],

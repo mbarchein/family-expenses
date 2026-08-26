@@ -408,25 +408,6 @@ function updateCategories() {
     lines.push('RENAMED  ' + pair[0] + ' -> ' + pair[1]);
   });
 
-  // Before the additions, so a word that is moving between two categories leaves
-  // one before it arrives at the other. The other way round, both rows would hold
-  // it for a moment and the higher one would win.
-  CATEGORY_WORD_REMOVALS.forEach(function (pair) {
-    var current = byKey[fold_(pair[0])];
-    if (!current) return;
-    var going = {};
-    rawWords_(pair[1]).forEach(function (word) { going[wordKey_(word)] = true; });
-    var kept = rawWords_(current.raw).filter(function (word) { return !going[wordKey_(word)]; });
-    if (kept.length === rawWords_(current.raw).length) return;
-
-    var text = kept.join(', ');
-    saveCategory_({ name: current.name, icon: current.icon, words: text });
-    byKey[fold_(pair[0])] = {
-      name: current.name, icon: current.icon, words: splitWords_(text), raw: text
-    };
-    lines.push('REMOVED  ' + current.name + '  -' + pair[1]);
-  });
-
   CATEGORY_SEED.forEach(function (row) {
     var name = row[0];
     var icon = row[1];

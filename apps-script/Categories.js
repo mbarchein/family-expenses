@@ -311,25 +311,6 @@ var CATEGORY_SEED = [
  * Two categories both meaning "the house" would be worse than either name: every
  * row filed after the change would land in one of them at random.
  */
-/**
- * Words to take off a category, by name.
- *
- * `updateCategories` adds and never removes, because that tab is theirs to edit
- * and a pass that corrected it back to the seed would undo the editing it exists
- * to support. This is the narrow exception, and it works like the renames: an
- * explicit list of what leaves which category, applied once, doing nothing on
- * every run after that.
- *
- * It exists because moving a word between two categories is not something the
- * additive pass can express. `pan` went into Supermercado when the food shops
- * were folded together and came back out when Panadería was asked for again —
- * and left in both places, the higher row would have won and the request would
- * have quietly had no effect.
- */
-var CATEGORY_WORD_REMOVALS = [
-  ['Supermercado', 'panadería, pan']
-];
-
 var CATEGORY_RENAMES = [
   ['Vivienda', 'Hogar'],
   // `Colegio` held a private tutor, the English lessons and the violin. They
