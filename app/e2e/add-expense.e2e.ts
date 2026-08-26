@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
-import { bootstrap, signIn, storedDraft, stubApi, stubGoogle } from './harness'
+import {
+  MARIO, TODAY, bootstrap, entry, signIn, storedDraft, stubApi, stubGoogle,
+} from './harness'
 
 test.beforeEach(async ({ page }) => {
   await stubGoogle(page)
@@ -408,7 +410,9 @@ test('an icon can be given to a concept, and taken back', async ({ page }) => {
   const menu = page.getByRole('dialog')
   // Every concept on offer is listed, and the row says whether its icon was
   // chosen or merely proposed.
-  await expect(menu.getByRole('button', { name: /gasolina/ })).toContainText('propuesto')
+  // Anchored, because the Categorías rows above carry their words in their
+  // accessible name and `Combustible gasolinera, …` matches a loose /gasolina/.
+  await expect(menu.getByRole('button', { name: /^gasolina / })).toContainText('propuesto')
 
   await menu.getByRole('button', { name: /chuches/ }).click()
   await page.getByRole('button', { name: 'huella', exact: true }).click()
@@ -879,4 +883,74 @@ test('a category picked by hand survives, until the concept changes', async ({ p
   await expect
     .poll(() => calls.find(call => call.action === 'append')?.payload.category)
     .toBe('Combustible')
+})
+
+
+/**
+ * The categories, edited from the cog.
+ *
+ * The Categorías tab is there for a laptop; this is the same thing for a phone,
+ * which is where anybody actually notices that a category is wrong.
+ */
+test('a category can be edited from the cog, words and all', async ({ page }) => {
+  const calls = await stubApi(page)
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+  await page.getByRole('button', { name: 'Iconos' }).click()
+
+  const menu = page.getByRole('dialog')
+  await menu.getByRole('button', { name: /^Supermercado/ }).click()
+
+  await menu.getByRole('textbox', { name: 'Palabras que la adivinan' }).fill('super, contreras')
+  await menu.getByRole('button', { name: 'Guardar categoría' }).click()
+
+  await expect.poll(() => calls.find(one => one.action === 'saveCategory')?.payload)
+    .toMatchObject({ name: 'Supermercado', words: ['super', 'contreras'] })
+})
+
+test('the icon grid says which categories already wear each icon', async ({ page }) => {
+  // Choosing blind is the thing this prevents: two categories sharing a shape is
+  // allowed and sometimes right, and the only way to decide is to know.
+  await stubApi(page)
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+  await page.getByRole('button', { name: 'Iconos' }).click()
+
+  const menu = page.getByRole('dialog')
+  await menu.getByRole('button', { name: /^Luz/ }).click()
+  await menu.getByRole('button', { name: 'Icono' }).click()
+
+  // `cubiertos` is worn by two of the fixture's categories, and the grid says so.
+  await expect(menu.getByRole('button', { name: /^cubiertos · / })).toBeVisible()
+  await expect(menu.getByRole('button', { name: /Restaurantes/ })).toBeVisible()
+})
+
+test('taking an icon another category wears asks first, with its rows',
+  async ({ page }) => {
+  await stubApi(page, bootstrap({
+    entries: [
+      entry({ row: 2, id: 'a', date: TODAY, concept: 'Cena en un bar', amount: 40,
+        payer: MARIO, category: 'Restaurantes' }),
+    ],
+  }))
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+  await page.getByRole('button', { name: 'Iconos' }).click()
+
+  const menu = page.getByRole('dialog')
+  await menu.getByRole('button', { name: /^Luz/ }).click()
+  await menu.getByRole('button', { name: 'Icono' }).click()
+  await menu.getByRole('button', { name: /^cubiertos/ }).click()
+
+  // Who has it, and what is filed under them — which is what makes the question
+  // answerable rather than rhetorical.
+  await expect(menu.getByText(/ya lo usa/)).toBeVisible()
+  await expect(menu.getByText('Cena en un bar')).toBeVisible()
+
+  // And it is a question, not a refusal.
+  await menu.getByRole('button', { name: 'Usarlo igualmente' }).click()
+  await expect(menu.getByRole('button', { name: 'Icono' })).toContainText('cubiertos')
 })

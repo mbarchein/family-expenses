@@ -190,6 +190,36 @@ export const T = {
     empty: 'No hay categorías en la hoja todavía',
   },
 
+  /** The categories, edited from the cog rather than from the spreadsheet — which
+   *  is the point: the tab is there for a laptop and this is there for a phone. */
+  categories: {
+    title: 'Categorías',
+    add: 'Nueva categoría',
+    edit: (name: string) => `Categoría «${name}»`,
+    name: 'Nombre',
+    icon: 'Icono',
+    words: 'Palabras que la adivinan',
+    wordsHelp: 'Separadas por comas. Escribe =algo para que solo valga cuando el '
+      + 'concepto sea exactamente eso.',
+    save: 'Guardar categoría',
+    remove: 'Borrar categoría',
+    removeConfirm: (name: string) =>
+      `¿Borrar «${name}»? Los gastos ya archivados conservan el nombre.`,
+    noneYet: 'Todavía no hay categorías',
+    needName: 'Ponle un nombre',
+    failed: 'No se ha podido guardar. Necesita conexión.',
+    /** The shared-icon warning. Sharing is allowed on purpose; what is not
+     *  allowed is doing it by accident. */
+    shared: (names: string) => `Ese icono ya lo usa ${names}`,
+    sharedWhy: 'Puedes compartirlo, pero en la lista de gastos las dos se verán igual.',
+    sharedRecent: 'Últimos gastos de esa categoría',
+    sharedNoRows: 'Todavía no hay gastos archivados ahí',
+    useAnyway: 'Usarlo igualmente',
+    pickAnother: 'Elegir otro',
+    /** Under each icon in the grid, so the ones already spoken for say so. */
+    usedBy: (names: string) => names,
+  },
+
   list: {
     both: 'Ambos',
     search: 'Buscar concepto…',

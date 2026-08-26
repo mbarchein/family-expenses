@@ -219,7 +219,7 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
     // is local and instant, while the entry goes through the outbound queue.
     // Failing to store a place must never stop an expense being apuntado.
     if (place.kind === 'on') {
-      await rememberAt(place.fix, draft.concept.trim(), draft.note).catch(() => {})
+      await rememberAt(place.fix, draft.concept.trim(), draft.method).catch(() => {})
     }
 
     await ledger.addEntry({
@@ -351,6 +351,8 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
           entries={ledger.entries}
           patch={patch}
           onNext={forward}
+          onSaveCategory={ledger.saveCategory}
+          onDeleteCategory={ledger.deleteCategory}
         />
       )}
       {step === 2 && (

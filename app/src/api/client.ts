@@ -212,4 +212,15 @@ export const api = {
    *  same fact as far as "do not propose it again" goes. */
   fixedDone: async (row: number, due: string) =>
     writtenFixed<{ row: number; last: string }>(await call<unknown>('fixedDone', { row, due })),
+  /**
+   * A row of the Categorías tab, written from the phone.
+   *
+   * Not queued, unlike the expenses and the templates. This is a preference
+   * about how the app reads, not money: losing one costs the edit again, and a
+   * queue that replayed it later could undo a change made on the other handset
+   * in between.
+   */
+  saveCategory: (category: { name: string; icon: string; words: string[]; was?: string }) =>
+    call<{ name: string; icon: string; words: string[] }>('saveCategory', category),
+  deleteCategory: (name: string) => call<{ removed: number }>('deleteCategory', { name }),
 }

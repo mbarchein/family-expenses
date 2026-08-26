@@ -51,7 +51,9 @@ const TILES = 8
  * is buying the same kind of thing, and no amount of frequency beats being here —
  * and because they are the only control here that can answer the whole screen.
  */
-export function StepDetails({ draft, data, entries, patch, onNext }: {
+export function StepDetails({
+  draft, data, entries, patch, onNext, onSaveCategory, onDeleteCategory,
+}: {
   draft: Draft
   data: Bootstrap
   /** What the list is showing, queue included. The search offers these too, so a
@@ -59,6 +61,11 @@ export function StepDetails({ draft, data, entries, patch, onNext }: {
   entries: Entry[]
   patch: (fields: Partial<Draft>) => void
   onNext: () => void
+  /** The Categorías tab, written from the cog. Passed down rather than reached
+   *  for, so this screen still knows nothing about the network. */
+  onSaveCategory: (category: { name: string; icon: string; words: string[]; was?: string })
+    => Promise<void>
+  onDeleteCategory: (name: string) => Promise<void>
 }) {
   // `locate` because this is the screen that suggests by proximity, and the
   // position is read again on every visit: a fix is only worth what it was worth
@@ -193,11 +200,11 @@ export function StepDetails({ draft, data, entries, patch, onNext }: {
         <PlaceCards
           places={nearby}
           concept={draft.concept}
-          note={draft.note}
+          method={draft.method}
           onPick={place => patch(
-            place.concept === draft.concept && place.note === draft.note
-              ? { concept: '', note: '' }
-              : { concept: place.concept, note: place.note },
+            place.concept === draft.concept && place.method === draft.method
+              ? { concept: '', method: '' }
+              : { concept: place.concept, method: place.method },
           )}
         />
 
@@ -323,6 +330,10 @@ export function StepDetails({ draft, data, entries, patch, onNext }: {
           people={[data.config.people[0].name, data.config.people[1].name]}
           faces={faces}
           onFace={chooseFace}
+          categories={categories}
+          entries={entries}
+          onSaveCategory={onSaveCategory}
+          onDeleteCategory={onDeleteCategory}
         />
       )}
 

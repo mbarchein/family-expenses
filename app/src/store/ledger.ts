@@ -42,6 +42,11 @@ export interface Ledger {
   /** Records that a due date has been dealt with, confirmed or skipped.
    *  Deliberately not queued — see the comment where it is implemented. */
   settleFixed: (row: number, due: string) => Promise<void>
+  /** Writes one row of the Categorías tab and re-reads the sheet. Not queued —
+   *  see the note on `api.saveCategory`. */
+  saveCategory: (category: { name: string; icon: string; words: string[]; was?: string })
+    => Promise<void>
+  deleteCategory: (name: string) => Promise<void>
   refresh: () => Promise<void>
 }
 
@@ -220,6 +225,18 @@ export function useLedger(): Ledger {
     await refresh()
   }, [refresh])
 
+  const saveCategory = useCallback(async (
+    category: { name: string; icon: string; words: string[]; was?: string },
+  ) => {
+    await api.saveCategory(category)
+    await refresh()
+  }, [refresh])
+
+  const deleteCategory = useCallback(async (name: string) => {
+    await api.deleteCategory(name)
+    await refresh()
+  }, [refresh])
+
   const claimRow = useCallback(async (row: number) => {
     // Deliberately not queued: giving a legacy row an id is only useful with the
     // sheet in front of us, and an offline attempt would have nothing to
@@ -238,6 +255,8 @@ export function useLedger(): Ledger {
     fixed: mergeFixed(data?.fixed ?? [], queuedFixed),
     saveFixed,
     settleFixed,
+    saveCategory,
+    deleteCategory,
     refresh,
   }
 }
