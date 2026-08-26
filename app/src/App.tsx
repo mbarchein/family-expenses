@@ -96,7 +96,7 @@ export default function App() {
           {navigator.onLine
             ? <>
                 <Spinner />
-                {T.sync.saving}
+                {ledger.pending > 1 ? T.sync.savingMany(ledger.pending) : T.sync.saving}
                 {/* `attempts` counts tries, and the first one is not a
                     retry — so nothing is said until the upload is genuinely
                     repeating itself, and then the count starts at one. */}

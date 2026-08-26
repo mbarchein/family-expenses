@@ -179,6 +179,10 @@ export const T = {
     both: 'Ambos',
     search: 'Buscar concepto…',
     clearSearch: 'Borrar la búsqueda',
+    /** On the row itself, next to the concept. The strip above the tab bar says
+     *  something is going up; this says which one, which is the question when
+     *  the list has thirty rows in it and one of them is yours. */
+    unsaved: 'sin subir',
     empty: 'Todavía no hay nada apuntado',
     noResults: 'Ningún gasto con ese concepto',
     edit: 'Editar',
@@ -230,6 +234,9 @@ export const T = {
      *  interesting part of it, and what somebody who has just tapped Guardar
      *  wants to know is that it is being saved. */
     saving: 'Guardando…',
+    /** With the count, from two on. One is what the strip being there already
+     *  says; three is a number somebody wants to see going down. */
+    savingMany: (n: number) => `Guardando ${n} gastos…`,
     /** Next to Guardando… once the upload is actually repeating itself. It
      *  counts retries, not attempts: the first try is not a retry, and a save
      *  that announced "reintento 1" the moment it was tapped made every
