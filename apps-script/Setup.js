@@ -91,6 +91,23 @@ function setupSpreadsheet() {
     report.push('Sugerencias: created — texto | tipo | ámbito, with two payment methods');
   }
 
+  if (ss.getSheetByName(CATEGORIES_SHEET)) {
+    report.push('Categorías: already there, left alone');
+  } else {
+    var categories = categoriesSheet_();
+    categories.getRange(2, 1, CATEGORY_SEED.length, CATEGORY_HEADERS.length)
+      .setValues(CATEGORY_SEED);
+    // The notes are the documentation: this tab is edited in a browser by two
+    // people who are not going to read the source.
+    categories.getRange(1, 2).setNote(
+      'El nombre del icono. Varias categorías pueden compartir uno; la app avisa.');
+    categories.getRange(1, 3).setNote(
+      'Palabras que hacen adivinar esta categoría desde el concepto, separadas por comas.');
+    categories.setColumnWidth(1, 200);
+    categories.setColumnWidth(3, 420);
+    report.push('Categorías: created — ' + CATEGORY_SEED.length + ' to start with, rename freely');
+  }
+
   var idHeader = ledger.getRange(1, COL_ID);
   var current = String(idHeader.getValue() || '');
   if (!current) {

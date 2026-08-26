@@ -43,6 +43,10 @@ function sheet(name, values, maxColumns, formulas) {
     getLastRow: function () { return values.length },
     getLastColumn: function () { return (values[0] || []).length },
     setColumnWidth: function () {},
+    deleteRow: function (row) {
+      writes.push({ deleted: row })
+      values.splice(row - 1, 1)
+    },
     getRange: function (row, column, rows, columns) {
       var height = rows || 1
       var width = columns || 1
@@ -201,9 +205,12 @@ function load() {
   var fs = require('fs')
   var path = require('path')
   var dir = path.join(__dirname, '..')
-  // Auth.js was missing from this list, so every function in it — including the
-  // one that decides who may use the app — was run by no test at all.
-  var files = ['Config.js', 'Ledger.js', 'Fixed.js', 'Auth.js', 'Api.js', 'Setup.js']
+  // Every backend source, in the order Apps Script would see them. A file left
+  // out of this list is a file no test runs, which is how Auth.js — including the
+  // function that decides who may use the app — went untested for weeks.
+  var files = [
+    'Config.js', 'Categories.js', 'Ledger.js', 'Fixed.js', 'Auth.js', 'Api.js', 'Setup.js'
+  ]
   var source = files
     .filter(function (file) { return fs.existsSync(path.join(dir, file)) })
     .map(function (file) { return fs.readFileSync(path.join(dir, file), 'utf8') })

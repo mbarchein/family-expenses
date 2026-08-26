@@ -38,7 +38,9 @@ var ACTIONS = {
   voidEntry: handleVoid_,
   assignId: handleAssignId_,
   saveFixed: handleSaveFixed_,
-  fixedDone: handleFixedDone_
+  fixedDone: handleFixedDone_,
+  saveCategory: handleSaveCategory_,
+  deleteCategory: handleDeleteCategory_
 };
 
 function doPost(e) {
@@ -134,11 +136,23 @@ function handleBootstrap_(payload, user) {
     // found by typing it.
     frequent: conceptVocabulary_(config),
     suggestions: readSuggestions_().items,
+    // The categories, their icons and the words that guess them. Sent on every
+    // open rather than fetched separately: it is thirty short rows, and the app
+    // needs it before it can draw the second step.
+    categories: readCategories_().items,
     // The templates as they are, not what they owe: which periods are due is
     // worked out in the app, where the calendar arithmetic has tests.
     fixed: readFixed_().items,
     lastRow: tail.lastRow
   };
+}
+
+function handleSaveCategory_(payload, user) {
+  return saveCategory_(payload);
+}
+
+function handleDeleteCategory_(payload, user) {
+  return deleteCategory_(payload);
 }
 
 function handleAppend_(payload, user) {
