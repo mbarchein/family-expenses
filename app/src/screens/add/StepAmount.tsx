@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { Keypad } from '../../components/Keypad'
+import { useEffect, useRef, useState } from 'react'
+import { BACKSPACE, Keypad, pressKey } from '../../components/Keypad'
 import { Avatar } from '../../components/Avatar'
 import { Segmented } from '../../components/Segmented'
 import { T } from '../../i18n/strings'
@@ -33,6 +33,47 @@ export function StepAmount({ draft, people, patch, onNext }: {
   const day = useRef<HTMLInputElement>(null)
   // Only for a browser whose date field cannot open itself. See `openCalendar`.
   const [showField, setShowField] = useState(false)
+
+  /**
+   * The same amount, from a real keyboard.
+   *
+   * The grid of buttons was the only way in, so on a laptop — and on a phone with
+   * a keyboard paired to it — typing 12,50 did nothing whatsoever. The keystrokes
+   * go through `pressKey`, the same rules the buttons use, rather than through a
+   * second implementation of "two decimals and no more".
+   *
+   * On `window` rather than on a focusable element, because there is nothing here
+   * to focus: the amount is an `<output>`, and giving the screen a hidden input
+   * to hold the caret would open the on-screen keyboard on the phones that do not
+   * need any of this. Keys are left alone whenever a field has the focus, so the
+   * date picker and the concept box keep every character they are given.
+   */
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      const target = event.target as HTMLElement | null
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA'
+          || target?.isContentEditable) {
+        return
+      }
+
+      const key = /^[0-9]$/.test(event.key) ? event.key
+        // The decimal separator is the comma on this keyboard and the point on
+        // that one, and on a numeric pad it is whichever the layout says. Both
+        // mean cents.
+        : event.key === ',' || event.key === '.' ? ','
+        : event.key === 'Backspace' ? BACKSPACE
+        : null
+      if (!key) return
+
+      event.preventDefault()
+      const next = pressKey(draft.typed, key)
+      if (next !== draft.typed) patch({ typed: next })
+    }
+
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [draft.typed, patch])
 
   /**
    * Open the device's calendar on the hidden field.

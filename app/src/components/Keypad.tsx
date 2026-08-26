@@ -1,4 +1,29 @@
-const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', '⌫']
+/** The key that deletes, as the button draws it. Named because it now arrives
+ *  from two places: a tap on the grid, and Backspace on a real keyboard. */
+export const BACKSPACE = '⌫'
+
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', BACKSPACE]
+
+/**
+ * One keystroke against a typed amount, as a value rather than an effect.
+ *
+ * Pulled out of the component because the grid of buttons stopped being the only
+ * way in: on a desktop, or with a keyboard paired to the phone, the number keys
+ * have to reach the same rules. Two implementations of "two decimals and no
+ * more" would drift, and the one that drifted would be the one nobody tested.
+ *
+ * Returns the value unchanged for a keystroke that does nothing, which is how
+ * the caller knows not to repaint.
+ */
+export function pressKey(value: string, key: string): string {
+  if (key === BACKSPACE) return value.slice(0, -1)
+  if (key === ',') return value.includes(',') ? value : `${value || '0'},`
+  // Two decimals and no more: there is no third cent.
+  const [, cents] = value.split(',')
+  if (cents !== undefined && cents.length >= 2) return value
+  if (value === '0') return key
+  return value + key
+}
 
 /**
  * Appends to a string rather than editing a number.
@@ -12,13 +37,8 @@ export function Keypad({ value, onChange }: {
   onChange: (value: string) => void
 }) {
   function press(key: string) {
-    if (key === '⌫') return onChange(value.slice(0, -1))
-    if (key === ',') return value.includes(',') ? undefined : onChange((value || '0') + ',')
-    // Two decimals and no more: there is no third cent.
-    const [, cents] = value.split(',')
-    if (cents !== undefined && cents.length >= 2) return
-    if (value === '0') return onChange(key)
-    onChange(value + key)
+    const next = pressKey(value, key)
+    if (next !== value) onChange(next)
   }
 
   return (
@@ -28,7 +48,7 @@ export function Keypad({ value, onChange }: {
           key={key}
           type="button"
           onClick={() => press(key)}
-          aria-label={key === '⌫' ? 'Borrar' : key}
+          aria-label={key === BACKSPACE ? 'Borrar' : key}
           className="rounded-xl border border-line bg-surface py-3 font-mono text-2xl
                      font-medium text-ink active:opacity-70
                      focus-visible:outline focus-visible:outline-2"

@@ -739,3 +739,41 @@ test('a save that works says nothing about retries', async ({ page }) => {
   await expect(page.getByText('Paso 1 de 3')).toBeVisible()
   await expect(page.getByText(/reintento/)).toHaveCount(0)
 })
+
+
+test('the amount can be typed on a real keyboard', async ({ page }) => {
+  // On a laptop, or on a phone with a keyboard paired to it, the grid of buttons
+  // was the only way in: typing 12,50 did nothing whatsoever.
+  await stubApi(page)
+  await signIn(page)
+
+  await page.keyboard.type('12.50')
+  // The point is taken as the comma — same key on a numeric pad, and on an
+  // external keyboard it is whichever the layout says.
+  await expect(page.locator('output')).toContainText('12,50')
+
+  await page.keyboard.press('Backspace')
+  await expect(page.locator('output')).toContainText('12,5')
+
+  // A third cent is refused here exactly as it is on the buttons.
+  await page.keyboard.type('99')
+  await expect(page.locator('output')).toContainText('12,59')
+
+  await next(page)
+  await expect(page.getByText('Paso 2 de 3')).toBeVisible()
+})
+
+test('a keystroke aimed at a field stays in the field', async ({ page }) => {
+  // The listener is on the window, so the one thing it must never do is eat the
+  // characters somebody is typing into the concept box.
+  await stubApi(page)
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+
+  const concept = page.getByRole('textbox', { name: 'Concepto' })
+  await concept.fill('')
+  await concept.pressSequentially('caña 2,5')
+
+  await expect(concept).toHaveValue('caña 2,5')
+})
