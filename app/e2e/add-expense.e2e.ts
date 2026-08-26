@@ -640,7 +640,10 @@ test('a concept apuntado a minute ago can be found by typing it', async ({ page 
   await page.getByRole('button', { name: 'Guardar' }).click()
   await expect(page.getByText('Paso 1 de 3')).toBeVisible()
   // Still on this phone and nowhere else, which is the state being tested.
-  await expect(page.getByText(/sin subir|Sin conexión/)).toBeVisible()
+  // Filtered rather than bare: the amount readout is an <output>, which is a
+  // status too, and `getByRole('status')` alone resolves to both.
+  await expect(page.getByRole('status').filter({ hasText: /Guardando|Sin conexión/ }))
+    .toBeVisible()
 
   await typeAmount(page, '8')
   await next(page)

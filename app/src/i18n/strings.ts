@@ -225,6 +225,12 @@ export const T = {
   },
 
   sync: {
+    /** While something is on its way up. Not a count: the number was the least
+     *  interesting part of it, and what somebody who has just tapped Guardar
+     *  wants to know is that it is being saved. */
+    saving: 'Guardando…',
+    /** Still used where a row has no row number yet, which is the same fact seen
+     *  from one entry rather than from the queue. */
     pending: (n: number) => (n === 1 ? '1 gasto sin subir' : `${n} gastos sin subir`),
     offline: 'Sin conexión · se subirá solo',
     failed: 'No se ha podido subir',

@@ -75,9 +75,25 @@ export default function App() {
         {route === 'fixed' && <FixedScreen ledger={ledger} onBack={back} />}
       </main>
 
+      {/* Above the tab bar, in the accent colour, with a ring going round.
+          It used to be eleven grey pixels on a grey strip saying "1 gasto sin
+          subir", which is a sentence about the queue: true, and not what the
+          person who just tapped Guardar is asking. They are asking whether it
+          worked. So: Guardando…, at a size that is visible from the arm's
+          length a phone is held at, and a spinner, because a strip that says
+          the same thing whether or not anything is happening is furniture. */}
       {ledger.pending > 0 && (
-        <p className="bg-surface-2 py-1.5 text-center text-[11px] text-ink-2">
-          {navigator.onLine ? T.sync.pending(ledger.pending) : T.sync.offline}
+        <p
+          role="status"
+          aria-live="polite"
+          className="flex items-center justify-center gap-2 border-t-2 py-2 text-sm font-semibold"
+          style={{
+            background: 'var(--accent-soft)',
+            borderColor: 'var(--accent)',
+            color: 'var(--accent)',
+          }}
+        >
+          {navigator.onLine ? <><Spinner />{T.sync.saving}</> : T.sync.offline}
         </p>
       )}
 
@@ -122,6 +138,24 @@ function Splash({ stuck }: { stuck: boolean }) {
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * A ring with a quarter missing, going round.
+ *
+ * Borders rather than an SVG: three classes, no file, and it inherits the colour
+ * of the text beside it. `motion-reduce` stops it turning for anyone who has
+ * asked the phone for that — a still ring is still a marker, and a person who
+ * has switched animation off has not asked to be told less.
+ */
+function Spinner() {
+  return (
+    <span
+      aria-hidden="true"
+      className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current
+                 border-t-transparent motion-reduce:animate-none"
+    />
   )
 }
 
