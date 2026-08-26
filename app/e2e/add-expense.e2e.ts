@@ -715,9 +715,15 @@ test('an append the sheet never really did stays on the phone', async ({ page })
 
   // And still in the list, because the list shows the queue as well as the
   // sheet. An expense somebody typed does not disappear because a server
-  // answered nonsense.
+  // answered nonsense — and its own row says it has not gone up yet, which the
+  // strip above the tab bar cannot, since it does not know which row is which.
   await page.getByRole('button', { name: 'Gastos' }).click()
-  await expect(page.getByRole('button', { name: /Museo/ })).toBeVisible()
+  const row = page.getByRole('button', { name: /Museo/ })
+  await expect(row).toBeVisible()
+  await expect(row).toContainText('sin subir')
+
+  // The rows that did come from the sheet carry no such mark.
+  await expect(page.getByRole('button', { name: /gasolina/ })).not.toContainText('sin subir')
 })
 
 test('a save that works says nothing about retries', async ({ page }) => {

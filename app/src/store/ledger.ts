@@ -10,11 +10,23 @@ import {
 
 export type Status = 'loading' | 'ready' | 'needsAuth' | 'forbidden' | 'error'
 
+/**
+ * An entry as the app shows it: the sheet's row plus whether it is still on its
+ * way up.
+ *
+ * `pending` is not part of the API and deliberately does not live on `Entry`.
+ * The sheet has no idea an expense was ever queued; this is the phone's own
+ * knowledge, and the list is the one place it belongs.
+ */
+export interface ShownEntry extends Entry {
+  pending: boolean
+}
+
 export interface Ledger {
   status: Status
   error: string | null
   data: Bootstrap | null
-  entries: Entry[]
+  entries: ShownEntry[]
   pending: number
   /** How many attempts the most-retried queued operation has behind it. Zero
    *  while an upload is simply in flight. */
@@ -217,14 +229,15 @@ export function useLedger(): Ledger {
  * either newer (an edit still in flight) or identical (already uploaded, not
  * yet re-fetched). Either way the user sees what they typed.
  */
-function merge(server: Entry[], local: Map<string, QueuedEntry>, voided: Set<string>): Entry[] {
-  const byId = new Map<string, Entry>()
+function merge(server: Entry[], local: Map<string, QueuedEntry>,
+               voided: Set<string>): ShownEntry[] {
+  const byId = new Map<string, ShownEntry>()
   for (const entry of server) {
-    byId.set(entry.id || `row:${entry.row}`, entry)
+    byId.set(entry.id || `row:${entry.row}`, { ...entry, pending: false })
   }
   for (const [id, entry] of local) {
     const existing = byId.get(id)
-    byId.set(id, { ...entry, row: existing?.row ?? 0, voided: false })
+    byId.set(id, { ...entry, row: existing?.row ?? 0, voided: false, pending: true })
   }
   return [...byId.values()]
     .map(entry => (voided.has(entry.id) ? { ...entry, voided: true } : entry))

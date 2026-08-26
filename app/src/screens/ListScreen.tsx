@@ -10,7 +10,7 @@ import { formatEur } from '../lib/money'
 import { earliestDay, summarise, yearIsPartial } from '../lib/totals'
 import type { Entry } from '../api/types'
 import { useIconChoices } from '../store/iconChoices'
-import type { Ledger } from '../store/ledger'
+import type { Ledger, ShownEntry } from '../store/ledger'
 import { EditSheet } from './EditSheet'
 
 export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => void }) {
@@ -133,11 +133,17 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
                 >
                   <RowIcon entry={entry} chosen={chosen} />
                   <span className="min-w-0 flex-1">
-                    <span
-                      className="block truncate text-sm"
-                      style={entry.voided ? { textDecoration: 'line-through', color: 'var(--ink-3)' } : undefined}
-                    >
-                      {entry.concept}
+                    {/* A row and not a block, so the badge keeps its width and
+                        the concept is what gets truncated. The other way round
+                        the mark disappeared exactly on the long concepts. */}
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="truncate text-sm"
+                        style={entry.voided ? { textDecoration: 'line-through', color: 'var(--ink-3)' } : undefined}
+                      >
+                        {entry.concept}
+                      </span>
+                      {entry.pending && <UnsavedBadge />}
                     </span>
                     {/* Who paid and when, on one grey line. The day heading
                         above says the same date, and that is not a reason to
@@ -181,6 +187,30 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
 }
 
 /**
+ * The mark on a row that has not reached the sheet yet.
+ *
+ * The strip above the tab bar says something is going up. This says which one —
+ * the question worth answering when the list has thirty rows on it and the one
+ * just typed is somewhere among them.
+ */
+function UnsavedBadge() {
+  return (
+    <span
+      className="flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[10px]
+                 font-semibold"
+      style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="h-3 w-3"
+           fill="none" stroke="currentColor" strokeWidth={2.5}
+           strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 19V7M7 12l5-5 5 5" />
+      </svg>
+      {T.list.unsaved}
+    </span>
+  )
+}
+
+/**
  * One slot at the head of the row, doing two jobs.
  *
  * The colour is who paid, which is what the dot in this position has always
@@ -189,7 +219,7 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
  * left: `iconFor` answers nothing rather than something approximate, because a
  * guess that misses is a small lie printed on every row of somebody's history.
  */
-function RowIcon({ entry, chosen }: { entry: Entry; chosen: Record<string, string> }) {
+function RowIcon({ entry, chosen }: { entry: ShownEntry; chosen: Record<string, string> }) {
   const icon = iconFor(entry.concept, chosen[fold(entry.concept)])
   const colour = entry.voided
     ? 'var(--ink-3)'
@@ -204,10 +234,10 @@ function RowIcon({ entry, chosen }: { entry: Entry; chosen: Record<string, strin
   )
 }
 
-interface Day { date: string; total: number; entries: Entry[] }
+interface Day { date: string; total: number; entries: ShownEntry[] }
 
 /** The entries a person filter and a search leave standing. */
-function matching(entries: Entry[], filter: string, query: string): Entry[] {
+function matching(entries: ShownEntry[], filter: string, query: string): ShownEntry[] {
   const needle = query.trim().toLowerCase()
   return entries.filter(entry =>
     (filter === 'all' || entry.payer === Number(filter)) &&
@@ -222,7 +252,7 @@ function matching(entries: Entry[], filter: string, query: string): Entry[] {
  * app and the sheet telling different stories. They contribute nothing to the
  * day's total, because their amounts are gone.
  */
-function groupByDay(entries: Entry[]): Day[] {
+function groupByDay(entries: ShownEntry[]): Day[] {
   const days = new Map<string, Day>()
 
   for (const entry of entries) {
