@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { CategoryField } from '../../components/CategoryField'
 import { ConceptGrid, type ConceptTile } from '../../components/ConceptGrid'
 import { IconMenu } from '../../components/IconMenu'
@@ -53,6 +53,7 @@ const TILES = 8
  */
 export function StepDetails({
   draft, data, entries, patch, onNext, onSaveCategory, onDeleteCategory,
+  menu, onOpenMenu, onCloseMenu,
 }: {
   draft: Draft
   data: Bootstrap
@@ -66,6 +67,11 @@ export function StepDetails({
   onSaveCategory: (category: { name: string; icon: string; words: string[]; was?: string })
     => Promise<void>
   onDeleteCategory: (name: string) => Promise<void>
+  /** Whether the cog sheet is up. It is `/iconos` rather than a `useState` here,
+   *  so back closes it and a reload reopens it. */
+  menu: boolean
+  onOpenMenu: () => void
+  onCloseMenu: () => void
 }) {
   // `locate` because this is the screen that suggests by proximity, and the
   // position is read again on every visit: a fix is only worth what it was worth
@@ -73,7 +79,6 @@ export function StepDetails({
   const { nearby } = usePlaces({ locate: true })
   const { chosen, choose } = useIconChoices()
   const { faces, choose: chooseFace } = useAvatars()
-  const [menu, setMenu] = useState(false)
 
   const categories = data.categories ?? []
 
@@ -248,7 +253,7 @@ export function StepDetails({
           />
           <button
             type="button"
-            onClick={() => setMenu(true)}
+            onClick={onOpenMenu}
             aria-label={T.icons.menu}
             className="grid w-14 shrink-0 place-items-center rounded-lg border border-line
                        focus-visible:outline focus-visible:outline-2"
@@ -326,7 +331,7 @@ export function StepDetails({
           concepts={known}
           chosen={chosen}
           onChoose={choose}
-          onClose={() => setMenu(false)}
+          onClose={onCloseMenu}
           people={[data.config.people[0].name, data.config.people[1].name]}
           faces={faces}
           onFace={chooseFace}

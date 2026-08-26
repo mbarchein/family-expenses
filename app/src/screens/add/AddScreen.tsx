@@ -9,12 +9,16 @@ import { todayIso } from '../../lib/dates'
 import { typedFromAmount } from '../../lib/money'
 import { BackIcon } from '../../components/ScreenHeader'
 import { watchPosition } from '../../lib/position'
+import { useBackClose } from '../../lib/route'
 import { usePlaces } from '../../store/places'
 import { StepAmount } from './StepAmount'
 import { StepDetails } from './StepDetails'
 import { StepReview, type PlaceState } from './StepReview'
 
 const STEPS = 3
+
+/** The detail segment the cog sheet answers to: `/iconos`. */
+const MENU = 'iconos'
 
 /** A cross, on its own filled circle. As four small words it was the least
  *  visible thing on a row of large ones, and a word in a header is read rather
@@ -49,7 +53,16 @@ function CloseIcon() {
  * in IndexedDB, so an interruption — a lock screen, a phone call, or this app
  * reloading itself to pick up a new version — costs nothing.
  */
-export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => void }) {
+export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
+  ledger: Ledger
+  onLeave: () => void
+  /** The cog sheet is `/iconos`, so it survives the reload this app performs on
+   *  itself when a new version lands — which is the one moment somebody is
+   *  halfway through renaming a category and would rather not start again. */
+  detail: string
+  onOpen: (detail: string) => void
+  onCloseDetail: () => void
+}) {
   const data = ledger.data
   const me = data?.config.meIndex ?? -1
   const { draft, ready, patch, reset } = useDraft(me === 1 ? 1 : 0)
@@ -63,6 +76,9 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
   const { locateNow, knows, rememberAt, nearby } = usePlaces()
   const [place, setPlace] = useState<PlaceState>({ kind: 'off' })
   const [showDue, setShowDue] = useState(false)
+  // It opens over the keypad from a banner rather than from an address, so this
+  // is what makes back close it instead of leaving the app.
+  useBackClose(showDue, () => setShowDue(false))
 
   // What the recurring templates owe, worked out here rather than in the
   // backend: it is calendar arithmetic, and this side has a test runner.
@@ -107,6 +123,18 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
     // step change would push the entries a second time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready])
+
+  /**
+   * An address saying `/iconos` when the sheet cannot be open.
+   *
+   * The cog lives on the second step, so a cold load of that address with a draft
+   * saved on the keypad or on the review would leave the address describing a
+   * screen that is not there. The address gives way rather than the draft: what
+   * somebody was in the middle of writing outranks where a link said they were.
+   */
+  useEffect(() => {
+    if (ready && detail && step !== 1) onCloseDetail()
+  }, [ready, detail, step, onCloseDetail])
 
   /**
    * While the switch is on and this screen is up, keep improving the fix.
@@ -198,8 +226,17 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
     })
     // The history has to grow with the step, or back from a proposed review
     // would leave the app instead of returning to the keypad.
+    //
+    // The entry being replaced is the sheet's own — `useBackClose` pushed it so
+    // that back would close the sheet, and this is where we are standing. Reused
+    // as the first step rather than built on top of: on top of it, back from the
+    // review would walk the steps and then find one more entry that also means
+    // "the keypad", and a press that changes nothing on screen is the shape of
+    // the bug this whole file was just fixed for. Where the amount is not known
+    // there is nothing to replace it with, and the sheet takes its own entry back
+    // out as it closes.
     if (known) {
-      history.pushState({ step: 1 }, '')
+      history.replaceState({ step: 1 }, '')
       history.pushState({ step: 2 }, '')
     }
   }
@@ -388,6 +425,9 @@ export function AddScreen({ ledger, onLeave }: { ledger: Ledger; onLeave: () => 
           onNext={forward}
           onSaveCategory={ledger.saveCategory}
           onDeleteCategory={ledger.deleteCategory}
+          menu={detail === MENU}
+          onOpenMenu={() => onOpen(MENU)}
+          onCloseMenu={onCloseDetail}
         />
       )}
       {step === 2 && (

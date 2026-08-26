@@ -27,8 +27,9 @@ describeDevice({
  * Google's consent screen has to link to a privacy policy and to terms, and
  * whoever checks those links has no account here — so they cannot live inside
  * `App`, which asks for a ledger and shows a sign-in wall before rendering
- * anything. A pathname switch is the whole router this app needs: there are
- * three tabs and they are state, not URLs.
+ * anything. A pathname switch is all this needs: the app's own screens have real
+ * addresses — see `lib/route.ts` — and these two are not among them, since
+ * neither one is the app.
  *
  * `app/vercel.json` rewrites every path to index.html, so these two arrive here
  * rather than as a 404.

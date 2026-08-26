@@ -6,6 +6,7 @@ import { formatEur } from '../lib/money'
 import type { Category, Entry } from '../api/types'
 import { alsoWearing, iconOfCategory } from '../lib/categories'
 import { fold, iconFor, initialOf } from '../lib/icons'
+import { useBackClose } from '../lib/route'
 
 /**
  * Give a concept an icon.
@@ -54,6 +55,20 @@ export function IconMenu({
     : category !== null ? (category ? T.categories.edit(category) : T.categories.add)
     : T.icons.title
 
+  /** One step out: back through the inner lists first, and only then out of the
+   *  sheet. The header button and the phone's back button are the same thing,
+   *  which is the whole point of naming it. */
+  const stepBack = () => {
+    if (editing) return setEditing(null)
+    if (whose !== null) return setWhose(null)
+    if (category !== null) return setCategory(null)
+    onClose()
+  }
+
+  // Only for the inner lists. The sheet itself is an address — `/iconos` — so the
+  // entry that takes back out of it has already been pushed by the route.
+  useBackClose(editing !== null || whose !== null || category !== null, stepBack)
+
   return (
     <div
       className="absolute inset-0 z-10 flex flex-col"
@@ -65,12 +80,7 @@ export function IconMenu({
         <p className="flex-1 text-sm font-semibold">{heading}</p>
         <button
           type="button"
-          onClick={() => {
-            if (editing) return setEditing(null)
-            if (whose !== null) return setWhose(null)
-            if (category !== null) return setCategory(null)
-            onClose()
-          }}
+          onClick={stepBack}
           className="text-sm font-semibold focus-visible:outline focus-visible:outline-2"
           style={{ color: 'var(--accent)' }}
         >

@@ -48,6 +48,32 @@ test('a due template is proposed, and confirming goes through the review', async
     .toMatchObject({ row: 2, due: firstOfThisMonth() })
 })
 
+test('confirming a proposal leaves one history entry per step and nothing over',
+  async ({ page }) => {
+  // The sheet has a history entry of its own, so that back closes it. Confirming
+  // moves forward from inside it, and the entry has to be reused rather than
+  // buried: buried, back from the review walked the three steps and then found a
+  // fourth entry that also meant "the keypad", so the press did nothing at all.
+  await stubApi(page, bootstrap({ fixed: [fixed()] }))
+  await signIn(page)
+
+  const depth = () => page.evaluate(() => history.length)
+  const before = await depth()
+
+  await page.getByRole('button', { name: 'Hay 1 fijo vencido' }).click()
+  await page.getByRole('dialog', { name: 'Fijos vencidos' })
+    .getByRole('button', { name: 'Siguiente' }).click()
+  await expect(page.getByText('Paso 3 de 3')).toBeVisible()
+
+  // Two: the second step and the third. The sheet's own is one of them now.
+  expect(await depth() - before).toBe(2)
+
+  await page.goBack()
+  await expect(page.getByText('Paso 2 de 3')).toBeVisible()
+  await page.goBack()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+})
+
 test('a template with no amount lands on the keypad instead', async ({ page }) => {
   // The light, the water: the concept and the day are known and the number is
   // not, so the flow starts where the number gets typed.

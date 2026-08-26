@@ -229,3 +229,100 @@ test('an address naming a row that is not there opens the screen, not a hole',
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Fijos' })).toBeVisible()
 })
+
+/**
+ * And the sheets that are not addresses.
+ *
+ * The category picker, the cog's inner lists and the proposal of what the fijos
+ * owe open over a form whose contents are nowhere in the URL, so they are not
+ * given a path of their own — but back on a phone means "close this", and a sheet
+ * that ignores it takes the whole screen away. Same bug as the fijo detail, three
+ * more places.
+ */
+test('the cog sheet has an address, and back closes it', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: '5', exact: true }).click()
+  await page.getByRole('button', { name: 'Siguiente' }).click()
+
+  await page.getByRole('button', { name: 'Iconos' }).click()
+  await expect(page).toHaveURL(/\/iconos$/)
+  await expect(page.getByRole('dialog')).toBeVisible()
+
+  // Back to the step it was opened from, with the amount still on the draft.
+  await page.goBack()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByText('Paso 2 de 3')).toBeVisible()
+})
+
+test('back inside the cog sheet steps out of the list, not out of the sheet',
+  async ({ page }) => {
+  // The nesting, which is what makes this more than one line: labelling one
+  // concept and labelling four are the same errand, so back from the icons goes
+  // to the concepts rather than closing everything.
+  await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: '5', exact: true }).click()
+  await page.getByRole('button', { name: 'Siguiente' }).click()
+  await page.getByRole('button', { name: 'Iconos' }).click()
+
+  const menu = page.getByRole('dialog')
+  await menu.getByRole('button', { name: /^chuches/ }).click()
+  await expect(page.getByRole('button', { name: 'huella', exact: true })).toBeVisible()
+
+  await page.goBack()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(menu.getByRole('button', { name: /^chuches/ })).toBeVisible()
+  await expect(page).toHaveURL(/\/iconos$/)
+
+  // And the second press leaves the sheet, because the sheet is the address.
+  await page.goBack()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByText('Paso 2 de 3')).toBeVisible()
+})
+
+test('an address for the cog sheet with the draft elsewhere opens the keypad', async ({ page }) => {
+  // Nothing typed, so there is no second step for the cog to be on. The address
+  // gives way rather than the draft.
+  await stubApi(page)
+  await stubGoogle(page)
+  await page.goto('/iconos')
+  await page.getByTestId('google-sign-in').click()
+
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page).toHaveURL(/\/$/)
+})
+
+test('back closes the category picker and leaves the editor open', async ({ page }) => {
+  await stubApi(page, bootstrap({
+    fixed: [fixed({ row: 4, concept: 'alquiler', amount: 700, day: 1 })],
+  }))
+  await signIn(page)
+  await page.goto('/fijos/4')
+  await expect(page.getByRole('dialog')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Elegir categoría' }).click()
+  await expect(page.getByRole('dialog', { name: 'Elegir categoría' })).toBeVisible()
+
+  // The editor is still there afterwards — this is the sheet whose back button
+  // had the furthest to fall, since closing it wrongly would have shut the form
+  // as well and lost what was typed into it.
+  await page.goBack()
+  await expect(page.getByRole('dialog', { name: 'Elegir categoría' })).toHaveCount(0)
+  await expect(page.getByRole('combobox', { name: 'Concepto' })).toHaveValue('alquiler')
+  await expect(page).toHaveURL(/\/fijos\/4$/)
+})
+
+test('back closes what the fijos owe and stays on the keypad', async ({ page }) => {
+  await stubApi(page, bootstrap({ fixed: [fixed()] }))
+  await signIn(page)
+
+  await page.getByRole('button', { name: 'Hay 1 fijo vencido' }).click()
+  await expect(page.getByRole('dialog', { name: 'Fijos vencidos' })).toBeVisible()
+
+  await page.goBack()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+})

@@ -68,7 +68,15 @@ export default function App() {
   return (
     <div className="flex h-full flex-col">
       <main className="flex-1 overflow-y-auto">
-        {route === 'add' && <AddScreen ledger={ledger} onLeave={back} />}
+        {route === 'add' && (
+          <AddScreen
+            ledger={ledger}
+            onLeave={back}
+            detail={detail}
+            onOpen={openDetail}
+            onCloseDetail={closeDetail}
+          />
+        )}
         {route === 'list' && (
           <ListScreen
             ledger={ledger}

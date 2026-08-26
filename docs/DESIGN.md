@@ -631,8 +631,17 @@ in, and the sheet is shared with the two of them and nobody else. What is left:
   copy first, and the copy stays afterwards for the same reason.
 - **Review who has access to the spreadsheet, periodically.** Drive governs
   authorization now, so anyone with edit permission could post from the app.
-- **Two gaps left open on purpose.** `app/e2e/` is outside `tsc -b` and
+- **One gap left open on purpose.** `app/e2e/` is outside `tsc -b` and
   `eslint src`, since tsconfig covers only `src` and the tests need Node globals
-  the app's type surface excludes. And the tabs are state rather than URLs, so
-  the device's back button walks the three entry steps but does not walk between
-  Añadir, Gastos, Diferencia and Sitios.
+  the app's type surface excludes.
+
+The other gap that used to be here — the tabs being state rather than URLs — is
+closed. Every screen has an address (`/`, `/gastos`, `/diferencia`, `/sitios`,
+`/fijos`), so does each detail sheet (`/fijos/4`, `/fijos/nuevo`, `/gastos/<id>`)
+and so does the cog sheet (`/iconos`); the device's back button walks all of it,
+and a reload — including the one the app performs on itself when a new version
+lands — comes back to what was open. The sheets that are not addresses close on
+back instead, through `useBackClose`: the category picker, the cog sheet's inner
+lists and the proposal of what the fijos owe open over a form whose contents are
+nowhere in the URL, so a path of their own would promise to restore something it
+cannot.

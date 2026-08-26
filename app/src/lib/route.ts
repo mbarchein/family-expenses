@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
  * Which screen is on, in the address bar rather than in a variable.
@@ -43,6 +43,17 @@ const PATHS: Record<Route, string> = {
  * the sheet, which is the bug this answers. A reload landed on the keypad, and
  * nobody could send the other one a link to a row.
  */
+/**
+ * The details the keypad answers to.
+ *
+ * Listed rather than derived, and this is the reason: `/` is the prefix of every
+ * path in the app, so anything else would make `/cualquier-cosa` a detail of the
+ * keypad instead of an address nobody recognises. One entry today — the cog
+ * sheet, which is a place you can be sent back to when the app reloads itself on
+ * a deploy.
+ */
+const ADD_DETAILS = ['iconos']
+
 export function pathOf(route: Route, detail = ''): string {
   const base = PATHS[route]
   if (!detail) return base
@@ -63,6 +74,8 @@ function split(pathname: string): { route: Route; detail: string } {
   const trimmed = pathname.replace(/\/+$/, '') || '/'
   const exact = (Object.keys(PATHS) as Route[]).find(route => PATHS[route] === trimmed)
   if (exact) return { route: exact, detail: '' }
+
+  if (ADD_DETAILS.includes(trimmed.slice(1))) return { route: 'add', detail: trimmed.slice(1) }
 
   // Longest first, so `/fijos` is tried before `/` — otherwise every path would
   // match the keypad and everything after the first slash would be its detail.
@@ -89,6 +102,24 @@ function decode(raw: string): string {
 }
 
 /**
+ * The state of the entry we are on, to be carried onto the next one.
+ *
+ * The add wizard keeps its step in `history.state`, and a screen or a detail
+ * arriving on top is not entitled to lose it: an entry pushed with a bare `{}`
+ * made the wizard read "no step" when it was popped back to, so back out of the
+ * cog sheet's icon list dropped the whole flow to the keypad — a sheet closing
+ * two screens at once, which is the bug this file exists to answer.
+ *
+ * `overlay` is the exception and is dropped: it marks how deep a sheet sits above
+ * *this* entry, so it means nothing on the next one.
+ */
+function carried(): Record<string, unknown> {
+  const state = { ...(history.state as Record<string, unknown> | null) }
+  delete state.overlay
+  return state
+}
+
+/**
  * How many entries this app has pushed itself.
  *
  * It is what the back button needs to know: `history.back()` from the first
@@ -111,7 +142,7 @@ export function useRoute() {
   const go = useCallback((next: Route) => {
     const now = split(location.pathname)
     if (now.route === next && !now.detail) return
-    history.pushState({}, '', pathOf(next))
+    history.pushState(carried(), '', pathOf(next))
     pushed++
     setAt({ route: next, detail: '' })
   }, [])
@@ -125,7 +156,7 @@ export function useRoute() {
   const openDetail = useCallback((detail: string) => {
     const now = split(location.pathname)
     if (now.detail === detail) return
-    history.pushState({}, '', pathOf(now.route, detail))
+    history.pushState(carried(), '', pathOf(now.route, detail))
     pushed++
     setAt({ route: now.route, detail })
   }, [])
@@ -135,7 +166,7 @@ export function useRoute() {
    *  still leaves an arrow that does something sensible. */
   const back = useCallback(() => {
     if (pushed > 0) return history.back()
-    history.replaceState({}, '', pathOf('add'))
+    history.replaceState(carried(), '', pathOf('add'))
     setAt({ route: 'add', detail: '' })
   }, [])
 
@@ -151,9 +182,62 @@ export function useRoute() {
   const closeDetail = useCallback(() => {
     if (pushed > 0) return history.back()
     const now = split(location.pathname)
-    history.replaceState({}, '', pathOf(now.route))
+    history.replaceState(carried(), '', pathOf(now.route))
     setAt({ route: now.route, detail: '' })
   }, [])
 
   return { route: at.route, detail: at.detail, go, openDetail, back, closeDetail }
+}
+
+/**
+ * A sheet that the back button closes.
+ *
+ * For the overlays that are not addresses: the cog sheet's inner lists, the
+ * category picker, the proposal of what the recurring templates owe. They open
+ * over a form whose contents are nowhere in the URL, so a path of their own would
+ * promise to restore something it cannot — but the back button on a phone is the
+ * gesture for "close this", and a sheet that ignores it takes the whole screen
+ * away instead. That was the reported bug, and it is not only about the fijos.
+ *
+ * While `open`, one history entry belongs to this sheet, and pressing back runs
+ * exactly the same function its own Cerrar runs. Two things make it safe to
+ * nest:
+ *
+ * - The entry is stamped with its depth, taken from the entry underneath, and a
+ *   pop only closes the sheet whose stamp has just disappeared. Without that, the
+ *   sheet beneath would hear the same popstate and close as well, so one press
+ *   would shut both.
+ * - Closing from the button takes the entry back out, but only if it is still on
+ *   top. It is not, if a tab was tapped while the sheet was up: stepping back
+ *   then would undo the navigation the tap just made, and one stale entry is a
+ *   far smaller thing than a tab bar that bounces.
+ *
+ * The rest of the state is preserved into our entry, because the add wizard keeps
+ * its step there and a sheet is not entitled to lose it.
+ */
+export function useBackClose(open: boolean, onBack: () => void) {
+  // Through a ref, so a handler rebuilt on every render does not push and pop an
+  // entry on every render with it. Written in an effect rather than during the
+  // render: a ref touched while rendering is a lint error and, in a concurrent
+  // render that is thrown away, a lie.
+  const latest = useRef(onBack)
+  useEffect(() => { latest.current = onBack }, [onBack])
+
+  useEffect(() => {
+    if (!open) return
+    const state = history.state as { overlay?: number } | null
+    const depth = (state?.overlay ?? 0) + 1
+    history.pushState({ ...state, overlay: depth }, '')
+
+    const onPop = () => {
+      const now = (history.state as { overlay?: number } | null)?.overlay ?? 0
+      if (now < depth) latest.current()
+    }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      const now = (history.state as { overlay?: number } | null)?.overlay ?? 0
+      if (now === depth) history.back()
+    }
+  }, [open])
 }

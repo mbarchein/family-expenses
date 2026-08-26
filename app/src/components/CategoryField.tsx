@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Icon } from './Icon'
 import { T } from '../i18n/strings'
 import { iconOfCategory } from '../lib/categories'
+import { useBackClose } from '../lib/route'
 import { fold } from '../lib/icons'
 import type { Category } from '../api/types'
 
@@ -73,6 +74,8 @@ function CategorySheet({ current, categories, onPick, onClose }: {
   onClose: () => void
 }) {
   const [query, setQuery] = useState('')
+  // Back closes the list and leaves the form underneath exactly as it was.
+  useBackClose(true, onClose)
 
   const shown = useMemo(() => {
     const needle = fold(query)

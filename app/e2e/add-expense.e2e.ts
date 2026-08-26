@@ -608,8 +608,11 @@ test('a chosen face is still there after the app reloads', async ({ page }) => {
 
   await page.reload()
   await page.getByText('Paso 2 de 3').waitFor()
-  await page.getByRole('button', { name: 'Iconos' }).click()
-
+  // Nothing to reopen: the sheet is `/iconos`, so a reload comes back into it
+  // rather than behind it. Which is the point — this app reloads itself when a
+  // new version lands, and it used to do that to somebody halfway through
+  // renaming a category.
+  await expect(page.getByRole('dialog', { name: 'Iconos de los conceptos' })).toBeVisible()
   await expect(page.getByRole('button', { name: /^Mario/ })).toContainText('Frida Kahlo')
 })
 
