@@ -50,11 +50,81 @@ export function CategoryField({ value, categories, onChange }: {
         <CategorySheet
           current={value}
           categories={categories}
-          onPick={name => { onChange(name); setOpen(false) }}
+          // Never null here: the "every category" row is the filter's, and it is
+          // not offered without `any`.
+          onPick={name => { onChange(name ?? ''); setOpen(false) }}
           onClose={() => setOpen(false)}
         />
       )}
     </>
+  )
+}
+
+/**
+ * The same list, asking a different question: which category to show.
+ *
+ * A button and a sheet rather than a row of chips, for the reason above — thirty
+ * of them do not fit across a phone — and the same sheet rather than a second
+ * one, so the icons and the search box behave identically whether a category is
+ * being chosen or being filtered by. `null` is every category; `''` is the rows
+ * that have none, which is the filter somebody reaches for when they want to know
+ * what is still uncategorised.
+ */
+export function CategoryFilter({ value, categories, onChange }: {
+  value: string | null
+  categories: readonly Category[]
+  onChange: (value: string | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const icon = value ? iconOfCategory(value, categories) : null
+
+  return (
+    <div className="flex gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={T.list.byCategory}
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-line bg-surface
+                   px-3 py-2.5 text-left text-sm focus-visible:outline focus-visible:outline-2"
+      >
+        {icon
+          ? <Icon name={icon} className="h-5 w-5 shrink-0" />
+          : <TagIcon />}
+        <span className={'min-w-0 flex-1 truncate' + (value === null ? ' text-ink-3' : '')}>
+          {value === null ? T.list.allCategories : value || T.category.none}
+        </span>
+        <ChevronIcon />
+      </button>
+
+      {/* Beside the button rather than inside it: a cross within a button is a
+          button within a button, which is invalid and unreachable by keyboard.
+          Only there when there is a filter to take off. */}
+      {value !== null && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          aria-label={T.list.clearCategory}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-line
+                     text-ink-3 focus-visible:outline focus-visible:outline-2"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="h-4 w-4"
+               fill="none" stroke="currentColor" strokeWidth={2.5}
+               strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      )}
+
+      {open && (
+        <CategorySheet
+          current={value}
+          categories={categories}
+          any
+          onPick={name => { onChange(name); setOpen(false) }}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </div>
   )
 }
 
@@ -67,11 +137,16 @@ export function CategoryField({ value, categories, onChange }: {
  * a category can be seen next to its name, which is what makes a shared icon
  * noticeable.
  */
-function CategorySheet({ current, categories, onPick, onClose }: {
-  current: string
+function CategorySheet({ current, categories, onPick, onClose, any }: {
+  /** The category chosen, `''` for none, and `null` for "every category" — which
+   *  only the filter has any use for: an expense is in one category or in none,
+   *  but a list can be showing all of them. */
+  current: string | null
   categories: readonly Category[]
-  onPick: (name: string) => void
+  onPick: (name: string | null) => void
   onClose: () => void
+  /** Whether to offer that row at the top. */
+  any?: boolean
 }) {
   const [query, setQuery] = useState('')
   // Back closes the list and leaves the form underneath exactly as it was.
@@ -116,9 +191,16 @@ function CategorySheet({ current, categories, onPick, onClose }: {
       </div>
 
       <ul className="flex-1 overflow-y-auto px-4 pb-4">
+        {any && (
+          <Row
+            label={T.list.allCategories}
+            on={current === null}
+            onPick={() => onPick(null)}
+          />
+        )}
         <Row
           label={T.category.none}
-          on={!current}
+          on={current === ''}
           onPick={() => onPick('')}
         />
         {shown.map(category => (
@@ -126,7 +208,7 @@ function CategorySheet({ current, categories, onPick, onClose }: {
             key={category.name}
             label={category.name}
             icon={category.icon}
-            on={fold(category.name) === fold(current)}
+            on={current !== null && fold(category.name) === fold(current)}
             onPick={() => onPick(category.name)}
           />
         ))}

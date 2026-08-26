@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { CategoryFilter } from '../components/CategoryField'
 import { Icon } from '../components/Icon'
 import { Segmented } from '../components/Segmented'
 import { Totals } from '../components/Totals'
@@ -6,6 +7,7 @@ import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
 import { formatDayHeading, formatShortDate, todayIso } from '../lib/dates'
 import { iconOf } from '../lib/categories'
+import { fold } from '../lib/icons'
 import { formatEur } from '../lib/money'
 import { earliestDay, summarise, yearIsPartial } from '../lib/totals'
 import type { Category } from '../api/types'
@@ -31,11 +33,19 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
   const categories = ledger.data?.categories ?? []
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
+  /** The category filter: null for all of them, '' for the rows that have none.
+   *  Asked for by name — the search box answers "what was it called" and this
+   *  answers "what kind of thing was it", which is the question the whole column
+   *  exists for. */
+  const [category, setCategory] = useState<string | null>(null)
 
   // Filtered once, used three times: the list, the day totals and the strip must
-  // agree about what is on screen, and three copies of the same two conditions
+  // agree about what is on screen, and three copies of the same three conditions
   // is three chances for them to stop agreeing.
-  const shown = useMemo(() => matching(ledger.entries, filter, query), [ledger.entries, filter, query])
+  const shown = useMemo(
+    () => matching(ledger.entries, filter, query, category),
+    [ledger.entries, filter, query, category],
+  )
   const days = useMemo(() => groupByDay(shown), [shown])
   const today = todayIso()
   const sums = useMemo(() => summarise(shown, today), [shown, today])
@@ -98,16 +108,20 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
         )}
       </div>
 
+      <CategoryFilter value={category} categories={categories} onChange={setCategory} />
+
       <Totals
         sums={sums}
         today={today}
-        filtered={filter !== 'all' || Boolean(query.trim())}
+        filtered={filter !== 'all' || Boolean(query.trim()) || category !== null}
         partialSince={yearIsPartial(from, today) ? formatShortDate(from!) : null}
       />
 
       {!days.length && (
         <p className="py-8 text-center text-sm text-ink-3">
-          {ledger.entries.length ? T.list.noResults : T.list.empty}
+          {!ledger.entries.length ? T.list.empty
+            : query.trim() || category === null ? T.list.noResults
+            : T.list.noResultsCategory}
         </p>
       )}
 
@@ -255,12 +269,26 @@ function RowIcon({ entry, categories, chosen }: {
 
 interface Day { date: string; total: number; entries: ShownEntry[] }
 
-/** The entries a person filter and a search leave standing. */
-function matching(entries: ShownEntry[], filter: string, query: string): ShownEntry[] {
+/**
+ * The entries the three filters leave standing.
+ *
+ * The category is compared folded, like everywhere else that compares one: the
+ * names come from a tab the two of them edit by hand in Google Sheets, so
+ * `Educación` typed there and `educacion` written by an older version of the app
+ * are the same category and a filter that disagreed would show an empty list.
+ */
+function matching(
+  entries: ShownEntry[], filter: string, query: string, category: string | null,
+): ShownEntry[] {
   const needle = query.trim().toLowerCase()
+  const wanted = category === null ? null : fold(category)
   return entries.filter(entry =>
     (filter === 'all' || entry.payer === Number(filter)) &&
-    (!needle || entry.concept.toLowerCase().includes(needle)))
+    (!needle || entry.concept.toLowerCase().includes(needle)) &&
+    // `?? ''` against the types on purpose: a ledger cached by a version from
+    // before column H existed has rows with no category at all, and it is read
+    // straight off the disk on the next open.
+    (wanted === null || fold(entry.category ?? '') === wanted))
 }
 
 /**

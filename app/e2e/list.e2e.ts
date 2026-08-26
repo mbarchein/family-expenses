@@ -176,3 +176,67 @@ test('a year of expenses renders, and every day carries its own containment', as
   await sections.last().scrollIntoViewIfNeeded()
   await expect(sections.last()).toBeInViewport()
 })
+
+test('the list can be narrowed to one category, and to the rows that have none',
+  async ({ page }) => {
+  // The second question this screen is asked. The search box answers "what was
+  // it called", which only works if you remember the word somebody typed; this
+  // one answers "what kind of thing was it", which is what the column was added
+  // for and what the totals by kind are read against.
+  await stubApi(page, bootstrap({
+    entries: [
+      entry({
+        row: 2300, id: 'e1', date: TODAY, concept: 'cena', amount: 40,
+        payer: MARIO, category: 'Restaurantes',
+      }),
+      entry({
+        row: 2299, id: 'e2', date: TODAY, concept: 'gasolina', amount: 60,
+        payer: MARIO, category: 'Combustible',
+      }),
+      // Nothing filed it, which is the state 698 rows of the real ledger were in.
+      entry({ row: 2298, id: 'e3', date: TODAY, concept: 'lo del jueves', amount: 5, payer: MARIO }),
+    ],
+  }))
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos', exact: true }).click()
+
+  const filter = page.getByRole('button', { name: 'Filtrar por categoría' })
+  const cells = page.getByRole('group', { name: 'Resumen' }).locator('> div')
+  await expect(filter).toContainText('Todas las categorías')
+
+  await filter.click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Restaurantes' }).click()
+
+  await expect(page.getByRole('button', { name: /cena/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /gasolina/ })).toHaveCount(0)
+  // The totals follow the filter, like they do for the other two.
+  await expect(cells.nth(1)).toContainText('40,00')
+  await expect(page.getByText('Solo lo filtrado')).toBeVisible()
+
+  // "Sin categoría" is a filter of its own, and it is the useful one: it is the
+  // list of what still has to be filed.
+  await filter.click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Sin categoría' }).click()
+  await expect(page.getByRole('button', { name: /lo del jueves/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /cena/ })).toHaveCount(0)
+
+  // And the cross takes the filter off in one tap rather than three.
+  await page.getByRole('button', { name: 'Quitar el filtro de categoría' }).click()
+  await expect(page.getByRole('button', { name: /cena/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /gasolina/ })).toBeVisible()
+  await expect(page.getByText('Solo lo filtrado')).toHaveCount(0)
+})
+
+test('a category with nothing in it says so in its own words', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos', exact: true }).click()
+
+  await page.getByRole('button', { name: 'Filtrar por categoría' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Luz' }).click()
+
+  // Not "ningún gasto con ese concepto": nothing was typed into the search box,
+  // and a message about a concept when the filter is a category is the app
+  // answering a question nobody asked.
+  await expect(page.getByText('Ningún gasto en esa categoría')).toBeVisible()
+})

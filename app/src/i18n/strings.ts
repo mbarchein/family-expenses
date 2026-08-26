@@ -237,6 +237,12 @@ export const T = {
     unsaved: 'sin subir',
     empty: 'Todavía no hay nada apuntado',
     noResults: 'Ningún gasto con ese concepto',
+    noResultsCategory: 'Ningún gasto en esa categoría',
+    /** The category filter, which is a second question from the search box: that
+     *  one asks what it was called, this one asks what kind of thing it was. */
+    byCategory: 'Filtrar por categoría',
+    allCategories: 'Todas las categorías',
+    clearCategory: 'Quitar el filtro de categoría',
     edit: 'Editar',
     void: 'Anular',
     voided: 'Anulado',
