@@ -47,7 +47,7 @@ export function PlacesScreen({ onBack }: { onBack: () => void }) {
             >
               <div className="flex-1">
                 <p className="font-semibold">{place.concept}</p>
-                {place.note && <p className="text-xs text-ink-2">{place.note}</p>}
+                {place.method && <p className="text-xs text-ink-2">{place.method}</p>}
                 <p className="pt-1 text-[11px] text-ink-3">
                   {T.places.savedOn(formatShortDate(toIso(new Date(place.savedAt))))}
                   {' · '}{T.places.accuracy(Math.round(place.accuracy))}

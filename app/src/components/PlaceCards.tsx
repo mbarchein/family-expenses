@@ -17,10 +17,12 @@ import type { NearPlace } from '../store/places'
  * phone. In practice there are one or two of these; the scroll is for the corner
  * where somebody has saved five things at one address.
  */
-export function PlaceCards({ places, concept, note, onPick }: {
+export function PlaceCards({ places, concept, method, onPick }: {
   places: NearPlace[]
   concept: string
-  note: string
+  /** The payment method, which is the other half a card fills. It was the note
+   *  until the method got a column of its own. */
+  method: string
   onPick: (place: NearPlace) => void
 }) {
   if (!places.length) return null
@@ -38,7 +40,7 @@ export function PlaceCards({ places, concept, note, onPick }: {
         {places.map(place => {
           // Selected when both halves match, not just the concept: the card
           // claims to set two fields, so it may only look set when it has.
-          const on = place.concept === concept && place.note === note
+          const on = place.concept === concept && place.method === method
           return (
             <button
               key={place.id}
@@ -52,9 +54,9 @@ export function PlaceCards({ places, concept, note, onPick }: {
                 : { background: 'var(--surface)', borderColor: 'var(--accent)' }}
             >
               <span className="block truncate text-[15px] font-semibold">{place.concept}</span>
-              {place.note && (
+              {place.method && (
                 <span className="block truncate text-xs" style={{ opacity: 0.75 }}>
-                  {place.note}
+                  {place.method}
                 </span>
               )}
               <span className="block pt-0.5 text-[11px]" style={{ opacity: 0.6 }}>

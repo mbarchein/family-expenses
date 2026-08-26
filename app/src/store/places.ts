@@ -33,8 +33,12 @@ export interface Place {
   accuracy: number
   concept: string
   /** The payment method chosen alongside it, if any. Saved because at a given
-   *  shop it tends to be the same card, and it costs nothing to offer. */
-  note: string
+   *  shop it tends to be the same card, and it costs nothing to offer.
+   *
+   *  Called `note` until the method got a column of its own — it was always this,
+   *  it just travelled inside the observaciones. Places already on a phone still
+   *  have the old key, so reading one falls back to it. */
+  method: string
   savedAt: number
   uses: number
 }
@@ -65,7 +69,7 @@ export interface PlacesStore {
    *  it because the two happen at different times: the switch on the review
    *  step reads the position when it is turned on, and the place is written
    *  only if the expense it belongs to is saved. */
-  rememberAt: (fix: Fix, concept: string, note: string) => Promise<RememberResult>
+  rememberAt: (fix: Fix, concept: string, method: string) => Promise<RememberResult>
   forget: (id: string) => Promise<void>
 }
 
@@ -90,7 +94,7 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
     void (async () => {
       const stored = await idb.all<Place>('places')
       if (!cancelled) {
-        setPlaces(stored.filter(isPlace))
+        setPlaces(stored.filter(isPlace).map(readPlace))
         setReady(true)
       }
       // Deliberately after the list and deliberately without prompting: the
@@ -124,7 +128,7 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
   )
 
   const rememberAt = useCallback(async (
-    fix: Fix, concept: string, note: string,
+    fix: Fix, concept: string, method: string,
   ): Promise<RememberResult> => {
     // The same concept at the same doorway is the same place. Saving it again
     // counts as a use rather than adding a second row that will always be
@@ -133,14 +137,14 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
       place => place.concept === concept && samePlace(fix, place),
     )
     const place: Place = existing
-      ? { ...existing, uses: existing.uses + 1, note: note || existing.note }
+      ? { ...existing, uses: existing.uses + 1, method: method || existing.method }
       : {
           id: crypto.randomUUID(),
           lat: fix.lat,
           lon: fix.lon,
           accuracy: fix.accuracy,
           concept,
-          note,
+          method,
           savedAt: Date.now(),
           uses: 1,
         }
@@ -160,6 +164,20 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
 
 /** Guards against a half-written record from an older shape of this store: a
  *  place with no coordinates would match everywhere or nowhere. */
+/**
+ * A stored place, with the field the method used to live under.
+ *
+ * It was called `note` while the payment method travelled inside the
+ * observaciones — the field's own comment already said it held the method. Places
+ * live on the phone and nowhere else, so nothing migrates them for us: the ones
+ * saved before the rename are read here or not at all.
+ */
+function readPlace(place: Place): Place {
+  if (place.method !== undefined) return place
+  const legacy = (place as Place & { note?: string }).note
+  return { ...place, method: typeof legacy === 'string' ? legacy : '' }
+}
+
 function isPlace(value: unknown): value is Place {
   if (!value || typeof value !== 'object') return false
   const place = value as Partial<Place>
