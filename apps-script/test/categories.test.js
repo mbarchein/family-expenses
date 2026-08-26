@@ -629,3 +629,74 @@ test('everything else they answered lands where they said', () => {
     '',
   ])
 })
+
+/* ── running the pass twice ───────────────────────────────────────────── */
+
+/**
+ * Idempotence, and the one way this could be worse than merely unstable.
+ *
+ * The write is a single `setValues` over the whole category column, so if any
+ * branch of the loop failed to push a cell, every row below it would silently
+ * take its neighbour's category. That is the test that matters most here; the
+ * other two are about the pass settling.
+ */
+
+const SEEDED = () => CATEGORY_SEED.map(row => [row[0], row[1], row[2]])
+
+test('a second run over the same ledger writes nothing at all', () => {
+  const sheets = filedWorld([
+    ['pan'], ['supermercado Salobreña'], ['Cena en un bar'], ['lo del jueves'],
+    ['ro'], ['gasolinera Repsol'], ['orquesta'], ['Corte inglés'], ['maria'],
+    ['', ''], ['[anulado] pan'], ['Regalo María'], ['tributos'],
+  ], SEEDED())
+
+  categoriseRows()
+  const settled = filed(sheets).slice()
+  const writes = sheets.gastos.writes.length
+
+  const second = categoriseRows()
+  categoriseRows()
+
+  assert.match(second, /FILED:\s+0 of 13 rows/)
+  assert.deepEqual(filed(sheets), settled, 'the column stopped changing')
+  assert.equal(sheets.gastos.writes.length, writes, 'the second and third runs wrote nothing')
+
+  // And in passing, every decision of the last few rounds in one line.
+  assert.deepEqual(settled, [
+    'Panadería', 'Supermercado', 'Restaurantes', '', '', 'Combustible', 'Música',
+    'Ropa', 'Hogar', '', 'Panadería', 'Regalos', 'Impuestos y recibos',
+  ])
+})
+
+test('the write is exactly as wide as the ledger, so it cannot slip a row', () => {
+  // One `setValues` for the column means a missing push would shift every row
+  // below it onto its neighbour's category. Four branches of that loop return
+  // early; all four have to push a cell first.
+  const sheets = filedWorld([
+    ['pan'], ['', 'Ya puesta'], ['', ''], ['lo del jueves'], ['tributos'],
+  ], SEEDED())
+  categoriseRows()
+
+  const write = sheets.gastos.writes.find(one => one.column === COL_CATEGORY)
+  assert.equal(write.values.length, sheets.gastos.values.length - 1)
+  assert.deepEqual(filed(sheets),
+    ['Panadería', 'Ya puesta', '', '', 'Impuestos y recibos'])
+})
+
+test('one row filed by hand spreads on the next run, and then settles', () => {
+  // How the pass is meant to be used more than once: the words cannot place
+  // `lo del jueves`, somebody files one from the app, and the next run carries
+  // that decision to the rest.
+  const sheets = filedWorld(
+    [['lo del jueves'], ['lo del jueves'], ['lo del jueves']], SEEDED())
+
+  categoriseRows()
+  assert.deepEqual(filed(sheets), ['', '', ''])
+
+  sheets.gastos.values[2][COL_CATEGORY - 1] = 'Ocio'
+  categoriseRows()
+  assert.deepEqual(filed(sheets), ['Ocio', 'Ocio', 'Ocio'])
+
+  categoriseRows()
+  assert.deepEqual(filed(sheets), ['Ocio', 'Ocio', 'Ocio'])
+})
