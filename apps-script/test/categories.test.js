@@ -484,16 +484,38 @@ test('the cleaning and the transfer are filed under Hogar', () => {
   assert.deepEqual(filed(sheets), ['Hogar', 'Hogar', 'Hogar', 'Hogar'])
 })
 
-test('the food shops all land in Supermercado, and pan is still a whole word', () => {
-  const sheets = filedWorld(
-    [['fruteria'], ['Frutería'], ['carniceria'], ['pescadería'], ['pan'], ['pantalones']],
-    CATEGORY_SEED.map(row => [row[0], row[1], row[2]]),
-  )
+test('the food shops share Supermercado, and bread has its own line', () => {
+  // Their call twice over: the loose food shops folded together, and then bread
+  // asked back out of it — 152 rows of `pan`, more than any concept on the sheet
+  // bar the supermarket itself. `pan` is a whole word, so `pantalones` is still
+  // not bread.
+  const sheets = filedWorld([
+    ['fruteria'], ['Frutería'], ['carniceria'], ['pescadería'],
+    ['pan'], ['panadería'], ['pantalones'], ['supermercado'],
+  ], CATEGORY_SEED.map(row => [row[0], row[1], row[2]]))
   categoriseRows()
 
   assert.deepEqual(filed(sheets), [
-    'Supermercado', 'Supermercado', 'Supermercado', 'Supermercado', 'Supermercado', 'Ropa',
+    'Supermercado', 'Supermercado', 'Supermercado', 'Supermercado',
+    'Panadería', 'Panadería', 'Ropa', 'Supermercado',
   ])
+})
+
+test('a word that moved category leaves the old one', () => {
+  // `pan` went into Supermercado when the food shops were folded together and
+  // came back out when Panadería was asked for again. Left in both, the higher
+  // row wins and the request quietly has no effect — which is what this is for.
+  const sheets = world([['Supermercado', 'cesta', 'super, panadería, pan, fruta']])
+  const answer = updateCategories()
+
+  const row = sheets['Categorías'].values.slice(1).find(line => line[0] === 'Supermercado')
+  assert.equal(row[2].indexOf('pan'), -1, 'no bread left in the supermarket')
+  assert.match(row[2], /super/)
+  assert.match(row[2], /fruta/)
+  assert.match(answer, /REMOVED\s+Supermercado/)
+
+  // And nothing to do on the way back through.
+  assert.match(updateCategories(), /Nothing to add/)
 })
 
 test('the fixed suppliers are words, and the orchestra has a category', () => {

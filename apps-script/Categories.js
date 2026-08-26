@@ -242,13 +242,16 @@ function categoriesSheet_() {
  * happens, and shows what else already wears it, rather than refusing.
  */
 var CATEGORY_SEED = [
-  // The food shops are all one line, which is their call: their own concepts had
-  // been distinguishing frutería from supermercado since 2022 and they would
-  // rather have one figure for the food than four. `pan` stays a whole-word match
-  // — `pantalones` is not bread.
+  // The food shops share a line, which is their call: their own concepts had been
+  // distinguishing frutería from supermercado since 2022 and they would rather
+  // have one figure for the food. Bread is the exception they asked back for — 152
+  // rows of `pan`, more than any other concept on the sheet bar the supermarket
+  // itself, and a figure that size is worth its own line.
   ['Supermercado', 'cesta',
-    'supermercado, mercado, super, compra, panadería, pan, frutería, fruta, '
+    'supermercado, mercado, super, compra, frutería, fruta, '
     + 'carnicería, pescadería, verdulería, pedido, contreras'],
+  // `pan` stays a whole-word match, so `pantalones` is still not bread.
+  ['Panadería', 'pan', 'panadería, pan'],
   ['Restaurantes', 'cubiertos',
     'restaurante, comida, cena, menú, tapas, comedor, pizza, altramuces'],
   ['Cafés y bares', 'taza',
@@ -308,6 +311,25 @@ var CATEGORY_SEED = [
  * Two categories both meaning "the house" would be worse than either name: every
  * row filed after the change would land in one of them at random.
  */
+/**
+ * Words to take off a category, by name.
+ *
+ * `updateCategories` adds and never removes, because that tab is theirs to edit
+ * and a pass that corrected it back to the seed would undo the editing it exists
+ * to support. This is the narrow exception, and it works like the renames: an
+ * explicit list of what leaves which category, applied once, doing nothing on
+ * every run after that.
+ *
+ * It exists because moving a word between two categories is not something the
+ * additive pass can express. `pan` went into Supermercado when the food shops
+ * were folded together and came back out when Panadería was asked for again —
+ * and left in both places, the higher row would have won and the request would
+ * have quietly had no effect.
+ */
+var CATEGORY_WORD_REMOVALS = [
+  ['Supermercado', 'panadería, pan']
+];
+
 var CATEGORY_RENAMES = [
   ['Vivienda', 'Hogar'],
   // `Colegio` held a private tutor, the English lessons and the violin. They
