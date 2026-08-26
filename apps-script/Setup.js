@@ -579,6 +579,128 @@ function categorise_(dryRun) {
   return report_(lines);
 }
 
+/**
+ * Moves the payment method out of the observaciones and into column I.
+ *
+ * Every row on this ledger predates that column, and until the method is out of
+ * the note nothing can be totalled by card — which is the whole reason the column
+ * was added. So: for each row whose observación *is* one of the payment methods
+ * on the Sugerencias tab, the method goes to column I and the note is emptied.
+ *
+ * Only an exact match, and that restraint is the point. `Tarjeta BBVA` is the
+ * method and nothing else; `Tarjeta BBVA, lo pongo yo` is a note that mentions
+ * one, and splitting it would mean deciding where the method ends and the comment
+ * begins, on somebody's history, by guessing at a comma. Those are reported and
+ * left alone — there are few enough to look at, and an unhelpful row beats a
+ * mangled one.
+ *
+ * Two columns are written, F and I, and one row at a time is never written: it is
+ * two `setValues` over the two whole columns, because two thousand separate calls
+ * would time the execution out.
+ */
+function moveMethods() {
+  return methods_(false);
+}
+
+/** What `moveMethods` would do, without writing anything. */
+function previewMethods() {
+  return methods_(true);
+}
+
+function methods_(dryRun) {
+  var config = readConfig_();
+  var known = {};
+  var names = [];
+  readSuggestions_().items.forEach(function (item) {
+    if (item.kind !== 'method') return;
+    var key = fold_(item.text);
+    if (key && !known[key]) { known[key] = item.text; names.push(item.text); }
+  });
+  if (!names.length) {
+    return report_(['No payment methods on the ' + SUGGESTIONS_SHEET + ' tab.',
+      'This pass moves an observación into column I only when it is exactly one of'
+      + ' them, so with none there is nothing it could recognise.']);
+  }
+
+  var sheet = ledgerSheet_(config);
+  var last = lastDataRow_(sheet);
+  if (last < 2) return report_(['The ledger has no rows.']);
+
+  var noteRange = sheet.getRange(2, COL_NOTE, last - 1, 1);
+  var methodRange = sheet.getRange(2, COL_METHOD, last - 1, 1);
+  var blocked = noteRange.getFormulas().filter(function (row) { return row[0]; }).length
+    + methodRange.getFormulas().filter(function (row) { return row[0]; }).length;
+  if (blocked) {
+    return report_(['Refusing: ' + blocked + ' cells in the observaciones or the method'
+      + ' column hold formulas.',
+      'Writing values over a formula is damage nobody notices for a year.']);
+  }
+
+  var notes = noteRange.getValues();
+  var already = methodRange.getValues();
+  var moved = 0;
+  var counts = {};
+  var mixed = {};
+  var mixedRows = 0;
+
+  notes.forEach(function (row, index) {
+    var note = String(row[0] == null ? '' : row[0]).trim();
+    if (!note) return;
+    // A row that already has a method is left alone, note included: it has been
+    // through here, or somebody filled it in from the app.
+    if (String(already[index][0] == null ? '' : already[index][0]).trim()) return;
+
+    var found = known[fold_(note)];
+    if (!found) {
+      // Only worth reporting if it looks like it mentions a method at all.
+      for (var i = 0; i < names.length; i++) {
+        if (fold_(note).indexOf(fold_(names[i])) !== -1) {
+          mixedRows++;
+          mixed[note] = (mixed[note] || 0) + 1;
+          break;
+        }
+      }
+      return;
+    }
+
+    already[index][0] = found;
+    notes[index][0] = '';
+    moved++;
+    counts[found] = (counts[found] || 0) + 1;
+  });
+
+  if (!dryRun && moved) {
+    methodRange.setValues(already);
+    noteRange.setValues(notes);
+    SpreadsheetApp.flush();
+  }
+
+  var lines = [
+    (dryRun ? 'WOULD MOVE' : 'MOVED') + ':        ' + moved + ' of ' + (last - 1) + ' rows',
+    'Methods known:      ' + names.join(', '),
+    ''
+  ];
+  Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })
+    .forEach(function (name) { lines.push('  ' + counts[name] + '  ' + name); });
+
+  var left = Object.keys(mixed).sort(function (a, b) { return mixed[b] - mixed[a]; });
+  if (left.length) {
+    lines.push('');
+    lines.push('Left alone — an observación that mentions a method but is not one:');
+    lines.push('(' + mixedRows + ' rows. Splitting these means guessing where the method'
+      + ' ends, so they are yours to edit.)');
+    left.slice(0, 30).forEach(function (note) {
+      lines.push('  ' + mixed[note] + '  ' + note);
+    });
+    if (left.length > 30) lines.push('  … and ' + (left.length - 30) + ' more');
+  }
+  if (dryRun) {
+    lines.push('');
+    lines.push('Nothing written. Run moveMethods() to do it.');
+  }
+  return report_(lines);
+}
+
 /** The concept as it reads, with the voided mark taken off the front: a
  *  tombstone belongs under the same category as the thing it is a tombstone of. */
 function bareConcept_(value) {
