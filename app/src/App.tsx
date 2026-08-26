@@ -21,7 +21,7 @@ export default function App() {
   // The screen comes from the address bar rather than from state, so a reload —
   // including the one the app performs on itself when a new version lands —
   // reopens what was open. See `lib/route.ts`.
-  const { route, go, back } = useRoute()
+  const { route, detail, go, openDetail, back, closeDetail } = useRoute()
   const [needsTap, setNeedsTap] = useState(false)
   const [stuck, setStuck] = useState(false)
 
@@ -69,10 +69,26 @@ export default function App() {
     <div className="flex h-full flex-col">
       <main className="flex-1 overflow-y-auto">
         {route === 'add' && <AddScreen ledger={ledger} onLeave={back} />}
-        {route === 'list' && <ListScreen ledger={ledger} onBack={back} />}
+        {route === 'list' && (
+          <ListScreen
+            ledger={ledger}
+            onBack={back}
+            editing={detail}
+            onOpen={openDetail}
+            onCloseEditor={closeDetail}
+          />
+        )}
         {route === 'balance' && <BalanceScreen ledger={ledger} onBack={back} />}
         {route === 'places' && <PlacesScreen onBack={back} />}
-        {route === 'fixed' && <FixedScreen ledger={ledger} onBack={back} />}
+        {route === 'fixed' && (
+          <FixedScreen
+            ledger={ledger}
+            onBack={back}
+            editing={detail}
+            onOpen={openDetail}
+            onCloseEditor={closeDetail}
+          />
+        )}
       </main>
 
       {/* Above the tab bar, in the accent colour, with a ring going round.

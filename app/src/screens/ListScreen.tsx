@@ -8,12 +8,20 @@ import { formatDayHeading, formatShortDate, todayIso } from '../lib/dates'
 import { iconOf } from '../lib/categories'
 import { formatEur } from '../lib/money'
 import { earliestDay, summarise, yearIsPartial } from '../lib/totals'
-import type { Category, Entry } from '../api/types'
+import type { Category } from '../api/types'
 import { useIconChoices } from '../store/iconChoices'
 import type { Ledger, ShownEntry } from '../store/ledger'
 import { EditSheet } from './EditSheet'
 
-export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => void }) {
+export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
+  ledger: Ledger
+  onBack: () => void
+  /** From the address: the id of the entry whose sheet is open, or ''. State
+   *  before, which left the back button nothing to close. */
+  editing: string
+  onOpen: (detail: string) => void
+  onCloseEditor: () => void
+}) {
   const people = ledger.data?.config.people
   // The same icons the keypad shows, corrections included: a concept that was
   // given a basket by hand on the way in is the same concept on the way out, and
@@ -23,7 +31,6 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
   const categories = ledger.data?.categories ?? []
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
-  const [editing, setEditing] = useState<Entry | null>(null)
 
   // Filtered once, used three times: the list, the day totals and the strip must
   // agree about what is on screen, and three copies of the same two conditions
@@ -36,6 +43,11 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
   // Coverage is a property of the window the app loaded, not of the filter, so
   // it is measured over everything rather than over what is on screen.
   const from = useMemo(() => earliestDay(ledger.entries), [ledger.entries])
+
+  // From the address, so the back button and the sheet's Cancelar are the same
+  // gesture. An id that is not in the window — a link to an old row, or one
+  // voided on the other phone — shows the list rather than an empty sheet.
+  const open = editing ? ledger.entries.find(entry => entry.id === editing) ?? null : null
 
   if (!people) return null
 
@@ -128,7 +140,7 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
               <li key={entry.id || `row:${entry.row}`}>
                 <button
                   type="button"
-                  onClick={() => (entry.id ? setEditing(entry) : void ledger.claimRow(entry.row))}
+                  onClick={() => (entry.id ? onOpen(entry.id) : void ledger.claimRow(entry.row))}
                   className="flex w-full items-center gap-2.5 border-b border-line py-2 text-left
                              focus-visible:outline focus-visible:outline-2"
                 >
@@ -174,14 +186,15 @@ export function ListScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => v
         </section>
       ))}
 
-      {editing && (
+      {open && (
         <EditSheet
-          entry={editing}
+          key={open.id}
+          entry={open}
           people={people}
           categories={categories}
-          onClose={() => setEditing(null)}
-          onSave={async entry => { await ledger.editEntry(entry); setEditing(null) }}
-          onVoid={async id => { await ledger.voidEntry(id); setEditing(null) }}
+          onClose={onCloseEditor}
+          onSave={async entry => { await ledger.editEntry(entry); onCloseEditor() }}
+          onVoid={async id => { await ledger.voidEntry(id); onCloseEditor() }}
         />
       )}
     </div>

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import {
-  LAST_YEAR, bootstrap, entry, MARIO, signIn, storedDraft, stubApi, stubGoogle, TODAY,
+  LAST_YEAR, bootstrap, entry, fixed, MARIO, signIn, storedDraft, stubApi, stubGoogle, TODAY,
 } from './harness'
 
 /**
@@ -155,4 +155,77 @@ test('the year is on the rows, the day headings and the totals', async ({ page }
   const year = LAST_YEAR.slice(0, 4)
   await expect(page.getByRole('heading', { name: new RegExp(year) })).toBeVisible()
   await expect(page.getByRole('button', { name: new RegExp(`seguro.*${year}`, 's') })).toBeVisible()
+})
+
+
+/**
+ * The sheets have addresses too.
+ *
+ * Reported: back on the detail of a fijo did the wrong thing. It was `useState`,
+ * so there was nothing for back to close and it left the whole screen — and a
+ * reload landed on the keypad, and neither of them could send the other a link to
+ * a row.
+ */
+test('the detail of a fijo has its own address, and back closes it', async ({ page }) => {
+  await stubApi(page, bootstrap({
+    fixed: [fixed({ row: 4, concept: 'alquiler', amount: 700, day: 1 })],
+  }))
+  await signIn(page)
+  await page.getByRole('button', { name: 'Fijos', exact: true }).click()
+
+  await page.getByRole('button', { name: /alquiler/ }).click()
+  await expect(page).toHaveURL(/\/fijos\/4$/)
+  await expect(page.getByRole('dialog')).toBeVisible()
+
+  // Back closes the sheet and stays on the screen, which is the whole bug.
+  await page.goBack()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page).toHaveURL(/\/fijos$/)
+  await expect(page.getByRole('heading', { name: 'Fijos' })).toBeVisible()
+})
+
+test('a fijo detail survives a reload', async ({ page }) => {
+  await stubApi(page, bootstrap({
+    fixed: [fixed({ row: 4, concept: 'alquiler', amount: 700, day: 1 })],
+  }))
+  await signIn(page)
+  await page.goto('/fijos/4')
+
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Concepto' })).toHaveValue('alquiler')
+})
+
+test('a new fijo is an address of its own', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Fijos', exact: true }).click()
+  await page.getByRole('button', { name: 'Nuevo fijo' }).click()
+
+  await expect(page).toHaveURL(/\/fijos\/nuevo$/)
+  await page.goBack()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('the detail of an expense has its own address too', async ({ page }) => {
+  await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos', exact: true }).click()
+
+  await page.getByRole('button', { name: /super/ }).click()
+  await expect(page).toHaveURL(/\/gastos\/one$/)
+
+  await page.goBack()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page).toHaveURL(/\/gastos$/)
+})
+
+test('an address naming a row that is not there opens the screen, not a hole',
+  async ({ page }) => {
+  // A stale link, or a template the other phone deleted.
+  await stubApi(page)
+  await signIn(page)
+  await page.goto('/fijos/99')
+
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Fijos' })).toBeVisible()
 })

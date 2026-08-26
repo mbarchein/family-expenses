@@ -25,9 +25,21 @@ import type { Ledger } from '../store/ledger'
  * rows in `lib/fixed.ts` and shown where it can be acted on, which is the screen
  * where an expense gets apuntado.
  */
-export function FixedScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => void }) {
+/** The detail segment that means "a template that does not exist yet". A word
+ *  rather than a zero, because it ends up in the address bar. */
+const NEW = 'nuevo'
+
+export function FixedScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
+  ledger: Ledger
+  onBack: () => void
+  /** From the address: `nuevo`, a row number, or '' for the list itself. The
+   *  sheet used to be `useState`, which gave the back button nothing to close —
+   *  pressing it on the detail of a fijo left the whole screen. */
+  editing: string
+  onOpen: (detail: string) => void
+  onCloseEditor: () => void
+}) {
   const people = ledger.data?.config.people
-  const [editing, setEditing] = useState<Fixed | null>(null)
   // Above the early return, where every hook has to be. What the concept box
   // offers: the same vocabulary the keypad has, which for a recurring bill is
   // almost always where its name already is.
@@ -37,6 +49,13 @@ export function FixedScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => 
   if (!people) return null
   const rows = [...ledger.fixed].sort((a, b) => a.day - b.day || a.concept.localeCompare(b.concept))
   const categories = ledger.data?.categories ?? []
+  // Derived from the address rather than held beside it, so there is one answer
+  // to "what is open" and the back button shares it. An address naming a row that
+  // is not there — a stale link, a template deleted on the other phone — opens
+  // the list rather than an empty sheet.
+  const open = editing === NEW ? blank()
+    : editing ? rows.find(item => String(item.row) === editing) ?? null
+    : null
 
   return (
     <div className="flex flex-col gap-3 p-4">
@@ -54,7 +73,7 @@ export function FixedScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => 
           <li key={item.row}>
             <button
               type="button"
-              onClick={() => setEditing(item)}
+              onClick={() => onOpen(String(item.row))}
               className="flex w-full items-center gap-3 rounded-xl border border-line p-3 text-left
                          focus-visible:outline focus-visible:outline-2"
               style={{ background: 'var(--surface)', opacity: item.active ? 1 : 0.55 }}
@@ -82,21 +101,22 @@ export function FixedScreen({ ledger, onBack }: { ledger: Ledger; onBack: () => 
 
       <button
         type="button"
-        onClick={() => setEditing(blank())}
+        onClick={() => onOpen(NEW)}
         className="rounded-xl py-3 text-sm font-bold focus-visible:outline focus-visible:outline-2"
         style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
       >
         {T.fixed.add}
       </button>
 
-      {editing && (
+      {open && (
         <Editor
-          fixed={editing}
+          key={editing}
+          fixed={open}
           people={people}
           categories={categories}
           concepts={concepts}
-          onClose={() => setEditing(null)}
-          onSave={async next => { await ledger.saveFixed(next); setEditing(null) }}
+          onClose={onCloseEditor}
+          onSave={async next => { await ledger.saveFixed(next); onCloseEditor() }}
         />
       )}
     </div>

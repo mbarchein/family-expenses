@@ -30,16 +30,62 @@ const PATHS: Record<Route, string> = {
   fixed: '/fijos',
 }
 
-export function pathOf(route: Route): string {
-  return PATHS[route]
+/**
+ * The screen, and what it is looking at.
+ *
+ * `detail` is the segment after the screen's own path: `/fijos/3` is the Fijos
+ * screen with the template on row 3 open, `/gastos/abc` is the list with that
+ * entry open. Empty for the screen itself.
+ *
+ * It exists because those two sheets used to be `useState`, and a sheet that is
+ * state rather than an address has a back button that does the wrong thing:
+ * pressing back on the detail of a fijo left the whole screen instead of closing
+ * the sheet, which is the bug this answers. A reload landed on the keypad, and
+ * nobody could send the other one a link to a row.
+ */
+export function pathOf(route: Route, detail = ''): string {
+  const base = PATHS[route]
+  if (!detail) return base
+  return base === '/' ? `/${encodeURIComponent(detail)}`
+    : `${base}/${encodeURIComponent(detail)}`
 }
 
 export function routeOf(pathname: string): Route {
-  const wanted = pathname.replace(/\/+$/, '') || '/'
-  const found = (Object.keys(PATHS) as Route[]).find(route => PATHS[route] === wanted)
+  return split(pathname).route
+}
+
+/** What the address is looking at, decoded, or '' for the screen itself. */
+export function detailOf(pathname: string): string {
+  return split(pathname).detail
+}
+
+function split(pathname: string): { route: Route; detail: string } {
+  const trimmed = pathname.replace(/\/+$/, '') || '/'
+  const exact = (Object.keys(PATHS) as Route[]).find(route => PATHS[route] === trimmed)
+  if (exact) return { route: exact, detail: '' }
+
+  // Longest first, so `/fijos` is tried before `/` — otherwise every path would
+  // match the keypad and everything after the first slash would be its detail.
+  const routes = (Object.keys(PATHS) as Route[])
+    .filter(route => PATHS[route] !== '/')
+    .sort((a, b) => PATHS[b].length - PATHS[a].length)
+  for (const route of routes) {
+    if (trimmed.startsWith(`${PATHS[route]}/`)) {
+      return { route, detail: decode(trimmed.slice(PATHS[route].length + 1)) }
+    }
+  }
   // An address nobody recognises opens the app rather than an error. There is no
   // 404 worth writing for two people and five screens.
-  return found ?? 'add'
+  return { route: 'add', detail: '' }
+}
+
+function decode(raw: string): string {
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    // A malformed escape is not worth a crash on the way into the app.
+    return raw
+  }
 }
 
 /**
@@ -54,19 +100,34 @@ export function routeOf(pathname: string): Route {
 let pushed = 0
 
 export function useRoute() {
-  const [route, setRoute] = useState(() => routeOf(location.pathname))
+  const [at, setAt] = useState(() => split(location.pathname))
 
   useEffect(() => {
-    const onPop = () => setRoute(routeOf(location.pathname))
+    const onPop = () => setAt(split(location.pathname))
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
   const go = useCallback((next: Route) => {
-    if (routeOf(location.pathname) === next) return
+    const now = split(location.pathname)
+    if (now.route === next && !now.detail) return
     history.pushState({}, '', pathOf(next))
     pushed++
-    setRoute(next)
+    setAt({ route: next, detail: '' })
+  }, [])
+
+  /**
+   * Opens a detail of the screen already on, as its own history entry.
+   *
+   * Its own entry is the whole point: back then closes the sheet rather than
+   * leaving the screen, which is what a back button on a detail is for.
+   */
+  const openDetail = useCallback((detail: string) => {
+    const now = split(location.pathname)
+    if (now.detail === detail) return
+    history.pushState({}, '', pathOf(now.route, detail))
+    pushed++
+    setAt({ route: now.route, detail })
   }, [])
 
   /** Back through the history when there is one of ours to go back through, and
@@ -75,8 +136,24 @@ export function useRoute() {
   const back = useCallback(() => {
     if (pushed > 0) return history.back()
     history.replaceState({}, '', pathOf('add'))
-    setRoute('add')
+    setAt({ route: 'add', detail: '' })
   }, [])
 
-  return { route, go, back }
+  /**
+   * Closes a detail without leaving the screen.
+   *
+   * `back()` when this app pushed the entry, which is the common case and the one
+   * that keeps the device's own back button and the sheet's Cerrar doing the same
+   * thing. A detail arrived at directly — a bookmark, a link from the other phone
+   * — has no entry of ours behind it, so the address is rewritten in place
+   * instead of stepping out of the app.
+   */
+  const closeDetail = useCallback(() => {
+    if (pushed > 0) return history.back()
+    const now = split(location.pathname)
+    history.replaceState({}, '', pathOf(now.route))
+    setAt({ route: now.route, detail: '' })
+  }, [])
+
+  return { route: at.route, detail: at.detail, go, openDetail, back, closeDetail }
 }
