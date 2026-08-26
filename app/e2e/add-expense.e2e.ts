@@ -800,10 +800,11 @@ test('the category is guessed from the concept and sent with the expense', async
   await page.getByRole('button', { name: 'Guardar' }).click()
   await expect(page.getByText('Paso 1 de 3')).toBeVisible()
 
-  const append = calls.find(call => call.action === 'append')
-  expect(append?.payload.category).toBe('Restaurantes')
+  await expect
+    .poll(() => calls.find(call => call.action === 'append')?.payload.category)
+    .toBe('Restaurantes')
   // The concept stays what was typed. That separation is the whole point.
-  expect(append?.payload.concept).toBe('Cena en un bar')
+  expect(calls.find(call => call.action === 'append')?.payload.concept).toBe('Cena en un bar')
 })
 
 test('a concept nothing can place is left unfiled rather than guessed at', async ({ page }) => {
@@ -852,5 +853,10 @@ test('a category picked by hand survives, until the concept changes', async ({ p
   await next(page)
   await page.getByRole('button', { name: 'Guardar' }).click()
   await expect(page.getByText('Paso 1 de 3')).toBeVisible()
-  expect(calls.find(call => call.action === 'append')?.payload.category).toBe('Combustible')
+  // Polled: getting back to the first step means the draft is cleared, not that
+  // the request has left — the queue flushes after that, and asserting on `calls`
+  // straight away is a race this suite lost once.
+  await expect
+    .poll(() => calls.find(call => call.action === 'append')?.payload.category)
+    .toBe('Combustible')
 })
