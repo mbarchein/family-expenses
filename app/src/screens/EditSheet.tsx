@@ -3,7 +3,7 @@ import { Avatar } from '../components/Avatar'
 import { Segmented } from '../components/Segmented'
 import { T } from '../i18n/strings'
 import { todayIso } from '../lib/dates'
-import { parseAmount, typedFromAmount } from '../lib/money'
+import { parseAmount, typedFrom, typedFromAmount } from '../lib/money'
 import type { Entry, Person } from '../api/types'
 import { useAvatars } from '../store/avatars'
 import type { QueuedEntry } from '../store/queue'
@@ -103,7 +103,7 @@ export function EditSheet({ entry, people, onClose, onSave, onVoid }: {
               <input
                 inputMode="decimal"
                 value={typed}
-                onChange={event => setTyped(event.target.value.replace(/[^\d,]/g, ''))}
+                onChange={event => setTyped(typedFrom(event.target.value))}
                 aria-label={T.add.fieldAmount}
                 className="w-24 bg-transparent text-right font-mono text-xl font-semibold
                            tabular outline-none"

@@ -3,7 +3,7 @@ import { Avatar } from '../components/Avatar'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
 import { formatShortDate } from '../lib/dates'
-import { formatEur, parseAmount } from '../lib/money'
+import { formatEur, parseAmount, typedFrom } from '../lib/money'
 import { splitTransfer } from '../lib/split'
 import { earliestDay, latestDay } from '../lib/totals'
 import { useAvatars } from '../store/avatars'
@@ -93,7 +93,7 @@ export function BalanceScreen({ ledger, onBack }: { ledger: Ledger; onBack: () =
           <input
             inputMode="decimal"
             value={typed}
-            onChange={event => setTyped(event.target.value.replace(/[^\d,]/g, ''))}
+            onChange={event => setTyped(typedFrom(event.target.value))}
             placeholder="0"
             className="min-w-0 flex-1 bg-transparent text-right font-mono text-lg tabular outline-none"
           />

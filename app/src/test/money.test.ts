@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { displayTyped, parseAmount, typedFromAmount } from '../lib/money'
+import { displayTyped, parseAmount, typedFromAmount, typedFrom } from '../lib/money'
 
 describe('parseAmount', () => {
   it('reads a comma as the decimal separator', () => {
@@ -46,5 +46,32 @@ describe('typedFromAmount', () => {
     expect(typedFromAmount(0)).toBe('')
     expect(typedFromAmount(-5)).toBe('')
     expect(typedFromAmount(NaN)).toBe('')
+  })
+})
+
+describe('typedFrom', () => {
+  it('takes a full stop as the comma it was meant to be', () => {
+    // The point on a phone's numeric keyboard, and the decimal key on an
+    // external one. Both used to be stripped in silence.
+    expect(typedFrom('12.50')).toBe('12,50')
+    expect(typedFrom('12.')).toBe('12,')
+    expect(typedFrom('.5')).toBe('0,5')
+  })
+
+  it('keeps one separator and two decimals, like the keypad', () => {
+    expect(typedFrom('12,5,3')).toBe('12,53')
+    expect(typedFrom('12,505')).toBe('12,50')
+    expect(typedFrom('0012')).toBe('12')
+  })
+
+  it('drops anything that is not a number', () => {
+    expect(typedFrom('12 €')).toBe('12')
+    expect(typedFrom('abc')).toBe('')
+    expect(typedFrom('')).toBe('')
+  })
+
+  it('leaves a lone zero alone, since it is on the way to the cents', () => {
+    expect(typedFrom('0')).toBe('0')
+    expect(typedFrom('0,')).toBe('0,')
   })
 })

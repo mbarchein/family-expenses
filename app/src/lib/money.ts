@@ -47,3 +47,23 @@ export function typedFromAmount(amount: number): string {
   const rest = cents % 100
   return rest === 0 ? String(whole) : `${whole},${String(rest).padStart(2, '0')}`
 }
+
+/**
+ * What a hand-typed amount is allowed to contain.
+ *
+ * The full stop is taken as the comma it was meant to be. Every amount field in
+ * this app used to strip it — `replace(/[^\d,]/g, '')` — so pressing the point
+ * on a phone's numeric keyboard did nothing at all, silently, which is the worst
+ * way for a key to not work. The two are the same key on a numeric pad, and on
+ * an external keyboard the decimal separator is whatever that layout says.
+ *
+ * The rest is the same shape the keypad produces, so the two ways of entering an
+ * amount cannot disagree: one separator, at most two decimals, and no leading
+ * zeros in front of a digit.
+ */
+export function typedFrom(raw: string): string {
+  const parts = raw.replace(/\./g, ',').replace(/[^\d,]/g, '').split(',')
+  const whole = parts[0].replace(/^0+(?=\d)/, '')
+  if (parts.length === 1) return whole
+  return `${whole || '0'},${parts.slice(1).join('').slice(0, 2)}`
+}
