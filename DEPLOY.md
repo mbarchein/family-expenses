@@ -118,7 +118,18 @@ Copy two things from the result:
   minting a new URL nobody points at
 
 Open the /exec URL in a browser. It should answer
-`{"ok":true,"data":{"service":"a-medias","status":"ok"}}`.
+
+```json
+{"ok":false,"service":"a-medias","status":"ok",
+ "error":{"code":"GET","message":"a-medias is alive. Every action is a POST; see the top of Api.js."}}
+```
+
+`ok:false` is the point of that answer and not a fault: it used to reply
+`{"ok":true,"data":{…}}`, the app cached it as if it were the ledger, and the
+whole thing died on `Cannot read properties of undefined (reading 'people')` —
+with a reload making it worse. A GET is nobody's action, so it answers like a
+refusal. What this check tells you is that the deployment is alive and public:
+JSON means yes, a Google login page means "Quién tiene acceso" is wrong.
 
 ## 5. Create the OAuth client
 
@@ -238,22 +249,59 @@ Try, on the copy:
 
 ## 9. Switch to the real ledger
 
-Only once §8 behaved. On the **real** spreadsheet:
+Only once §8 behaved. Keep the copy afterwards: it is where anything gets tried
+from then on.
 
-1. **Archivo → Hacer una copia** first. A backup that predates anything the app
-   ever wrote.
-2. Extensiones → Apps Script, and repeat §2 (new script id), §3, §4.
-3. Update `apps_script_exec_url`, `apps_script_id` and
-   `apps_script_deployment_id` in `terraform.tfvars` and `apply` again. Nothing
-   is edited in a panel.
-4. Add `oauth_client_id` and the two addresses to the new `Config` tab. The same
-   OAuth client works — it is tied to the domain, not to the spreadsheet.
-5. Run `sanityCheck` again and compare the balance it prints against the number
-   at the bottom of column E.
+Pick a moment when both phones are quiet — neither showing "Guardando…". Anything
+left in a phone's outbound queue goes to whichever deployment the app was built
+against, so an expense that flushes after the switch lands on the real ledger,
+which is what you want. A `fixedDone` is the one that bites: it names a row of the
+*copy's* `Fijos` tab, and the real one may not number them the same way.
 
-Keep the copy. It is where anything gets tried from now on.
+On the **real** spreadsheet:
 
----
+1. **Archivo → Hacer una copia.** A backup from before the app ever wrote to it.
+   Name it so it cannot be confused with the working copy.
+2. **Extensiones → Apps Script**, then repeat §2 (new script id, `clasp push`)
+   and §4 (new deployment: a new /exec URL and a new deployment id).
+3. Run `setupSpreadsheet` and **read its log**. It creates `Config`, `Fijos`,
+   `Sugerencias` and `Categorías`, writes the `id` header in column G, and claims
+   `categoría` in H and `forma de pago` in I. It refuses to claim a column that
+   already holds something and never overwrites an existing `Config`, so it is
+   safe to re-run — but a refusal is a line in that log and not an error, so the
+   log is the only place you will see it.
+4. Fill in `Config` as in §6: `oauth_client_id` — the same one, it is tied to the
+   domain and not to the spreadsheet — and the two addresses.
+5. **Carry `Categorías` over from the copy**, if it was tuned there. Right-click
+   the tab → *Copiar en* → *Hoja de cálculo existente*, then delete the seeded one
+   and rename the copy to `Categorías`. `updateCategories` only ever adds, so it
+   cannot reproduce a word that somebody deleted on purpose — `pan` out of
+   Supermercado, for instance, is a deletion that would come straight back.
+6. Run `sanityCheck` and compare the balance it prints with the bottom of column
+   E. If any line surprises you, stop here.
+7. Optional, in this order, and read each preview before running the one that
+   writes:
+   - `backfillIds` — gives the history ids, which is what makes it editable from a
+     phone.
+   - `previewCategorise`, then `categoriseRows` — fills column H from the words in
+     `Categorías`.
+   - `previewMethods`, then `moveMethods` — takes a payment method out of
+     `observaciones` and puts it in column I.
+8. Update `apps_script_exec_url`, `apps_script_id` and
+   `apps_script_deployment_id` in `terraform.tfvars`, then `make apply`. Nothing
+   is edited in a panel: the URL is inlined into the app at build time, so this is
+   the step that actually points the phones at the new spreadsheet.
+9. Push to `main` and let `verify` and then `deploy` go green — or run `deploy`
+   by hand from the Actions tab. Until that build reaches a phone, that phone is
+   still writing to the copy.
+10. Open the app on both phones and check the balance against column E. The first
+    paint comes from the cached ledger, which is still the copy's until the
+    refresh lands; a tab left open since before the deploy may need one reload.
+
+Two things that do not move. The saved places and the chosen icons live in each
+phone's own storage, so they survive the switch untouched. And the copy's script
+stops receiving code: `deploy` pushes to whatever `apps_script_id` says, so from
+now on trying something on the copy means pushing to it by hand.
 
 ## When something goes wrong
 
