@@ -56,6 +56,9 @@ function StarIcon({ on }: { on: boolean }) {
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"
          className="h-4 w-4 shrink-0"
          style={{ color: on ? 'currentColor' : 'var(--accent)' }}
+         // Named, like `Icon` is, so a test can ask for the star rather than
+         // count the shapes on a tile and hope.
+         data-star=""
          fill="currentColor">
       <path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4-5.8-3-5.8 3 1.1-6.4L2.6 9.4l6.5-.9z" />
     </svg>

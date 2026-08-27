@@ -145,12 +145,14 @@ test('a concept written down by hand wears a star, and the rest do not',
   const written = grid.getByRole('button', { name: 'colegio · favorito' })
   await expect(written).toBeVisible()
 
-  // The ones the history threw up carry no star, and the mark is a real element
-  // rather than a colour: counting svgs is what tells them apart, since both
-  // kinds of tile also carry an icon.
+  // The ones the history threw up carry no star. Asked for by name rather than by
+  // counting the shapes on the tile: both kinds carry an icon too, and a count is
+  // a test that goes red the next time anything is added to a tile.
   const fromHistory = grid.getByRole('button', { name: 'super', exact: true })
-  await expect(written.locator('svg')).toHaveCount(2)
-  await expect(fromHistory.locator('svg')).toHaveCount(1)
+  await expect(written.locator('svg[data-star]')).toHaveCount(1)
+  await expect(fromHistory.locator('svg[data-star]')).toHaveCount(0)
+  // And the star did not replace the icon.
+  await expect(written.locator('svg[data-icon]')).toHaveCount(1)
 
   // And it still fills the field like any other tile.
   await written.click()
@@ -447,12 +449,19 @@ test('the tiles are drawn icons, and an initial where a guess would be a lie', a
 
   // Drawn from the set, not an emoji: one family, one weight, and it inverts
   // with the tile because it is stroked in `currentColor`.
-  await expect(page.getByRole('button', { name: 'gasolina' }).locator('svg')).toHaveCount(1)
-  await expect(page.getByRole('button', { name: 'farmacia' }).locator('svg')).toHaveCount(1)
+  //
+  // `[data-icon]` rather than every `svg` on the tile. It was every svg, and the
+  // star on the concepts written down by hand made that two on `farmacia` — a
+  // test about icons going red over a mark that is not one. What it wants to
+  // know is whether an icon is drawn, so that is what it asks.
+  await expect(page.getByRole('button', { name: 'gasolina' })
+    .locator('svg[data-icon]')).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'farmacia' })
+    .locator('svg[data-icon]')).toHaveCount(1)
 
   // And nothing at all where a guess would be a lie: the initial instead.
   const unknown = page.getByRole('button', { name: 'chuches' })
-  await expect(unknown.locator('svg')).toHaveCount(0)
+  await expect(unknown.locator('svg[data-icon]')).toHaveCount(0)
   await expect(unknown).toContainText('C')
 })
 

@@ -84,6 +84,17 @@ export function Icon({ name, className = 'h-6 w-6' }: { name: IconName; classNam
   return (
     <svg
       viewBox="0 0 24 24" className={className} aria-hidden="true" focusable="false"
+      // Which shape this is, readable from outside.
+      //
+      // These are `aria-hidden` by design — the concept beside them is the name,
+      // and a screen reader announcing "basket, super" reads the picture out loud
+      // — so a browser test has no way to ask "does this tile carry an icon, and
+      // which one" except by counting `svg` elements. That worked until a second
+      // svg arrived on the same tile: the star on the hand-written ones turned
+      // "has an icon" into "has two of something", and a test that had been
+      // asserting the right thing for a year went red on CI for a reason that had
+      // nothing to do with icons.
+      data-icon={name}
       fill="none" stroke="currentColor" strokeWidth={1.75}
       strokeLinecap="round" strokeLinejoin="round"
     >
