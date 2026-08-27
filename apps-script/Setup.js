@@ -952,6 +952,66 @@ function countConcepts_() {
   return { rows: last - 1, order: order, byText: byText };
 }
 
+/**
+ * The concept grid's ranking, with the numbers behind it.
+ *
+ * Written because the tiles were read as "the most expensive ones", and the
+ * ranking has never looked at an amount: it is a count with a ninety-day half
+ * life, so a concept from three months ago is worth half an occurrence and one
+ * from a year ago is worth a sixteenth. What this prints is the same computation
+ * the app is handed — `conceptVocabulary_` — beside the raw count and the last
+ * date, which is what makes a surprising order explain itself.
+ *
+ * Two things it is good at showing. A spelling used three ways is three
+ * concepts with a third of the score each, which is what `conceptGroups` is for.
+ * And a rare concept that scores well is a recent one, not an expensive one.
+ *
+ * Read-only, like every `preview`.
+ */
+function previewConcepts(top) {
+  var config = readConfig_();
+  var wanted = Number(top) || 25;
+  var ranked = conceptVocabulary_(config);
+
+  // The raw counts, off the same rows, so the score can be read against them.
+  var sheet = ledgerSheet_(config);
+  var last = lastDataRow_(sheet);
+  var width = Math.max(config.people[0].column, config.people[1].column);
+  var rows = last > 1 ? sheet.getRange(2, 1, last - 1, width).getValues() : [];
+  var counts = {};
+  var latest = {};
+  rows.forEach(function (row) {
+    var text = String(row[COL_CONCEPT - 1] == null ? '' : row[COL_CONCEPT - 1]).trim();
+    if (!text || text.indexOf(VOID_MARK) === 0) return;
+    if (row[config.people[0].column - 1] === '' && row[config.people[1].column - 1] === '') return;
+    var key = text.toLowerCase();
+    counts[key] = (counts[key] || 0) + 1;
+    var when = row[COL_DATE - 1];
+    if (when instanceof Date && (!latest[key] || when > latest[key])) latest[key] = when;
+  });
+
+  var lines = [
+    'The order the grid uses, top ' + Math.min(wanted, ranked.length) +
+      ' of ' + ranked.length + '.',
+    'Ranked by the sum of 0.5^(age in days / 90) — a count with a ninety-day half',
+    'life. The amount is not read at all. Beside each one: how many rows carry that',
+    'spelling, and the last time it was used, which is what makes a surprising',
+    'position explain itself.',
+    ''
+  ];
+  ranked.slice(0, wanted).forEach(function (item, index) {
+    var key = item.concept.toLowerCase();
+    var when = latest[key] ? formatDate_(latest[key]) : '—';
+    lines.push(
+      String(index + 1) + '. ' + item.concept +
+      ' — ' + plural_(counts[key] || 0, 'row') + ', last ' + when);
+  });
+  lines.push('');
+  lines.push('The Sugerencias tab comes before all of this on the screen, in the');
+  lines.push('order its rows are written. Only eight tiles fit.');
+  return report_(lines);
+}
+
 function report_(lines) {
   var text = lines.join('\n');
   console.log(text);
