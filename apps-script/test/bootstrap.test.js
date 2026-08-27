@@ -285,6 +285,56 @@ test('a template with no id is found by row, and stamped on the way past', () =>
   assert.equal(sheets.Fijos.values[1][FIXED_COL_ID - 1], 'id-piscina')
 })
 
+test('a template written before the id column gets one the first time it is touched',
+  () => {
+  // The two rows that were in this tab before the column existed. The app reads
+  // them with no id, so it sends no id — nothing would ever fill one in, and a
+  // template addressed by row is one a hand-deleted row above it can silently
+  // move. So the backend mints one, on the write that is most likely to reach a
+  // legacy row first: skipping or confirming a bill.
+  const sheets = world({
+    fixed: [
+      FIXED_HEADERS_ROW,
+      ['alquiler', 700, 1, 'Viqui', 'mensual', 'sí', '', '', '', ''],
+      ['gimnasio', 40, 5, 'Mario', 'mensual', 'sí', '', '', '', ''],
+    ],
+  })
+
+  const answer = setFixedDone_({ id: '', row: 3, due: '2026-08-05' })
+  const minted = sheets.Fijos.values[2][FIXED_COL_ID - 1]
+
+  assert.ok(minted, 'the gym has an id now')
+  // Handed back, so the phone that asked stops addressing it by row.
+  assert.equal(answer.id, minted)
+  assert.equal(sheets.Fijos.values[2][FIXED_COL_LAST - 1], '2026-08-05')
+  // And only the row that was touched: the other one is still the migration's
+  // job, or its own first write's.
+  assert.equal(sheets.Fijos.values[1][FIXED_COL_ID - 1], '')
+
+  // Which is the whole point of doing it: the gym survives the rent being
+  // deleted by hand, and the next write lands on the gym rather than on nothing.
+  sheets.Fijos.deleteRow(2)
+  setFixedDone_({ id: minted, row: 3, due: '2026-09-05' })
+  assert.equal(sheets.Fijos.values[1][FIXED_COL_LAST - 1], '2026-09-05')
+})
+
+test('an id already in the cell is never overwritten', () => {
+  // Two phones with the same template queued must not end up naming it two
+  // different things — and a save that arrives with a stale id of its own has no
+  // business renaming the row it lands on.
+  const sheets = world({
+    fixed: [FIXED_HEADERS_ROW, ['piscina', 30, 8, '', 'mensual', 'sí', '', '', '', 'ya-tenia']],
+  })
+
+  const answer = saveFixed_({
+    id: 'otro', row: 2, concept: 'piscina', amount: 35, day: 8, payer: null,
+    months: 1, active: true,
+  })
+
+  assert.equal(sheets.Fijos.values[1][FIXED_COL_ID - 1], 'ya-tenia')
+  assert.equal(answer.id, 'ya-tenia')
+})
+
 test('the migration gives every template an id and can be run twice', () => {
   const sheets = world({
     fixed: [
@@ -327,7 +377,13 @@ test('marking a period done refuses a row and a date that are not one', () => {
   assert.throws(() => setFixedDone_({ id: 'nope', due: '2026-08-01' }), /No hay ningún fijo/)
   assert.throws(() => setFixedDone_({ row: 2, due: 'agosto' }), /inválida/)
 
-  assert.deepEqual(setFixedDone_({ row: 2, due: '2026-08-01' }), { row: 2, last: '2026-08-01' })
+  // And the answer carries an id, on a tab that had no id column at all: the
+  // stamp widens the tab rather than writing over whatever is on the end, so the
+  // row it just wrote `último` to is addressable from now on.
+  const answer = setFixedDone_({ row: 2, due: '2026-08-01' })
+  assert.equal(answer.row, 2)
+  assert.equal(answer.last, '2026-08-01')
+  assert.ok(answer.id, 'the row it wrote is addressable by id now')
 })
 
 /**

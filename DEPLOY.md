@@ -266,7 +266,12 @@ On the **real** spreadsheet:
    and §4 (new deployment: a new /exec URL and a new deployment id).
 3. Run `setupSpreadsheet` and **read its log**. It creates `Config`, `Fijos`,
    `Sugerencias` and `Categorías`, writes the `id` header in column G, and claims
-   `categoría` in H and `forma de pago` in I. It refuses to claim a column that
+   `categoría` in H and `forma de pago` in I. On the `Fijos` tab it claims
+   `categoría` and `id` too, and gives an id to every template that has none —
+   the ones written before that column existed. Nothing breaks without it: the
+   backend mints an id for a template the first time it writes to it. Running this
+   is how they stop being addressed by row now rather than eventually.
+   It refuses to claim a column that
    already holds something and never overwrites an existing `Config`, so it is
    safe to re-run — but a refusal is a line in that log and not an error, so the
    log is the only place you will see it.

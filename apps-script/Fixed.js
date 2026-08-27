@@ -34,9 +34,12 @@
  * anything is looked up by.
  *
  * A row with no `id` is addressed by row as a fallback, and gets stamped with one
- * the first time the app writes it. That is for the templates somebody adds by
- * hand after the migration; `setupSpreadsheet` fills in the ones that were there
- * before.
+ * the first time we write it — with the id the app sent if it has one, and with a
+ * fresh one if it does not. That second half is what the two templates written
+ * before the column existed need: the app read them with no id, so it sends none,
+ * and they would otherwise be addressed by row for ever. `setupSpreadsheet`
+ * stamps them all in one pass; this stamps whichever one is touched first,
+ * whichever happens sooner.
  */
 
 var FIXED_COLS = 10;
@@ -172,14 +175,31 @@ function fixedRowFor_(sheet, payload) {
   return row >= 2 && row <= sheet.getLastRow() ? row : 0;
 }
 
-/** Writes the id into a row that has none, so the next write finds it by id. */
+/**
+ * The id of a row, writing one first if it has none.
+ *
+ * Returns what the cell holds afterwards, which is the point: whoever asked can
+ * hand it back to the app, so the next write from that phone is by id.
+ *
+ * A fresh uuid when the app sent nothing. That case is not hypothetical — it is
+ * every template written before this column existed: the app reads them with an
+ * empty id, so it sends an empty id, so nothing here would ever fill one in and
+ * they would be addressed by row for as long as they exist. Row-addressed is
+ * exactly what is unsafe on a tab that gets rows inserted and deleted by hand.
+ *
+ * Never overwrites an id that is there. Two phones with the same template in
+ * their queues must not end up naming it two different things.
+ */
 function stampFixedId_(sheet, row, id) {
-  if (!id) return;
   if (sheet.getMaxColumns() < FIXED_COL_ID) {
     sheet.insertColumnsAfter(sheet.getMaxColumns(), FIXED_COL_ID - sheet.getMaxColumns());
   }
   var cell = sheet.getRange(row, FIXED_COL_ID);
-  if (!String(cell.getValue()).trim()) cell.setValue(id);
+  var current = String(cell.getValue() == null ? '' : cell.getValue()).trim();
+  if (current) return current;
+  var next = String(id || '').trim() || Utilities.getUuid();
+  cell.setValue(next);
+  return next;
 }
 
 /**
@@ -217,7 +237,7 @@ function saveFixed_(payload) {
   if (!row) row = Math.max(sheet.getLastRow() + 1, 2);
   // Seven columns, not eight: `último` is left exactly as it was.
   sheet.getRange(row, 1, 1, values.length).setValues([values]);
-  stampFixedId_(sheet, row, id);
+  var stamped = stampFixedId_(sheet, row, id);
   // And the category on its own, over on the other side of `último`, which is
   // why this is a second write rather than a wider one.
   if (payload.category !== undefined) {
@@ -225,7 +245,7 @@ function saveFixed_(payload) {
       .setValue(String(payload.category == null ? '' : payload.category).trim());
   }
 
-  return { row: row, id: id || String(sheet.getRange(row, FIXED_COL_ID).getValue()).trim() };
+  return { row: row, id: stamped };
 }
 
 /** Marks a template as dealt with up to `due` — confirmed or skipped, which
@@ -246,8 +266,11 @@ function setFixedDone_(payload) {
   // Written as text rather than as a Date: the app compares these as strings and
   // a cell Sheets decides to reformat is a comparison that stops matching.
   sheet.getRange(row, FIXED_COL_LAST).setNumberFormat('@').setValue(due);
-  stampFixedId_(sheet, row, String(payload.id || '').trim());
-  return { row: row, last: due };
+  // The id goes back with the answer even though the app re-reads the sheet
+  // straight afterwards: this is the write a legacy template is most likely to
+  // meet first — skipping or confirming a bill, rather than editing one — and it
+  // is the write where hitting the wrong row costs a month of the rent.
+  return { row: row, last: due, id: stampFixedId_(sheet, row, String(payload.id || '').trim()) };
 }
 
 function cadenceName_(months) {

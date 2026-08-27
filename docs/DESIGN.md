@@ -483,6 +483,18 @@ month rather than day, because a statement says "RECIBO ALQUILER" on the 2nd for
 a rent due on the 1st. That one is a **warning and not a block**: too eager costs
 a line nobody needed, too strict costs the rent twice.
 
+**A template is its `id`, not its row.** The Fijos tab is edited by hand, so a
+row deleted or inserted above one moves every row below it — and a phone holding
+a list from a minute earlier would then write `último` onto the neighbouring bill.
+The `id` column on the end is ours; the row still comes back to the app because it
+is what the users see in the tab, but nothing is looked up by it. A row with no id
+is found by row as a fallback and **stamped on the way past**: with the id the app
+sent, or with a fresh one when it sent none. That second case is the templates
+written before the column existed — the app reads them with no id, so it sends
+none, and without minting one here they would be row-addressed for ever.
+`setupSpreadsheet` stamps them all in one pass; whichever happens first wins, and
+an id already in the cell is never overwritten.
+
 **Which periods a template owes is computed in the app**, not the backend —
 `app/src/lib/fixed.ts`. All the risk here is calendar arithmetic: a day 31 in
 February, an anchor two months out of phase, six months nobody opened the app.

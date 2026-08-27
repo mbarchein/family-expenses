@@ -797,6 +797,11 @@ function annotateFixed_(sheet) {
   sheet.getRange(1, 7).setNote(
     'Desde cuándo cuenta la periodicidad. Solo importa si no es mensual.');
   sheet.getRange(1, 8).setNote('Lo escribe la app: el último vencimiento resuelto. No lo edites.');
+  sheet.getRange(1, 9).setNote('La categoría, tal como está escrita en la pestaña Categorías.');
+  // The one column on this tab that is ours. It said nothing before, which is how
+  // a column of uuids looks like something safe to tidy away.
+  sheet.getRange(1, 10).setNote(
+    'Lo escribe la app para identificar cada fijo. No lo edites ni lo borres.');
 }
 
 /**
