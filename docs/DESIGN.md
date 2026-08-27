@@ -392,9 +392,24 @@ OpenStreetMap, and turning the switch on asks that server for tiles. The line
 that replaced "nothing leaves" is narrower and still worth having: **tiles are
 requested at tile granularity — a hundred metres or more, never the point.** The
 mosaic is centred on the tile the fix sits in rather than on the fix, so even the
-set of URLs asked for does not narrow it further; nothing is requested while the
-switch is off; and the accuracy ring and the fifteen-metre circle are still drawn
-locally, on top, which is the part of the old drawing that was doing work.
+set of URLs asked for does not narrow it further; nothing is requested unless a
+map is on screen; and the accuracy ring and the fifteen-metre circle are still
+drawn locally, on top, which is the part of the old drawing that was doing work.
+
+**The same map, a second time: one saved place.** Tapping a row on the Sitios
+screen opens `/sitios/<id>`, which is that place on the map it was saved from —
+the fix that was written down, the accuracy it had, the fifteen-metre circle, and
+the other saved places within 120 m labelled around it. It exists because the
+list is numbers about a doorway nobody can picture: "±18 m, a 34 m de aquí" is
+the reason a place never matches, and the map is where that stops being a
+mystery. The places within 120 m are also the answer to why one door offers two
+concepts, seen instead of explained.
+
+It reads no position — the coordinate comes off the disk — so it neither prompts
+nor needs the permission, and it works with it refused. What it does do is ask
+for tiles, which is the second of the two occasions section 13 now names. The
+detail is an address rather than state for the usual reason: the phone's back
+button closes the map instead of leaving the screen.
 
 Saving one is always a deliberate flick of the "Guardar este sitio" switch on
 the review step, which is the only thing in the app that asks for the location
@@ -652,7 +667,8 @@ in, and the sheet is shared with the two of them and nobody else. What is left:
 
 The other gap that used to be here — the tabs being state rather than URLs — is
 closed. Every screen has an address (`/`, `/gastos`, `/diferencia`, `/sitios`,
-`/fijos`), so does each detail sheet (`/fijos/4`, `/fijos/nuevo`, `/gastos/<id>`)
+`/fijos`), so does each detail sheet (`/fijos/4`, `/fijos/nuevo`, `/gastos/<id>`,
+`/sitios/<id>`)
 and so does the cog sheet (`/iconos`); the device's back button walks all of it,
 and a reload — including the one the app performs on itself when a new version
 lands — comes back to what was open. The sheets that are not addresses close on

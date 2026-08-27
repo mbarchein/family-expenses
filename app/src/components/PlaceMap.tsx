@@ -28,11 +28,16 @@ import type { NearPlace } from '../store/places'
  * one, and a ring wider than the dashes is a fix too vague to match a doorway.
  * On a street map those become "half the block" instead of "0.7 of a square".
  *
- * Two things it still does not do. It asks for nothing until the switch that says
- * it will save where you are has been turned on — so somebody who never saves a
- * place never reaches a tile server. And the coordinate still never goes to our
- * backend, is still not written to the spreadsheet, and there is still no column
- * for it.
+ * Two things it still does not do. It asks for nothing until a map has been asked
+ * for — the switch that says it will save where you are being turned on, or a
+ * saved place being opened from Sitios — so somebody who never saves a place
+ * never reaches a tile server, and nothing is requested by walking around or by
+ * opening the app. And the coordinate still never goes to our backend, is still
+ * not written to the spreadsheet, and there is still no column for it.
+ *
+ * The second occasion is the newer one, and it is the same bargain rather than a
+ * wider one: what a saved place's detail asks for is the tile that place sits in,
+ * which is the tile the review step already asked for on the day it was saved.
  *
  * No mapping library: the tiles are `<img>` elements laid out from the same Web
  * Mercator arithmetic the servers are keyed by, which is thirty lines and no
@@ -100,12 +105,38 @@ function scaleBar(metresPerPx: number): { metres: number; pixels: number } {
   return { metres: 1000, pixels: 1000 / metresPerPx }
 }
 
-export function PlaceMap({ fix, nearby, improving }: {
+export function PlaceMap({
+  fix, nearby, improving = false, label = T.places.mapLabel, note, centreLabel,
+}: {
+  /**
+   * The centre, and the accuracy the ring is drawn from.
+   *
+   * Two things are a `Fix`: where the phone is right now, on the review step, and
+   * the fix a saved place was written with, on its own detail. The map is the
+   * same either way — a spot, its accuracy, and what else is saved around it —
+   * and the two callers differ only in the words above and below the box.
+   */
   fix: Fix
-  /** The saved places, already measured against this fix by the store. */
+  /** The saved places, already measured against this fix by the caller. The
+   *  first one is drawn over the centre when it *is* the centre. */
   nearby: NearPlace[]
-  /** True while the watch is still running and the fix might get better. */
-  improving: boolean
+  /** True while the watch is still running and the fix might get better. Never
+   *  true for a fix read back off the disk, which is as good as it will get. */
+  improving?: boolean
+  /** The line over the box. Defaults to "where you are"; a saved place says
+   *  where it was saved instead. */
+  label?: string
+  /** The line under it, in place of the "still improving" note. The accuracy is
+   *  appended either way: it is what the ring means. */
+  note?: string
+  /**
+   * A name for the centre itself, drawn under the dot.
+   *
+   * Under rather than over, which is where the neighbours' labels go: on a saved
+   * place's map the centre *is* one of the places, and a label above the dot sat
+   * on top of it and hid the thing it was naming.
+   */
+  centreLabel?: string
 }) {
   const box = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
@@ -141,13 +172,13 @@ export function PlaceMap({ fix, nearby, improving }: {
 
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-xs font-semibold text-ink-2">{T.places.mapLabel}</p>
+      <p className="text-xs font-semibold text-ink-2">{label}</p>
       <div
         ref={box}
         className="relative overflow-hidden rounded-xl border border-line"
         style={{ height: HEIGHT, background: 'var(--surface-2)' }}
       >
-        <div className="absolute inset-0" role="img" aria-label={T.places.mapLabel}>
+        <div className="absolute inset-0" role="img" aria-label={label}>
           {/* The tiles. `--map-tint` is `none` in daylight and an inversion in the
               dark palette: the standard OpenStreetMap style is a white sheet of
               paper, and a white sheet of paper at night is a torch. */}
@@ -187,6 +218,21 @@ export function PlaceMap({ fix, nearby, improving }: {
                        ring-2 ring-white"
             style={{ left: '50%', top: '50%', background: 'var(--accent)' }}
           />
+          {centreLabel && (
+            <span
+              className="absolute -translate-x-1/2 whitespace-nowrap rounded px-1 py-px
+                         text-[10px] font-semibold"
+              style={{
+                left: '50%',
+                top: 'calc(50% + 10px)',
+                background: 'var(--paper)',
+                color: 'var(--ink-2)',
+                border: '1px solid var(--line)',
+              }}
+            >
+              {centreLabel}
+            </span>
+          )}
 
           {shown.map(place => {
             // North is up. A degree of longitude is shorter than one of latitude
@@ -255,7 +301,7 @@ export function PlaceMap({ fix, nearby, improving }: {
         </a>
       </div>
       <p className="text-[11px] text-ink-3">
-        {improving ? T.places.mapImproving : T.places.mapSteady}
+        {note ?? (improving ? T.places.mapImproving : T.places.mapSteady)}
         {' · '}
         {T.places.accuracy(Math.round(fix.accuracy))}
       </p>

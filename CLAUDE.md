@@ -89,9 +89,18 @@ against the copy of the spreadsheet, never the live ledger.
   the point.** Which means the mosaic must keep being centred on the *tile* the
   fix is in rather than on the fix, or the set of URLs requested would give the
   doorway away. Everything else stands: our backend, the sheet, and the other
-  person's phone still never see a coordinate, and nothing is requested while the
-  switch is off. Section 13, the Sitios screen and this bullet say the same
+  person's phone still never see a coordinate, and nothing is requested unless a
+  map is on screen. Section 13, the Sitios screen and this bullet say the same
   thing — change one and the other two move in the same commit.
+
+  There are two of those maps now, and the second one is why that last clause
+  reads "a map is on screen" rather than "the switch is on": opening a saved place
+  from Sitios shows the same map, centred on the fix that place was saved with.
+  Which is the same bargain rather than a wider one — the tile asked for is the
+  tile the review step already asked for the day it was saved — and it reads no
+  position at all, so it never prompts and works with the permission refused. A
+  third occasion is not free: it is another line in a published document, and the
+  three places above have to move with it.
 - **Never let clasp push anything that is not a backend source.** Apps Script
   compiles every file in the project and runs the top level of every one of them
   on every single request, so one stray file breaks the whole web app rather than

@@ -203,9 +203,26 @@ export const T = {
     // are. It is on this screen because this is the screen that explains the
     // feature, and hiding it in the policy alone would be hiding it.
     localMap:
-      'Al guardar un sitio se ve un mapa. Las imágenes las sirve OpenStreetMap, ' +
-      'que recibe la zona en la que estás — un cuadrado de cien metros o más, no ' +
-      'el punto exacto — y solo mientras ese interruptor está encendido.',
+      'Se ve un mapa al guardar un sitio y al abrir uno de la lista. Las imágenes ' +
+      'las sirve OpenStreetMap, que recibe la zona del mapa — un cuadrado de cien ' +
+      'metros o más, no el punto exacto — y solo mientras se está viendo.',
+    /** The row's own name, because the row is now a button: read out loud, a list
+     *  of dates and metres does not say what tapping it does. */
+    open: (concept: string) => `Ver «${concept}» en el mapa`,
+    /** The detail of one saved place. Its own address — `/sitios/<id>` — so the
+     *  back button closes the map instead of leaving the screen. */
+    detail: 'Sitio guardado',
+    /** Over the map there: the fix is the one written down the day the place was
+     *  saved, not where the phone is now, and the difference matters when the
+     *  ring is wide. */
+    mapSaved: 'Dónde se guardó este sitio',
+    /** Under it. The accuracy of that fix is appended by the map itself. */
+    mapSavedNote: 'Es la posición que guardó el móvil aquel día',
+    /** The other saved places drawn around it — the reason two concepts at one
+     *  door are two places, seen rather than explained. */
+    mapOthers: (n: number) => (n === 1
+      ? 'Hay otro sitio guardado cerca'
+      : `Hay ${n} sitios guardados cerca`),
     empty: 'Todavía no has guardado ningún sitio',
     emptyHow:
       'Al apuntar un gasto, toca «Guardar este sitio» y la próxima vez que estés ' +
@@ -228,6 +245,7 @@ export const T = {
     accuracy: (metres: number) => `±${metres} m`,
     savedOn: (date: string) => `Guardado el ${date}`,
     uses: (n: number) => (n === 1 ? 'Usado una vez' : `Usado ${n} veces`),
+    close: 'Cerrar',
     forget: 'Borrar',
     forgetConfirm: '¿Borrar este sitio? Los gastos ya apuntados no se tocan.',
   },

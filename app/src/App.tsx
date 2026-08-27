@@ -88,7 +88,14 @@ export default function App() {
           />
         )}
         {route === 'balance' && <BalanceScreen ledger={ledger} onBack={back} />}
-        {route === 'places' && <PlacesScreen onBack={back} />}
+        {route === 'places' && (
+          <PlacesScreen
+            onBack={back}
+            viewing={detail}
+            onOpen={openDetail}
+            onCloseDetail={closeDetail}
+          />
+        )}
         {route === 'fixed' && (
           <FixedScreen
             ledger={ledger}

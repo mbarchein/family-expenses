@@ -320,6 +320,73 @@ test.describe('with the location allowed', () => {
     await expect(page.getByRole('listitem').filter({ hasText: 'ferretería' })).toHaveCount(1)
   })
 
+  test('a saved place opens on the map it was saved from', async ({ page }) => {
+    // Reported: the list says "±18 m, a 34 m de aquí", which is arithmetic about
+    // a doorway nobody can picture. So the row opens the same map the review step
+    // drew — and it has to be the *saved* fix rather than a fresh one, which is
+    // what comparing the two sets of tiles proves.
+    await stubApi(page)
+    await signIn(page)
+
+    const tiles = () => page.locator('img[src*="tile.openstreetmap.org"]')
+      .evaluateAll(images => (images as HTMLImageElement[]).map(image => image.src).sort())
+
+    await reachReview(page, 'ferretería')
+    await savePlace(page)
+    await expect.poll(() => tiles().then(list => list.length)).toBeGreaterThan(0)
+    const atDoor = await tiles()
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Sitios' }).click()
+    await page.getByRole('button', { name: 'Ver «ferretería» en el mapa' }).click()
+
+    // Its own address, so the back button closes the map rather than the screen.
+    await expect(page).toHaveURL(/\/sitios\/[0-9a-f-]+$/)
+    const sheet = page.getByRole('dialog', { name: 'Sitio guardado' })
+    await expect(sheet.getByRole('img', { name: 'Dónde se guardó este sitio' })).toBeVisible()
+    // The fix that was written down that day, not where the phone is now: the
+    // same square of the world, so the same tiles and nothing new asked for.
+    await expect.poll(() => tiles()).toEqual(atDoor)
+
+    await page.goBack()
+    await expect(sheet).toHaveCount(0)
+    await expect(page.getByRole('listitem').filter({ hasText: 'ferretería' })).toHaveCount(1)
+  })
+
+  test('the map of a place shows the other places saved around it', async ({ page, context }) => {
+    // Why one door offers two concepts, seen instead of explained. Forty metres
+    // is outside the 15 m tolerance — two different shops — and well inside the
+    // 120 m the detail draws.
+    await stubApi(page)
+    await signIn(page)
+
+    await reachReview(page, 'ferretería')
+    await savePlace(page)
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+    await context.setGeolocation(northOf(40))
+    await reachReview(page, 'floristería')
+    const toggle = page.getByRole('switch', { name: 'Guardar este sitio' })
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Sitios' }).click()
+    await page.getByRole('button', { name: 'Ver «ferretería» en el mapa' }).click()
+
+    const sheet = page.getByRole('dialog', { name: 'Sitio guardado' })
+    await expect(sheet.getByText('Hay otro sitio guardado cerca')).toBeVisible()
+    // Both names on the map itself — the one being looked at, over the dot, and
+    // the neighbour where it stands. Scoped to the map, because the header of the
+    // sheet carries the same word.
+    const map = sheet.getByRole('img', { name: 'Dónde se guardó este sitio' })
+    await expect(map.getByText('floristería')).toBeVisible()
+    await expect(map.getByText('ferretería')).toBeVisible()
+  })
+
   test('the places screen lists what was saved and can forget it', async ({ page }) => {
     await stubApi(page)
     await signIn(page)
