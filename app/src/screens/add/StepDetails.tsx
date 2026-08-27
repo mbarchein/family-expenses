@@ -136,7 +136,10 @@ export function StepDetails({
     // The written-down ones first, then whatever the history threw up. Both
     // carry whatever icon was chosen for them, and `iconFor` guesses the rest.
     for (const item of mine.filter(item => item.kind === 'concept')) {
-      add({ concept: item.text, icon: chosen[fold(item.text)] })
+      // `pinned`: these wear a star on the tile. They are the ones that come
+      // first regardless of how often they are used, and saying so on screen is
+      // cheaper than explaining it — see the `ConceptTile` type.
+      add({ concept: item.text, icon: chosen[fold(item.text)], pinned: true })
     }
     for (const chip of data.frequent) {
       add({ concept: chip.concept, icon: chosen[fold(chip.concept)] })

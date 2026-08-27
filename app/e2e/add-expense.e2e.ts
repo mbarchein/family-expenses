@@ -123,6 +123,40 @@ test('a chip sets the concept and leaves the payer alone', async ({ page }) => {
   await expect(page.getByText('Viqui', { exact: true })).toBeVisible()
 })
 
+test('a concept written down by hand wears a star, and the rest do not',
+  async ({ page }) => {
+  // The tiles are the `concepto` rows of the Sugerencias tab first — in the order
+  // they are written there, before anything the frequency ranking has to say —
+  // and then the ranking. The star is the answer to "why is that one here",
+  // which was asked as "these look like the most expensive ones".
+  await stubApi(page, bootstrap({
+    suggestions: [
+      { text: 'Efectivo', kind: 'method', person: null },
+      { text: 'colegio', kind: 'concept', person: null },
+    ],
+  }))
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+
+  const grid = page.getByRole('group', { name: 'Conceptos frecuentes' })
+  // Named rather than only drawn: a star read out as "star" is a shape, and this
+  // is what the shape means.
+  const written = grid.getByRole('button', { name: 'colegio · favorito' })
+  await expect(written).toBeVisible()
+
+  // The ones the history threw up carry no star, and the mark is a real element
+  // rather than a colour: counting svgs is what tells them apart, since both
+  // kinds of tile also carry an icon.
+  const fromHistory = grid.getByRole('button', { name: 'super', exact: true })
+  await expect(written.locator('svg')).toHaveCount(2)
+  await expect(fromHistory.locator('svg')).toHaveCount(1)
+
+  // And it still fills the field like any other tile.
+  await written.click()
+  await expect(page.getByRole('textbox', { name: 'Concepto' })).toHaveValue('colegio')
+})
+
 test('the payment methods take a second line rather than scrolling out of sight',
   async ({ page }) => {
   // Four cards of which two are off the right edge is a list that hides half of

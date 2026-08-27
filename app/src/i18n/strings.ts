@@ -65,6 +65,9 @@ export const T = {
     concept: 'Concepto',
     conceptPlaceholder: 'Busca o escribe el concepto',
     clearConcept: 'Borrar el concepto',
+    /** The star on a tile written down by hand in the Sugerencias tab. Said
+     *  rather than drawn, for whoever is not looking at the shape. */
+    pinned: (concept: string) => `${concept} · favorito`,
     pays: (name: string) => `Paga ${name}`,
     today: 'Hoy',
     yesterday: 'Ayer',
