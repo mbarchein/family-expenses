@@ -10,7 +10,7 @@ import { formatDayHeading, formatShortDate, todayIso } from '../lib/dates'
 import { iconOf } from '../lib/categories'
 import { fold } from '../lib/icons'
 import { formatEur } from '../lib/money'
-import { earliestDay, summarise, yearIsPartial } from '../lib/totals'
+import { earliestDay, matchedTotal, summarise, yearIsPartial } from '../lib/totals'
 import type { Category } from '../api/types'
 import { useIconChoices } from '../store/iconChoices'
 import type { Ledger, ShownEntry } from '../store/ledger'
@@ -50,6 +50,12 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
   const days = useMemo(() => groupByDay(shown), [shown])
   const today = todayIso()
   const sums = useMemo(() => summarise(shown, today), [shown, today])
+  const filtered = filter !== 'all' || Boolean(query.trim()) || category !== null
+  // Only while something is filtered: unfiltered, "everything that matches" is
+  // everything the app happens to have loaded, which is a number about the window
+  // rather than about the household.
+  const matched = useMemo(
+    () => (filtered ? matchedTotal(shown) : null), [filtered, shown])
 
   // Coverage is a property of the window the app loaded, not of the filter, so
   // it is measured over everything rather than over what is on screen.
@@ -97,7 +103,8 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
       <Totals
         sums={sums}
         today={today}
-        filtered={filter !== 'all' || Boolean(query.trim()) || category !== null}
+        filtered={filtered}
+        matched={matched}
         partialSince={yearIsPartial(from, today) ? formatShortDate(from!) : null}
       />
 

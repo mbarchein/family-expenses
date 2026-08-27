@@ -1,7 +1,7 @@
 import { T } from '../i18n/strings'
-import { formatMonthShort } from '../lib/dates'
+import { formatMonthShort, formatShortDate } from '../lib/dates'
 import { formatEur } from '../lib/money'
-import type { Totals as Sums } from '../lib/totals'
+import type { Matched, Totals as Sums } from '../lib/totals'
 
 /**
  * Three numbers over the list: last month, this month, this year.
@@ -14,11 +14,27 @@ import type { Totals as Sums } from '../lib/totals'
  * Which is exactly why the strip says so when a filter is on. Three euro amounts
  * on a dark strip read as the household's total whatever produced them, and a
  * filtered number wearing that look is a wrong number rather than a narrow one.
+ *
+ * And a fourth number underneath while a filter is on: what everything that
+ * matches adds up to, months ignored. The three cells answer "how is this month
+ * going", which is not what somebody typing `farmacia` into the search box wants
+ * to know — they want what the chemist costs, and the month it happened in is the
+ * part of that they are trying to get rid of.
  */
-export function Totals({ sums, today, filtered, partialSince }: {
+export function Totals({ sums, today, filtered, matched, partialSince }: {
   sums: Sums
   today: string
   filtered: boolean
+  /**
+   * Everything that matches, with no month in it — or null when nothing is
+   * filtered and the question does not arise.
+   *
+   * Its own row rather than a fourth cell: four euro amounts across a phone is
+   * either three characters of each or a strip nobody can read, and this is the
+   * number somebody has just gone looking for, so it gets the room to be the
+   * answer instead of a quarter of the furniture.
+   */
+  matched: Matched | null
   /** Set when the loaded window starts after 1 January, which makes the year a
    *  floor rather than a total. Shown, not hidden. */
   partialSince: string | null
@@ -38,6 +54,30 @@ export function Totals({ sums, today, filtered, partialSince }: {
             ones reads as a different kind of number. */}
         <Cell label={today.slice(0, 4)} amount={sums.year} last />
       </div>
+
+      {matched && (
+        <div
+          className="flex items-center gap-3 rounded-xl border px-3 py-2"
+          style={{ background: 'var(--accent-soft)', borderColor: 'var(--accent)' }}
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] font-bold uppercase tracking-wider"
+                  style={{ color: 'var(--accent)' }}>
+              {T.list.matchedTotal}
+            </span>
+            <span className="block truncate text-[11px] text-ink-3">
+              {T.list.matchedCount(matched.count)}
+              {matched.from && matched.to && (
+                <> · {T.list.matchedRange(
+                  formatShortDate(matched.from), formatShortDate(matched.to))}</>
+              )}
+            </span>
+          </span>
+          <span className="tabular shrink-0 font-mono text-base font-bold">
+            {formatEur(matched.total)}
+          </span>
+        </div>
+      )}
 
       {(filtered || partialSince) && (
         <p className="text-[11px] text-ink-3">

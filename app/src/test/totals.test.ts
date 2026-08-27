@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { earliestDay, summarise, yearIsPartial, latestDay } from '../lib/totals'
+import { earliestDay, matchedTotal, summarise, yearIsPartial, latestDay } from '../lib/totals'
 
 const entry = (date: string, amount: number, voided = false) => ({ date, amount, voided })
 
@@ -86,5 +86,39 @@ describe('latestDay', () => {
 
   it('is null for an empty list, so the range can say there is none', () => {
     expect(latestDay([])).toBe(null)
+  })
+})
+
+describe('matchedTotal', () => {
+  it('adds up everything it is given, whatever month it is in', () => {
+    // The point of the number: the three cells above it are months, and a filter
+    // is usually asking what something costs rather than what it cost in August.
+    const matched = matchedTotal([
+      entry('2026-08-24', 10),
+      entry('2026-02-03', 5),
+      entry('2024-11-30', 1000),
+    ])
+
+    expect(matched.total).toBe(1015)
+    expect(matched.count).toBe(3)
+    expect(matched.from).toBe('2024-11-30')
+    expect(matched.to).toBe('2026-08-24')
+  })
+
+  it('leaves out the voided rows, and does not count them either', () => {
+    // They stay in the list struck through and their amounts are gone from the
+    // sheet, so a count beside this total has to mean the rows it is made of.
+    const matched = matchedTotal([
+      entry('2026-08-24', 10),
+      entry('2026-08-20', 0, true),
+    ])
+
+    expect(matched.total).toBe(10)
+    expect(matched.count).toBe(1)
+    expect(matched.from).toBe('2026-08-24')
+  })
+
+  it('has no span at all when nothing matches', () => {
+    expect(matchedTotal([])).toEqual({ total: 0, count: 0, from: null, to: null })
   })
 })

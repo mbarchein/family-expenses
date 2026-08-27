@@ -45,6 +45,46 @@ export function summarise(
   return totals
 }
 
+/**
+ * Everything the list is showing, added up, with no calendar in it at all.
+ *
+ * The three cells above are months, which is the right shape for "how are we
+ * doing" and the wrong one for a filter: searching for `farmacia` and being told
+ * what the chemist cost *this month* answers a question nobody asked when the
+ * point of typing it was to find out what it costs, full stop. So this is the
+ * fourth number, and it only appears when a filter is on — unfiltered it would be
+ * a total of "the last few hundred rows", which is a number about the app rather
+ * than about the household.
+ *
+ * The span comes back with it because a total with no dates on it invites being
+ * read as a total of everything. It is not: it is a total of what got loaded, and
+ * the two ends of it say where that starts.
+ *
+ * Voided rows are skipped, the way they are everywhere else that adds up — and
+ * the count is of what the total is made of, for the same reason. A row with no
+ * amounts is not a row this number is hiding.
+ */
+export interface Matched {
+  total: number
+  count: number
+  from: string | null
+  to: string | null
+}
+
+export function matchedTotal(
+  entries: readonly { date: string; amount: number; voided: boolean }[],
+): Matched {
+  const matched: Matched = { total: 0, count: 0, from: null, to: null }
+  for (const entry of entries) {
+    if (entry.voided) continue
+    matched.total += entry.amount
+    matched.count++
+    if (!matched.from || entry.date < matched.from) matched.from = entry.date
+    if (!matched.to || entry.date > matched.to) matched.to = entry.date
+  }
+  return matched
+}
+
 /** The earliest day present, or null for an empty list. What the summary can
  *  see, which is not the same as what the ledger holds — the app loads the last
  *  few hundred rows, so a year total is a floor when this falls after 1 January. */

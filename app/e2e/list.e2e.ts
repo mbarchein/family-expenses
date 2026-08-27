@@ -134,6 +134,43 @@ test('filtering moves the totals with it, and the strip says it is filtered', as
   await expect(page.getByText('Solo lo filtrado')).toBeVisible()
 })
 
+test('a filter brings its own total, with no months in it', async ({ page }) => {
+  // Asked for in as many words: the three cells answer "how is this month going",
+  // and somebody who has just typed a concept into the search box is asking what
+  // that concept costs — full stop, whatever month each row landed in.
+  await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+
+  // Nothing while nothing is filtered: unfiltered it would be a total of
+  // whatever the app happened to load.
+  await expect(page.getByText('Total del filtro')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Mario', exact: true }).click()
+  const total = page.getByText('Total del filtro').locator('..').locator('..')
+  // Mario's three rows: 60 today, 100 last month, and nothing of last year's —
+  // that one is Viqui's. The year cell stops at this year; this does not.
+  await expect(total).toContainText('160,00')
+  await expect(total).toContainText('2 apuntes')
+
+  await page.getByRole('button', { name: 'Ambos' }).click()
+  await page.getByRole('searchbox', { name: 'Buscar concepto…' }).fill('seguro')
+  // A single row from last year, which every one of the three cells above reads
+  // as zero. This is the number that says it is a thousand euros.
+  //
+  // No thousands separator, and that is Spanish rather than a bug: es-ES groups
+  // from five figures up (`minimumGroupingDigits` is 2), so 1000,00 € is what
+  // `Intl` writes and 10.000,00 € is what it writes next.
+  await expect(total).toContainText('1000,00')
+  await expect(total).toContainText('1 apunte')
+
+  // And it says which stretch it covers, because a total with no dates on it
+  // reads as a total of everything — this one is a total of what got loaded.
+  await page.getByRole('searchbox', { name: 'Buscar concepto…' }).fill('')
+  await page.getByRole('button', { name: 'Viqui', exact: true }).click()
+  await expect(total).toContainText(/del .* al /)
+})
+
 test('a year the app cannot see all of says so', async ({ page }) => {
   // The app loads the last few hundred rows, not the whole sheet. On a busy
   // ledger the year total is a floor, and a floor wearing the look of a total is

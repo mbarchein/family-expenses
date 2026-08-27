@@ -340,6 +340,18 @@ question does. The strip says **Solo lo filtrado** whenever one is on: three eur
 amounts read as the household's total whatever produced them, and a filtered
 number wearing that look is a wrong number rather than a narrow one.
 
+**And a fourth number while a filter is on: the total of everything that
+matches, with no calendar in it.** The three cells are months, which is the right
+shape for "how are we doing" and the wrong one for a filter — somebody who types
+`farmacia` into the search box is asking what the chemist costs, and the month
+each row landed in is the part they are trying to get rid of. It is its own row
+rather than a fourth cell, because four euro amounts across a phone is a strip
+nobody can read, and this is the number that was just gone looking for. It comes
+with the count of rows it is made of and both ends of the stretch it covers: a
+total with no dates on it reads as a total of everything, and this one is a total
+of what the app has loaded. Unfiltered it is not shown at all — there it would be
+a number about the window rather than about the household.
+
 The year is a total rather than a floor, and that cost two changes. The window
 the backend sends **reaches back to the first of January of last year** — not a
 row count, which turned "this year" into "since whenever row 1999 was" — with

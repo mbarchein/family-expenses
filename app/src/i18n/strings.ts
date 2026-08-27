@@ -324,6 +324,21 @@ export const T = {
     filtered: 'Solo lo filtrado',
     partialYear: (date: string) =>
       `El año cuenta desde el ${date}: la app carga los últimos gastos, no toda la hoja.`,
+    /**
+     * The fourth number, and only while a filter is on: what everything that
+     * matches adds up to, with no month in it.
+     *
+     * Asked for in as many words — «un total de todos los apuntes que coincidan
+     * con el filtro, sin importar fechas» — because the three cells above answer
+     * "how is this month going" and a filter is nearly always asking something
+     * else: what does the chemist cost us, what have we spent on the car.
+     */
+    matchedTotal: 'Total del filtro',
+    matchedCount: (n: number) => (n === 1 ? '1 apunte' : `${n} apuntes`),
+    /** Both ends of it, like the bar on the Diferencia screen: a total with no
+     *  dates on it reads as a total of everything, and this one is a total of
+     *  what the app has loaded. */
+    matchedRange: (from: string, to: string) => `del ${from} al ${to}`,
     claiming: 'Preparando…',
     dayTotal: (amount: string) => `Total del día ${amount}`,
   },
