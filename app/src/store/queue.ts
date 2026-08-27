@@ -89,7 +89,30 @@ export async function pendingAttempts(): Promise<number> {
  * would silently lose the edit. Leaving the rest queued keeps the sequence
  * intact for the next attempt.
  */
-export async function flush(): Promise<{ sent: number; failed: boolean }> {
+/**
+ * The flush in progress, so that two of them never run at once.
+ *
+ * Found by a test, and it was real: `settleFixed` finishes with a `refresh`,
+ * `refresh` starts with a flush, and saving an expense had already started one —
+ * so two flushes read the same queue and sent the same expense twice. The sheet
+ * survives that on its own (`append` looks for the entry's id before writing a
+ * line, inside the lock), which is why nobody saw a duplicated rent, but the app
+ * was doing the work twice and the second answer overwrote the first.
+ *
+ * Chained rather than dropped: a caller that has just enqueued something is
+ * asking for it to be tried, and returning the flush that started before their op
+ * existed would answer a question they did not ask. This way every call gets a
+ * turn, in order, and never at the same time as another.
+ */
+let inFlight: Promise<unknown> = Promise.resolve()
+
+export function flush(): Promise<{ sent: number; failed: boolean }> {
+  const mine = inFlight.then(drain, drain)
+  inFlight = mine
+  return mine
+}
+
+async function drain(): Promise<{ sent: number; failed: boolean }> {
   const records = (await idb.all<Record_>('queue')).sort((a, b) => a.queuedAt - b.queuedAt)
   let sent = 0
 
