@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Spinner } from './Spinner'
 import { T } from '../i18n/strings'
 import { formatShortDate } from '../lib/dates'
 import { formatEur } from '../lib/money'
@@ -23,9 +25,38 @@ export function FixedDue({ due, warn, onConfirm, onSkip, onClose }: {
   /** Whether this period looks like it is already in the ledger. */
   warn: (item: Due) => boolean
   onConfirm: (item: Due) => void
-  onSkip: (item: Due) => void
+  /**
+   * Awaited, which is the point: skipping writes `último` to the sheet over the
+   * network, and this screen used to fire it and forget. Nothing on screen
+   * changed, so a slow reply looked like a button that had not registered the
+   * tap — and a second tap sent it again.
+   */
+  onSkip: (item: Due) => Promise<void>
   onClose: () => void
 }) {
+  /** Which proposal is talking to the sheet, `null` for none. The whole sheet
+   *  goes quiet while one is: confirming loads the expense into the flow and
+   *  leaves, so two of these at once is never a thing somebody meant. */
+  const [busy, setBusy] = useState<string | null>(null)
+  const [problem, setProblem] = useState<string | null>(null)
+  const keyOf = (item: Due) => `${item.id || item.row}:${item.due}`
+
+  async function skip(item: Due) {
+    if (busy) return
+    setBusy(keyOf(item))
+    setProblem(null)
+    try {
+      await onSkip(item)
+    } catch {
+      // Said out loud rather than swallowed. The period stays owed, which is the
+      // safe half of that pair: it is proposed again rather than silently
+      // treated as dealt with.
+      setProblem(T.fixed.skipFailed)
+    } finally {
+      setBusy(null)
+    }
+  }
+
   return (
     <div
       className="absolute inset-0 z-10 flex flex-col"
@@ -73,11 +104,16 @@ export function FixedDue({ due, warn, onConfirm, onSkip, onClose }: {
                 </p>
               )}
 
+              {/* Both disabled while either is working, and the one that was
+                  pressed says what it is doing. Neither of them did before: the
+                  skip went to the network with nothing on screen to show it, and
+                  confirming twice pushed the flow twice. */}
               <div className="flex gap-2 pt-0.5">
                 <button
                   type="button"
                   onClick={() => onConfirm(item)}
-                  className="flex-1 rounded-lg py-2 text-sm font-bold
+                  disabled={busy !== null}
+                  className="flex-1 rounded-lg py-2 text-sm font-bold disabled:opacity-40
                              focus-visible:outline focus-visible:outline-2"
                   style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
                 >
@@ -85,18 +121,29 @@ export function FixedDue({ due, warn, onConfirm, onSkip, onClose }: {
                 </button>
                 <button
                   type="button"
-                  onClick={() => onSkip(item)}
-                  className="rounded-lg border border-line px-3 py-2 text-sm font-semibold
+                  onClick={() => void skip(item)}
+                  disabled={busy !== null}
+                  aria-busy={busy === keyOf(item)}
+                  className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-2
+                             text-sm font-semibold disabled:opacity-40
                              focus-visible:outline focus-visible:outline-2"
                   style={{ color: 'var(--ink-2)' }}
                 >
-                  {T.fixed.skip}
+                  {busy === keyOf(item) && <Spinner className="h-3.5 w-3.5" />}
+                  {busy === keyOf(item) ? T.fixed.skipping : T.fixed.skip}
                 </button>
               </div>
             </div>
           </li>
         ))}
       </ul>
+
+      {problem && (
+        <p role="alert" className="px-4 pb-4 text-center text-sm"
+           style={{ color: 'var(--danger)' }}>
+          {problem}
+        </p>
+      )}
     </div>
   )
 }

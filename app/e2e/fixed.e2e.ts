@@ -97,10 +97,14 @@ test('a fijo does not lend its date to the next expense', async ({ page }) => {
   await page.getByRole('button', { name: 'Siguiente' }).click()
   await page.getByRole('button', { name: 'Guardar', exact: true }).click()
 
+  // By concept rather than by position, which is what this test got wrong first
+  // time round: two concurrent flushes sent the rent twice, the count reached two
+  // before the bread arrived, and the assertion compared the rent with itself.
   await expect.poll(() => calls.filter(call => call.action === 'append').length).toBe(2)
-  const [rent, bread] = calls.filter(call => call.action === 'append').map(call => call.payload)
-  expect(rent.date).toBe(firstOfThisMonth())
-  expect(bread.date).toBe(TODAY)
+  const appends = calls.filter(call => call.action === 'append').map(call => call.payload)
+  expect(appends.map(one => one.concept)).toEqual(['alquiler', 'pan'])
+  expect(appends.find(one => one.concept === 'alquiler')!.date).toBe(firstOfThisMonth())
+  expect(appends.find(one => one.concept === 'pan')!.date).toBe(TODAY)
 })
 
 test('a template with no amount lands on the keypad instead', async ({ page }) => {
@@ -132,6 +136,75 @@ test('skipping records the period without writing an expense', async ({ page }) 
   await expect.poll(() => calls.find(call => call.action === 'fixedDone')?.payload)
     .toMatchObject({ id: 'f-alquiler', due: firstOfThisMonth() })
   expect(calls.filter(call => call.action === 'append')).toHaveLength(0)
+})
+
+test('skipping says it is working, and one tap sends one skip', async ({ page }) => {
+  // Reported: the button gave no sign it had been pressed, and it could be
+  // pressed again while the first one was still in flight. Writing `último` goes
+  // over the network, so "no sign" is the normal case on a slow connection.
+  const calls = await stubApi(page, bootstrap({ fixed: [fixed()] }))
+
+  // Held open until this test lets go, so the in-flight state is a state and not
+  // a frame. Registered after `stubApi`, which is what puts it first.
+  let release = () => {}
+  const held = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/macros/s/**', async route => {
+    const body = JSON.parse(route.request().postData() ?? '{}')
+    if (body.action !== 'fixedDone') return route.fallback()
+    await held
+    return route.fallback()
+  })
+
+  await signIn(page)
+  await page.getByRole('button', { name: 'Hay 1 fijo vencido' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Fijos vencidos' })
+  const skip = sheet.getByRole('button', { name: /Saltar|Saltando/ })
+  const confirm = sheet.getByRole('button', { name: 'Siguiente' })
+
+  await skip.click()
+
+  // It says so, and neither button can be pressed again — the other one was not
+  // blocked either, and confirming twice pushed the flow twice.
+  await expect(skip).toContainText('Saltando…')
+  await expect(skip).toBeDisabled()
+  await expect(confirm).toBeDisabled()
+
+  // Tapped twice more while it is in flight. A disabled button ignores it, and
+  // the guard behind it means even a tap that got through would not send again.
+  await skip.click({ force: true })
+  await skip.click({ force: true })
+
+  release()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+  expect(calls.filter(call => call.action === 'fixedDone')).toHaveLength(1)
+})
+
+test('a skip that does not get through says so and can be tried again', async ({ page }) => {
+  // The period stays owed, which is the safe half: it is proposed again rather
+  // than silently treated as dealt with. What is not acceptable is the app
+  // knowing that and not saying it.
+  await stubApi(page, bootstrap({ fixed: [fixed()] }))
+  let fail = true
+  await page.route('**/macros/s/**', async route => {
+    const body = JSON.parse(route.request().postData() ?? '{}')
+    if (body.action !== 'fixedDone' || !fail) return route.fallback()
+    fail = false
+    return route.abort()
+  })
+
+  await signIn(page)
+  await page.getByRole('button', { name: 'Hay 1 fijo vencido' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Fijos vencidos' })
+  const skip = sheet.getByRole('button', { name: /Saltar|Saltando/ })
+
+  await skip.click()
+  await expect(page.getByRole('alert')).toContainText('No se ha podido saltar')
+  // And it is pressable again rather than left disabled for ever.
+  await expect(skip).toBeEnabled()
+  await expect(skip).toContainText('Saltar')
+
+  await skip.click()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
 })
 
 test('a period already in the ledger is proposed with a warning', async ({ page }) => {

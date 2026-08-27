@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Spinner } from './components/Spinner'
 import { TabBar } from './components/TabBar'
 import { T } from './i18n/strings'
 import { AddScreen } from './screens/add/AddScreen'
@@ -171,24 +172,6 @@ function Splash({ stuck }: { stuck: boolean }) {
         )}
       </div>
     </div>
-  )
-}
-
-/**
- * A ring with a quarter missing, going round.
- *
- * Borders rather than an SVG: three classes, no file, and it inherits the colour
- * of the text beside it. `motion-reduce` stops it turning for anyone who has
- * asked the phone for that — a still ring is still a marker, and a person who
- * has switched animation off has not asked to be told less.
- */
-function Spinner() {
-  return (
-    <span
-      aria-hidden="true"
-      className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current
-                 border-t-transparent motion-reduce:animate-none"
-    />
   )
 }
 

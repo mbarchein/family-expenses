@@ -478,7 +478,10 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
           due={due}
           warn={item => alreadyThere(ledger.entries, item)}
           onConfirm={confirm}
-          onSkip={item => { void ledger.settleFixed(item.id, item.row, item.due) }}
+          // Handed over rather than fired and forgotten: the sheet awaits this to
+          // know when to stop saying "Saltando…", and a failure reaches the
+          // screen instead of the console.
+          onSkip={item => ledger.settleFixed(item.id, item.row, item.due)}
           onClose={() => setShowDue(false)}
         />
       )}

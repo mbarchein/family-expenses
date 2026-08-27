@@ -147,6 +147,12 @@ export const T = {
     title: 'Fijos vencidos',
     close: 'Cerrar',
     skip: 'Saltar',
+    /** On the button while the sheet is being told. A press that says nothing is
+     *  a press somebody repeats. */
+    skipping: 'Saltando…',
+    /** And when it did not get there. The period stays owed, which is the safe
+     *  half: it gets proposed again. */
+    skipFailed: 'No se ha podido saltar. Inténtalo otra vez.',
     // Shown on a proposal whose expense looks like it is already apuntado —
     // pegged from the bank, most likely.
     already: 'Puede que ya esté apuntado este mes',

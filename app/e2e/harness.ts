@@ -213,6 +213,23 @@ export async function stubApi(page: Page, data: Bootstrap = bootstrap()): Promis
       const sent = body.payload as Omit<Entry, 'row' | 'voided'>
       return route.fulfill({ json: { ok: true, data: { ...sent, row: 2299, voided: false } } })
     }
+    // The two writes on the Fijos tab, answered in their own shape.
+    //
+    // They used to fall through to the bootstrap below, which the client checks
+    // and refuses — so `fixedDone` threw `NOT_LEDGER` on every skip in every
+    // test, and the tests that exercise skipping were passing over a failure.
+    // What made that visible was giving the button something to say when it
+    // fails.
+    if (body.action === 'fixedDone') {
+      const sent = body.payload as { id?: string; row?: number; due: string }
+      return route.fulfill({ json: { ok: true, data: { row: sent.row ?? 2, last: sent.due } } })
+    }
+    if (body.action === 'saveFixed') {
+      const sent = body.payload as { id?: string; row?: number }
+      return route.fulfill({
+        json: { ok: true, data: { row: sent.row || 9, id: sent.id ?? '' } },
+      })
+    }
     return route.fulfill({ json: { ok: true, data } })
   })
 
