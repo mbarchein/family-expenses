@@ -63,6 +63,22 @@ export interface Draft {
    * proposes the rent again tomorrow.
    */
   fixed: { row: number; due: string } | null
+  /**
+   * The saved place that lent this concept, if one did.
+   *
+   * Two things come out of it: the review step says "already saved" instead of
+   * offering a switch, and saving the expense counts a use against that place so
+   * the cards keep ranking by how often each doorway is really used.
+   *
+   * The concept is stored beside the id, and it is the concept that decides
+   * whether either of those happens: `fromPlace.concept === concept` or nothing.
+   * That is what makes it safe — any edit to the concept, from the box, from a
+   * tile, from the cross, or from a recurring template, makes the two stop
+   * matching and both behaviours go away by themselves, with no clearing to
+   * remember at five call sites. The id is only ever read once that comparison has
+   * already held, and the pair is always written together.
+   */
+  fromPlace: { id: string; concept: string } | null
 }
 
 const KEY = 'current'
@@ -70,7 +86,7 @@ const KEY = 'current'
 export function emptyDraft(payer: 0 | 1): Draft {
   return {
     step: 0, date: todayIso(), typed: '', payer, concept: '', category: '',
-    method: '', note: '', pickDate: false, fixed: null,
+    method: '', note: '', pickDate: false, fixed: null, fromPlace: null,
   }
 }
 
@@ -101,7 +117,15 @@ export function useDraft(defaultPayer: 0 | 1): DraftStore {
       // field existed has it missing, and `undefined` reaching a boolean is how
       // a screen ends up in a state its own types say is impossible.
       if (stored && typeof stored.typed === 'string') {
-        setDraft({ ...stored, pickDate: stored.pickDate === true, fixed: stored.fixed ?? null })
+        setDraft({
+          ...stored,
+          pickDate: stored.pickDate === true,
+          fixed: stored.fixed ?? null,
+          // Missing on a draft stored before the field existed, and `undefined`
+          // reaching a comparison is how a screen ends up claiming something
+          // nobody told it.
+          fromPlace: stored.fromPlace ?? null,
+        })
       }
       setReady(true)
     })()

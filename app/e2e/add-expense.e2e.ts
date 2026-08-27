@@ -389,6 +389,56 @@ test('the tiles are drawn icons, and an initial where a guess would be a lie', a
   await expect(unknown).toContainText('C')
 })
 
+test('the two ways off the review step are one row, and discarding asks first',
+  async ({ page }) => {
+  // Discarding used to be underlined text under the save button: at the bottom of
+  // a scrolling screen, reached by accident, and looking like a link rather than
+  // like the irreversible thing it is. Now it is a button beside Guardar, and it
+  // asks — in the app, not through the browser's own dialog, which on a
+  // standalone PWA is labelled with the hostname and worded by the browser.
+  const calls = await stubApi(page)
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('ferretería')
+  await next(page)
+
+  const discard = page.getByRole('button', { name: 'Descartar este gasto' })
+  const save = page.getByRole('button', { name: 'Guardar', exact: true })
+
+  // One row: same line, same height, and Guardar on the thumb's side of it.
+  const [onDiscard, onSave] = await Promise.all([discard.boundingBox(), save.boundingBox()])
+  expect(onDiscard!.y).toBeCloseTo(onSave!.y, 0)
+  expect(onDiscard!.height).toBeCloseTo(onSave!.height, 0)
+  expect(onSave!.x).toBeGreaterThan(onDiscard!.x + onDiscard!.width - 1)
+  // Both wear an icon, which is what makes two rectangles tell each other apart.
+  await expect(discard.locator('svg')).toHaveCount(1)
+  await expect(save.locator('svg')).toHaveCount(1)
+
+  // Refusing leaves the expense exactly where it was. The safe answer is not
+  // called "Cancelar" on purpose: the header of this screen has one of those and
+  // it abandons the entry, which is the opposite of what this button does.
+  await discard.click()
+  await expect(page.getByRole('dialog')).toContainText('Se pierde lo que has escrito')
+  await page.getByRole('button', { name: 'Seguir editando' }).click()
+  await expect(page.getByText('Paso 3 de 3')).toBeVisible()
+  await expect(page.getByText('ferretería')).toBeVisible()
+
+  // The phone's back button is the same answer as Cancelar.
+  await discard.click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.goBack()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByText('Paso 3 de 3')).toBeVisible()
+
+  // And confirming goes back to an empty keypad with nothing written.
+  await discard.click()
+  await page.getByRole('button', { name: 'Sí, descartar' }).click()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+  await expect(page.locator('output')).not.toContainText('10')
+  expect(calls.filter(call => call.action === 'append')).toHaveLength(0)
+})
+
 test('tapping the tile of a concept already typed keeps it', async ({ page }) => {
   // Reported: type a concept that is also one of the tiles, tap the tile to
   // confirm it, and the concept vanishes. Typing it had already lit the tile, and

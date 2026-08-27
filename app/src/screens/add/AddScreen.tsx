@@ -73,7 +73,7 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
   // avoid. The screen that suggests by proximity does its own reading. `nearby`
   // is measured against whatever fix the store already holds, so taking it costs
   // nothing and is empty until the switch has asked.
-  const { locateNow, knows, rememberAt, nearby } = usePlaces()
+  const { locateNow, knows, rememberAt, countUse, nearby } = usePlaces()
   const [place, setPlace] = useState<PlaceState>({ kind: 'off' })
   const [showDue, setShowDue] = useState(false)
   // It opens over the keypad from a banner rather than from an address, so this
@@ -292,6 +292,16 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
     // Failing to store a place must never stop an expense being apuntado.
     if (place.kind === 'on') {
       await rememberAt(place.fix, draft.concept.trim(), draft.method).catch(() => {})
+    }
+
+    // The doorway the review step recognised instead of offering to save. Flicking
+    // the switch would have counted a use through `rememberAt`; there is no switch
+    // there, so this is what keeps that counter honest — and it is what orders the
+    // cards, so a place used weekly stops being listed under one used once.
+    // Guarded by the concept, like the row on screen is: the id is only trusted
+    // once the pair it was written with still agrees.
+    if (draft.fromPlace && draft.fromPlace.concept === draft.concept.trim()) {
+      await countUse(draft.fromPlace.id).catch(() => {})
     }
 
     await ledger.addEntry({

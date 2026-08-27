@@ -209,8 +209,15 @@ export function StepDetails({
           method={draft.method}
           onPick={place => patch(
             place.concept === draft.concept && place.method === draft.method
-              ? { concept: '', method: '' }
-              : { concept: place.concept, method: place.method },
+              ? { concept: '', method: '', fromPlace: null }
+              // `fromPlace` so the review step knows this doorway is already
+              // saved and can say so instead of offering to save it again — and
+              // so that saving counts a use against the right row.
+              : {
+                  concept: place.concept,
+                  method: place.method,
+                  fromPlace: { id: place.id, concept: place.concept },
+                },
           )}
         />
 

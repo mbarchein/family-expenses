@@ -81,6 +81,19 @@ export const T = {
     noNote: 'Sin observaciones',
     noMethod: 'Sin especificar',
     discard: 'Descartar este gasto',
+    // On the button itself, beside Guardar, where the whole sentence would not
+    // fit. The long one stays as the button's accessible name and as the question
+    // the dialog asks: "Descartar" alone, read out of context, is vague.
+    discardShort: 'Descartar',
+    // The dialog asks; the button is named after what it does. Same words, and
+    // the question mark is not decoration — it is the difference between a title
+    // that reads as "this is happening" and one that reads as "shall I".
+    discardAsk: '¿Descartar este gasto?',
+    discardBody: 'Se pierde lo que has escrito. En la hoja no se apunta nada.',
+    discardYes: 'Sí, descartar',
+    // Not "Cancelar": the header of this very screen has one of those, and it
+    // abandons the entry — which is what this button refuses to do.
+    discardNo: 'Seguir editando',
     conceptRow: 'Conceptos frecuentes',
     /** Two rows now, because they are two columns. They shared one field while
      *  the method travelled inside the observaciones. */
@@ -184,6 +197,10 @@ export const T = {
     // is, not when the switch goes on.
     willRemember: 'Se guardará con el gasto',
     knownAlready: 'Ya tenías este sitio guardado',
+    // Shown instead of the switch when the concept came from a saved place: there
+    // is nothing to offer, so the row states a fact rather than asking a question.
+    savedHere: 'Este sitio ya lo tenías guardado',
+    savedHereWhy: 'El concepto lo ha puesto ese sitio. No hay nada que guardar.',
     denied: 'Sin permiso de ubicación. Se lo puedes dar en los ajustes del navegador.',
     unavailable: 'No se ha podido saber dónde estás',
     here: 'Aquí',
@@ -194,6 +211,13 @@ export const T = {
     uses: (n: number) => (n === 1 ? 'Usado una vez' : `Usado ${n} veces`),
     forget: 'Borrar',
     forgetConfirm: '¿Borrar este sitio? Los gastos ya apuntados no se tocan.',
+  },
+
+  /** The in-app dialog's own words — see `components/Confirm.tsx`. The question
+   *  and the destructive answer belong to whoever is asking; only the way out is
+   *  the same everywhere. */
+  confirm: {
+    cancel: 'Cancelar',
   },
 
   /** The category: the bucket, as opposed to the concept, which is whatever was

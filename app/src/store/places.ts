@@ -65,6 +65,16 @@ export interface PlacesStore {
    *  step's switch, which has a fix in hand and no business recomputing the
    *  tolerance itself. */
   knows: (fix: Fix, concept: string) => boolean
+  /**
+   * Counts one more use of a place already saved, by id.
+   *
+   * For the doorway the review step recognises rather than offers to save: there
+   * is no switch to flick there and no position in hand, so this is how `uses`
+   * keeps meaning "how often this doorway is really the one" — which is what
+   * orders the cards. No coordinate is read, written or changed; it is a counter
+   * on a row that already exists.
+   */
+  countUse: (id: string) => Promise<void>
   /** Stores a fix already in hand against this concept. Separate from reading
    *  it because the two happen at different times: the switch on the review
    *  step reads the position when it is turned on, and the place is written
@@ -154,12 +164,25 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
     return existing ? 'again' : 'saved'
   }, [places])
 
+  const countUse = useCallback(async (id: string) => {
+    // Read back from the disk rather than from `places`, because the caller is
+    // the save on the review step and this hook's copy of the list belongs to a
+    // screen that has been mounted since before the flow started. Two expenses
+    // apuntados at the same doorway in one session would otherwise both write
+    // "uses: 2".
+    const stored = await idb.get<Place>('places', id)
+    if (!isPlace(stored)) return
+    const place = { ...stored, uses: stored.uses + 1 }
+    await idb.set('places', id, place)
+    setPlaces(current => current.map(item => (item.id === id ? place : item)))
+  }, [])
+
   const forget = useCallback(async (id: string) => {
     await idb.del('places', id)
     setPlaces(current => current.filter(place => place.id !== id))
   }, [])
 
-  return { places, ready, here, nearby, locateNow, knows, rememberAt, forget }
+  return { places, ready, here, nearby, locateNow, knows, rememberAt, countUse, forget }
 }
 
 /** Guards against a half-written record from an older shape of this store: a

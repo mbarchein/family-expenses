@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Confirm } from '../../components/Confirm'
 import { PlaceMap } from '../../components/PlaceMap'
 import { T } from '../../i18n/strings'
 import { formatEur } from '../../lib/money'
@@ -48,6 +50,17 @@ export function StepReview({
   onSave: () => void
   onDiscard: () => void
 }) {
+  const [asking, setAsking] = useState(false)
+
+  /**
+   * Whether the doorway on screen is one already saved.
+   *
+   * The comparison rather than a flag of its own: `fromPlace` is set only when a
+   * card lends its concept, so the moment the concept is edited by any of the
+   * five ways it can be, the two stop matching and this goes false on its own.
+   */
+  const known = draft.concept !== '' && draft.concept === draft.fromPlace?.concept
+
   return (
     <>
       <p className="pt-1 text-sm text-ink-2">{T.add.reviewTitle}</p>
@@ -84,36 +97,135 @@ export function StepReview({
         </Row>
       </div>
 
-      <PlaceSwitch state={place} onToggle={onTogglePlace} />
+      {/* Either an offer or a fact, never both.
+          
+          When the concept came from a saved place — see `Draft.fromPlace` — there
+          is nothing to offer: this doorway is already in the list, the concept on
+          screen is the one it lent, and a switch labelled "Guardar este sitio"
+          would be asking to save what is already saved. So the row states that
+          instead, and no position is read and no tile is fetched. */}
+      {known
+        ? <PlaceKnown />
+        : <PlaceSwitch state={place} onToggle={onTogglePlace} />}
 
       {/* Under the switch and only while it is on — which is also when the first
           tile is asked for. See the comment on `PlaceMap`: it was a drawing until
           somebody looked at it, and what it is now costs a line in section 13. */}
-      {place.kind === 'on' && (
+      {!known && place.kind === 'on' && (
         <PlaceMap fix={place.fix} nearby={nearby} improving={place.improving} />
       )}
 
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={readOnly}
-        className="rounded-xl py-3.5 text-base font-bold disabled:opacity-40
-                   focus-visible:outline focus-visible:outline-2"
-        style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
-      >
-        {T.add.save}
-      </button>
+      {/* The two ways off this screen, on one line, both of them buttons.
+          
+          Discarding used to be underlined text below the save button, which is
+          two mistakes: at the bottom of a scrolling screen it was reached by
+          accident, and as a link it did not look like the irreversible thing it
+          is. Left and narrower, because that is the answer to a question nobody
+          came here to answer; Guardar takes the rest of the row and the thumb's
+          side of the screen.
+          
+          `items-stretch`, so the two are the same height whatever the words do to
+          them, and the icons because a row of two identical grey rectangles is
+          read by shape before it is read at all. */}
+      <div className="flex items-stretch gap-2">
+        <button
+          type="button"
+          onClick={() => setAsking(true)}
+          // The whole sentence as the name, "Descartar" as the label: read out of
+          // context by a screen reader, one word is not enough to know what goes.
+          aria-label={T.add.discard}
+          className="flex shrink-0 items-center gap-2 rounded-xl border px-4 py-3.5 text-base
+                     font-semibold focus-visible:outline focus-visible:outline-2"
+          style={{ borderColor: 'var(--line)', color: 'var(--danger)' }}
+        >
+          <TrashIcon />
+          {T.add.discardShort}
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={readOnly}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3.5 text-base
+                     font-bold disabled:opacity-40 focus-visible:outline focus-visible:outline-2"
+          style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+        >
+          <CheckIcon />
+          {T.add.save}
+        </button>
+      </div>
 
       {readOnly && <p className="text-center text-xs text-ink-2">{T.auth.noColumn}</p>}
 
-      <button
-        type="button"
-        onClick={onDiscard}
-        className="py-1 text-center text-sm text-ink-2 underline focus-visible:outline focus-visible:outline-2"
-      >
-        {T.add.discard}
-      </button>
+      {/* In the app rather than the browser's own dialog — see `Confirm`. */}
+      {asking && (
+        <Confirm
+          title={T.add.discardAsk}
+          body={T.add.discardBody}
+          confirmLabel={T.add.discardYes}
+          cancelLabel={T.add.discardNo}
+          onConfirm={() => { setAsking(false); onDiscard() }}
+          onCancel={() => setAsking(false)}
+        />
+      )}
     </>
+  )
+}
+
+/**
+ * The doorway is already saved, so this says so and asks nothing.
+ *
+ * Same shape and same place in the column as the switch it replaces, because it
+ * answers the same question — what happens to the place — and a row that moved
+ * would read as a different subject. Not a button: there is nothing to decide.
+ */
+function PlaceKnown() {
+  return (
+    <div
+      className="flex items-center gap-3 rounded-xl border border-line px-3.5 py-3 text-sm"
+      style={{ background: 'var(--surface)' }}
+    >
+      <PinIcon />
+      <span className="flex flex-col">
+        <span className="font-semibold">{T.places.savedHere}</span>
+        <span className="text-[11px] text-ink-3">{T.places.savedHereWhy}</span>
+      </span>
+    </div>
+  )
+}
+
+/** A map pin with a tick in it: the place is known, not being decided. */
+function PinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="h-6 w-6 shrink-0"
+         fill="none" stroke="currentColor" strokeWidth={1.8}
+         strokeLinecap="round" strokeLinejoin="round"
+         style={{ color: 'var(--accent)' }}>
+      <path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z" />
+      <path d="M8.8 9.9l2.2 2.2 4-4.2" />
+    </svg>
+  )
+}
+
+/** A tick, on the button that writes the row. */
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="h-5 w-5 shrink-0"
+         fill="none" stroke="currentColor" strokeWidth={2.5}
+         strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.5 12.5l5 5 10-11" />
+    </svg>
+  )
+}
+
+/** A bin, on the one that throws the draft away. Furniture rather than part of
+ *  the concept vocabulary in `Icon.tsx`, so it lives here. */
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="h-5 w-5 shrink-0"
+         fill="none" stroke="currentColor" strokeWidth={1.9}
+         strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h16M9.5 7V5h5v2M6.5 7l1 13h9l1-13M10.5 10.5v6M13.5 10.5v6" />
+    </svg>
   )
 }
 

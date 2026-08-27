@@ -92,6 +92,48 @@ test.describe('with the location allowed', () => {
     expect(JSON.stringify(calls)).not.toContain('-3.59')
   })
 
+  test('a concept lent by a saved place is told, not offered', async ({ page }) => {
+    // The switch says "Guardar este sitio". When the concept came off one of the
+    // cards, that doorway is already in the list and the switch would be offering
+    // to save what is saved — so the row states the fact instead, and no position
+    // is read and no tile is fetched for it.
+    await stubApi(page)
+    await signIn(page)
+
+    await reachReview(page, 'ferretería')
+    await savePlace(page)
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+    // Second time round, from the card.
+    await reachDetails(page)
+    await page.getByRole('group', { name: 'Aquí has apuntado' }).getByRole('button').first().click()
+    await next(page)
+
+    await expect(page.getByText('Este sitio ya lo tenías guardado')).toBeVisible()
+    await expect(page.getByRole('switch', { name: 'Guardar este sitio' })).toHaveCount(0)
+    await expect(page.getByRole('img', { name: /Dónde estás/ })).toHaveCount(0)
+
+    // Saving it counts a use, which is the thing the switch used to do here and
+    // the thing that orders the cards. Read off the Sitios screen rather than out
+    // of the database: it is the screen that shows the number.
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+    await page.getByRole('button', { name: 'Sitios' }).click()
+    await expect(page.getByRole('listitem').filter({ hasText: 'ferretería' }))
+      .toContainText('Usado 2 veces')
+
+    // And editing the concept puts the offer back, because the claim was about
+    // that concept at that doorway and it is no longer the same one.
+    await page.getByRole('button', { name: 'Añadir' }).click()
+    await reachDetails(page)
+    await page.getByRole('group', { name: 'Aquí has apuntado' }).getByRole('button').first().click()
+    await page.getByRole('textbox', { name: 'Concepto' }).fill('estanco')
+    await next(page)
+    await expect(page.getByRole('switch', { name: 'Guardar este sitio' })).toBeVisible()
+    await expect(page.getByText('Este sitio ya lo tenías guardado')).toHaveCount(0)
+  })
+
   test('tapping the card again clears both fields', async ({ page }) => {
     await stubApi(page)
     await signIn(page)
@@ -246,6 +288,8 @@ test.describe('with the location allowed', () => {
     await reachReview(page, 'ferretería')
     await savePlace(page)
     await page.getByRole('button', { name: 'Descartar este gasto' }).click()
+    // Through the confirmation, which is in the app rather than the browser's.
+    await page.getByRole('button', { name: 'Sí, descartar' }).click()
     await expect(page.getByText('Paso 1 de 3')).toBeVisible()
 
     await page.getByRole('button', { name: 'Sitios' }).click()
