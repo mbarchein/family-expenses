@@ -74,6 +74,35 @@ test('confirming a proposal leaves one history entry per step and nothing over',
   await expect(page.getByText('Paso 1 de 3')).toBeVisible()
 })
 
+test('a fijo does not lend its date to the next expense', async ({ page }) => {
+  // The date on a proposal is the day it fell due, which is often weeks back and
+  // is nobody's choice. The next expense inherits what somebody picked, and this
+  // is the one date that must not be carried: the app would be dating today's
+  // shopping to the first of the month, quietly.
+  const calls = await stubApi(page, bootstrap({ fixed: [fixed()] }))
+  await signIn(page)
+
+  await page.getByRole('button', { name: 'Hay 1 fijo vencido' }).click()
+  await page.getByRole('dialog', { name: 'Fijos vencidos' })
+    .getByRole('button', { name: 'Siguiente' }).click()
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+  // Back on today, not on the first of the month.
+  await expect(page.getByRole('button', { name: 'Hoy' })).toHaveAttribute('aria-pressed', 'true')
+
+  await page.getByRole('button', { name: '5', exact: true }).click()
+  await page.getByRole('button', { name: 'Siguiente' }).click()
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('pan')
+  await page.getByRole('button', { name: 'Siguiente' }).click()
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
+
+  await expect.poll(() => calls.filter(call => call.action === 'append').length).toBe(2)
+  const [rent, bread] = calls.filter(call => call.action === 'append').map(call => call.payload)
+  expect(rent.date).toBe(firstOfThisMonth())
+  expect(bread.date).toBe(TODAY)
+})
+
 test('a template with no amount lands on the keypad instead', async ({ page }) => {
   // The light, the water: the concept and the day are known and the number is
   // not, so the flow starts where the number gets typed.

@@ -389,6 +389,81 @@ test('the tiles are drawn icons, and an initial where a guess would be a lie', a
   await expect(unknown).toContainText('C')
 })
 
+test('the next expense inherits the card and the date, and a reload forgets the date',
+  async ({ page }) => {
+  // Five tickets from Saturday are five expenses with the same date and the same
+  // card, and every one of them used to start at today with nothing chosen. The
+  // two are remembered for deliberately different lengths of time — see
+  // `store/carry.ts` — and this is where the difference is nailed down: the card
+  // survives a reload, the date does not, because a stale date writes the wrong
+  // day into the ledger while a stale card is only a wrong word.
+  const calls = await stubApi(page)
+  await signIn(page)
+
+  await typeAmount(page, '10')
+  await page.getByRole('button', { name: 'Ayer' }).click()
+  await next(page)
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('ferretería')
+  await page.getByRole('button', { name: 'Tarjeta BBVA' }).click()
+  await next(page)
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+  // Yesterday is still lit, and the second expense goes to the same day.
+  await expect(page.getByRole('button', { name: 'Ayer' })).toHaveAttribute('aria-pressed', 'true')
+  await typeAmount(page, '5')
+  await next(page)
+  await expect(page.getByRole('button', { name: 'Tarjeta BBVA' }))
+    .toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('estanco')
+  await next(page)
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
+
+  await expect.poll(() => calls.filter(call => call.action === 'append').length).toBe(2)
+  const [first, second] = calls.filter(call => call.action === 'append').map(call => call.payload)
+  expect(second.date).toBe(first.date)
+  expect(second.method).toBe('Tarjeta BBVA')
+
+  // And after a reload: the card is still there, the date is today again.
+  await page.reload()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Hoy' })).toHaveAttribute('aria-pressed', 'true')
+  await typeAmount(page, '7')
+  await next(page)
+  await expect(page.getByRole('button', { name: 'Tarjeta BBVA' }))
+    .toHaveAttribute('aria-pressed', 'true')
+})
+
+test('a card is not carried onto an expense the other person pays', async ({ page }) => {
+  // The card belongs to whoever is paying: the pills are filtered by payer, so a
+  // carried one that is not on that person's list would sit in the field lit by
+  // nothing and reach the sheet anyway. Viqui is offered "Tarjeta Viqui" and
+  // never Mario's.
+  await stubApi(page)
+  await signIn(page)
+
+  await typeAmount(page, '10')
+  await next(page)
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('ferretería')
+  await page.getByRole('button', { name: 'Tarjeta BBVA' }).click()
+  await next(page)
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+  await typeAmount(page, '5')
+  await page.getByRole('button', { name: 'Paga Viqui' }).click()
+  await next(page)
+
+  await expect(page.getByRole('button', { name: 'Tarjeta BBVA' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Tarjeta Viqui' }))
+    .toHaveAttribute('aria-pressed', 'false')
+  // Nothing left in the field either: the review row would have shown Mario's
+  // card on an expense Viqui paid.
+  await page.getByRole('textbox', { name: 'Concepto' }).fill('estanco')
+  await next(page)
+  await expect(page.getByText('Sin especificar')).toBeVisible()
+})
+
 test('the two ways off the review step are one row, and discarding asks first',
   async ({ page }) => {
   // Discarding used to be underlined text under the save button: at the bottom of

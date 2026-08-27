@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { T } from '../../i18n/strings'
 import { parseAmount } from '../../lib/money'
+import { rememberDate, rememberMethod } from '../../store/carry'
 import { useDraft } from '../../store/draft'
 import type { Ledger } from '../../store/ledger'
 import { FixedBanner, FixedDue } from '../../components/FixedDue'
@@ -322,6 +323,21 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
     if (draft.fixed) {
       const settling = draft.fixed
       void ledger.settleFixed(settling.row, settling.due).catch(() => {})
+    }
+
+    // What the next expense inherits, remembered before the draft is rebuilt from
+    // it. Five tickets from Saturday are five expenses with the same date and the
+    // same card; `store/carry.ts` says why one of those two is kept and the other
+    // only lasts as long as the app is open.
+    //
+    // Not from a recurring template, though. Neither field was chosen by anybody
+    // there: the date is the day the fijo fell due, which is often weeks back and
+    // is the one date that must not become the next expense's, and the method is
+    // empty, which would throw away the card that was being carried. What is
+    // remembered is what somebody picked.
+    if (!draft.fixed) {
+      rememberDate(draft.date, draft.pickDate)
+      void rememberMethod(draft.payer, draft.method).catch(() => {})
     }
 
     await reset()

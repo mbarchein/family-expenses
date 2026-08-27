@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { carriedDate, carriedMethod, loadCarried } from './carry'
 import { idb } from './db'
 import { todayIso } from '../lib/dates'
 
@@ -108,28 +109,51 @@ export function useDraft(defaultPayer: 0 | 1): DraftStore {
   useEffect(() => {
     let cancelled = false
     void (async () => {
+      // Both off the same store, and the carried card before the draft is used:
+      // a first open with nothing saved still starts on the card this person paid
+      // with last time, which is the whole point of remembering it.
+      await loadCarried()
       const stored = await idb.get<Draft>('draft', KEY)
       if (cancelled) return
+      // A draft with nothing typed into it is not an interrupted expense, it is
+      // where the last one left off — and one thing it can be carrying is the date
+      // of the last one, which is only meant to last as long as the app stays
+      // open. It gets written to disk all the same, because the flow patches the
+      // step on its way back to the keypad; this is where that is undone, and it
+      // is why "a reload comes back to today" is true rather than only intended.
+      //
+      // `fixed` excluded on purpose: a template whose amount is unknown lands on
+      // the keypad with nothing typed and everything else filled in, and blanking
+      // that would lose which fijo is being dealt with.
+      const started = stored
+        && (stored.typed !== '' || stored.concept !== '' || stored.fixed !== null)
+      if (!stored || typeof stored.typed !== 'string' || !started) {
+        const method = carriedMethod(defaultPayer)
+        if (method) setDraft(current => ({ ...current, method }))
+        setReady(true)
+        return
+      }
       // A stored draft from an older shape is not worth migrating: the worst
       // case is one expense typed twice, and guessing at half a record is how
       // an amount ends up attached to the wrong concept.
       // `pickDate` normalised rather than trusted: a draft stored before the
       // field existed has it missing, and `undefined` reaching a boolean is how
       // a screen ends up in a state its own types say is impossible.
-      if (stored && typeof stored.typed === 'string') {
-        setDraft({
-          ...stored,
-          pickDate: stored.pickDate === true,
-          fixed: stored.fixed ?? null,
-          // Missing on a draft stored before the field existed, and `undefined`
-          // reaching a comparison is how a screen ends up claiming something
-          // nobody told it.
-          fromPlace: stored.fromPlace ?? null,
-        })
-      }
+      setDraft({
+        ...stored,
+        pickDate: stored.pickDate === true,
+        fixed: stored.fixed ?? null,
+        // Missing on a draft stored before the field existed, and `undefined`
+        // reaching a comparison is how a screen ends up claiming something
+        // nobody told it.
+        fromPlace: stored.fromPlace ?? null,
+      })
       setReady(true)
     })()
     return () => { cancelled = true }
+    // `defaultPayer` is read once, on the way in: it is who holds the phone, and
+    // it does not change while the app is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const patch = useCallback((fields: Partial<Draft>) => {
@@ -159,8 +183,23 @@ export function useDraft(defaultPayer: 0 | 1): DraftStore {
    * The repaint still does not wait: `setDraft` happens first and the promise is
    * for whoever has a reason to care.
    */
+  /**
+   * The next expense, blank except for what the last one lends it.
+   *
+   * The card this person paid with, and the date — for as long as the app stays
+   * open. Neither is written to disk here: what is on disk is a draft somebody is
+   * in the middle of, and this is the absence of one. `carry.ts` says why the two
+   * are remembered for different lengths of time.
+   */
   const reset = useCallback(() => {
     const fresh = emptyDraft(defaultPayer)
+    const method = carriedMethod(defaultPayer)
+    if (method) fresh.method = method
+    const date = carriedDate()
+    if (date) {
+      fresh.date = date.date
+      fresh.pickDate = date.pickDate
+    }
     setDraft(fresh)
     return idb.del('draft', KEY)
   }, [defaultPayer])

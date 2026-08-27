@@ -10,6 +10,7 @@ import { categoryFor } from '../../lib/categories'
 import { fold } from '../../lib/icons'
 import { fuzzyFilter } from '../../lib/fuzzy'
 import { useAvatars } from '../../store/avatars'
+import { carriedMethod } from '../../store/carry'
 import { useIconChoices } from '../../store/iconChoices'
 import { usePlaces } from '../../store/places'
 import type { Draft } from '../../store/draft'
@@ -176,6 +177,27 @@ export function StepDetails({
   const notePills = useMemo<Pill[]>(() => mine
     .filter(item => item.kind === 'note')
     .map(item => ({ key: item.text, label: item.text, pinned: true })), [mine])
+
+  /**
+   * A payment method belongs to whoever is paying, not to whoever is typing.
+   *
+   * The pills are filtered by payer — a card of Mario's is not offered on an
+   * expense Viqui pays — but the field held whatever was in it, so changing the
+   * payer on the previous step used to leave the other person's card attached to
+   * the expense, lit by nothing and visible only on the review row. Carrying the
+   * card over from the last expense made that a matter of when rather than if,
+   * which is what turned a hole into a bug worth closing.
+   *
+   * So: a method this payer is not offered gives way to the one they used last,
+   * and to nothing if they have not used one. An empty field is left alone —
+   * clearing the pills is an answer, and re-filling it would be arguing.
+   */
+  useEffect(() => {
+    if (!methodPills.length || !draft.method) return
+    if (methodPills.some(pill => pill.key === draft.method)) return
+    const theirs = carriedMethod(draft.payer)
+    patch({ method: methodPills.some(pill => pill.key === theirs) ? theirs : '' })
+  }, [methodPills, draft.method, draft.payer, patch])
 
   /** Everything the menu can label: the two lists, and the places' concepts. */
   const known = useMemo(() => {
