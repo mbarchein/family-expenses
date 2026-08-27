@@ -123,6 +123,39 @@ test('a chip sets the concept and leaves the payer alone', async ({ page }) => {
   await expect(page.getByText('Viqui', { exact: true })).toBeVisible()
 })
 
+test('the payment methods take a second line rather than scrolling out of sight',
+  async ({ page }) => {
+  // Four cards of which two are off the right edge is a list that hides half of
+  // itself. The concepts are the row this was forbidden for, and they are a grid
+  // of their own now — see the comment on `Pills`.
+  await stubApi(page, bootstrap({
+    suggestions: [
+      { text: 'Efectivo', kind: 'method', person: null },
+      { text: 'Tarjeta BBVA', kind: 'method', person: null },
+      { text: 'Tarjeta Viqui', kind: 'method', person: null },
+      { text: 'Tarjeta Unicaja', kind: 'method', person: null },
+      { text: 'Transferencia', kind: 'method', person: null },
+      { text: 'Bizum', kind: 'method', person: null },
+    ],
+  }))
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+
+  const row = page.getByRole('group', { name: 'Medio de pago' })
+  const first = await row.getByRole('button').first().boundingBox()
+  const last = await row.getByRole('button').last().boundingBox()
+
+  // On a later line, and inside the row rather than beyond its right edge.
+  expect(last!.y).toBeGreaterThan(first!.y + first!.height - 1)
+  const box = await row.boundingBox()
+  expect(last!.x + last!.width).toBeLessThanOrEqual(box!.x + box!.width + 1)
+
+  // And nothing scrolls sideways, which is what it did before.
+  const overflows = await row.evaluate(node => node.scrollWidth > node.clientWidth + 1)
+  expect(overflows).toBe(false)
+})
+
 test('the payment methods follow whoever is paying', async ({ page }) => {
   await stubApi(page)
   await signIn(page)
