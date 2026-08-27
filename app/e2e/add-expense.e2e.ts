@@ -389,6 +389,37 @@ test('the tiles are drawn icons, and an initial where a guess would be a lie', a
   await expect(unknown).toContainText('C')
 })
 
+test('tapping the tile of a concept already typed keeps it', async ({ page }) => {
+  // Reported: type a concept that is also one of the tiles, tap the tile to
+  // confirm it, and the concept vanishes. Typing it had already lit the tile, and
+  // a lit tile used to clear on tap — so the gesture that means "yes, this one"
+  // was the one that undid it.
+  await stubApi(page)
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+
+  const field = page.getByRole('textbox', { name: 'Concepto' })
+  const tile = page.getByRole('button', { name: 'gasolina' })
+
+  await field.fill('gasolina')
+  await expect(tile).toHaveAttribute('aria-pressed', 'true')
+
+  await tile.click()
+  await expect(field).toHaveValue('gasolina')
+  await expect(tile).toHaveAttribute('aria-pressed', 'true')
+
+  // Twice more, because "always sets" has to mean idempotent and not alternating.
+  await tile.click()
+  await tile.click()
+  await expect(field).toHaveValue('gasolina')
+
+  // The way back to none is the cross in the field, which is where a hand looks.
+  await page.getByRole('button', { name: 'Borrar el concepto' }).click()
+  await expect(field).toHaveValue('')
+  await expect(tile).toHaveAttribute('aria-pressed', 'false')
+})
+
 test('the concept box has a cross inside it that empties it', async ({ page }) => {
   // The cog used to be in a box to the right of this field, which is exactly
   // where a hand goes looking for the way to clear it — so the tap that meant

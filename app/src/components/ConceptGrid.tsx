@@ -43,9 +43,16 @@ export function ConceptGrid({ items, active, onPick }: {
           <button
             key={item.concept}
             type="button"
-            // Tapping the chosen one clears it, the way the pills always have:
-            // there is one concept, so there has to be a way back to none.
-            onClick={() => onPick(on ? '' : item.concept)}
+            // Always sets, never clears.
+            //
+            // It used to toggle, the way the pills do. Reported: type a concept
+            // that is also one of these tiles, then tap the tile to confirm it,
+            // and the concept disappears — because typing it had already lit the
+            // tile, so the tap that means "yes, this one" was the tap that undoes
+            // it. The pills keep their toggle because for the medio de pago it is
+            // the only way back to none; this field has a cross of its own inside
+            // it, which is where a hand looks for that anyway.
+            onClick={() => onPick(item.concept)}
             aria-pressed={on}
             className="flex items-center gap-2.5 rounded-xl border px-3 py-3 text-left
                        focus-visible:outline focus-visible:outline-2"
