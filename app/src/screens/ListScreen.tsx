@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { CategoryFilter } from '../components/CategoryField'
+import { ClearButton } from '../components/ClearButton'
 import { Icon } from '../components/Icon'
 import { Segmented } from '../components/Segmented'
 import { Totals } from '../components/Totals'
@@ -75,11 +76,8 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
         ]}
       />
 
-      {/* The cross lives inside the field rather than beside it, and only once
-          there is something to clear. WebKit draws one of its own for
-          `type=search` — small, grey, and only on some platforms — so that one
-          is turned off and this one is drawn everywhere, at a size a thumb can
-          actually hit. */}
+      {/* The cross lives inside the field — see `ClearButton`, which is also what
+          the concept box on the second step uses. */}
       <div className="relative">
         <input
           value={query}
@@ -91,21 +89,7 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
                      text-ink placeholder:text-ink-3 focus-visible:outline focus-visible:outline-2
                      [&::-webkit-search-cancel-button]:appearance-none"
         />
-        {query && (
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            aria-label={T.list.clearSearch}
-            className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center
-                       rounded-full text-ink-3 focus-visible:outline focus-visible:outline-2"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="h-4 w-4"
-                 fill="none" stroke="currentColor" strokeWidth={2.5}
-                 strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        )}
+        {query && <ClearButton label={T.list.clearSearch} onClick={() => setQuery('')} />}
       </div>
 
       <CategoryFilter value={category} categories={categories} onChange={setCategory} />

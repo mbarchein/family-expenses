@@ -64,6 +64,7 @@ export const T = {
     saving: 'Guardando…',
     concept: 'Concepto',
     conceptPlaceholder: 'Busca o escribe el concepto',
+    clearConcept: 'Borrar el concepto',
     pays: (name: string) => `Paga ${name}`,
     today: 'Hoy',
     yesterday: 'Ayer',

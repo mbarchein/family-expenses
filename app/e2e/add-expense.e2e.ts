@@ -389,6 +389,56 @@ test('the tiles are drawn icons, and an initial where a guess would be a lie', a
   await expect(unknown).toContainText('C')
 })
 
+test('the concept box has a cross inside it that empties it', async ({ page }) => {
+  // The cog used to be in a box to the right of this field, which is exactly
+  // where a hand goes looking for the way to clear it — so the tap that meant
+  // "empty this" opened a settings sheet instead.
+  await stubApi(page)
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+
+  const field = page.getByRole('textbox', { name: 'Concepto' })
+  const clear = page.getByRole('button', { name: 'Borrar el concepto' })
+
+  // Nothing to clear, nothing shown.
+  await expect(clear).toHaveCount(0)
+
+  await field.fill('ferretería')
+  await expect(clear).toBeVisible()
+  await clear.click()
+  await expect(field).toHaveValue('')
+  await expect(clear).toHaveCount(0)
+})
+
+test('the cog sits on the category line, not on the concept one', async ({ page }) => {
+  // Asserted by position, because the point of the change was the position: the
+  // icons and the category are the same subject — what kind of thing this was —
+  // and the concept box needed its right-hand side back.
+  await stubApi(page)
+  await signIn(page)
+  await typeAmount(page, '10')
+  await next(page)
+
+  const cog = page.getByRole('button', { name: 'Iconos' })
+  const category = page.getByRole('button', { name: 'Elegir categoría' })
+  const concept = page.getByRole('textbox', { name: 'Concepto' })
+
+  const [onCog, onCategory, onConcept] = await Promise.all(
+    [cog, category, concept].map(locator => locator.boundingBox()),
+  )
+
+  // Same row as the category, to the right of it, and exactly as tall — it was a
+  // small cog attached to a label above a grid of large tiles once, which is the
+  // shape this keeps it from drifting back to.
+  expect(onCog!.y).toBeCloseTo(onCategory!.y, 0)
+  expect(onCog!.height).toBeCloseTo(onCategory!.height, 0)
+  expect(onCog!.x).toBeGreaterThan(onCategory!.x + onCategory!.width - 1)
+  // And a row below the concept, which now reaches the full width.
+  expect(onCog!.y).toBeGreaterThan(onConcept!.y + onConcept!.height - 1)
+  expect(onConcept!.x + onConcept!.width).toBeCloseTo(onCog!.x + onCog!.width, 0)
+})
+
 test('an icon can be given to a concept, and taken back', async ({ page }) => {
   // The menu exists because the guess is a guess. It is opened from beside the
   // grid it changes: choosing an icon anywhere else is choosing blind.
@@ -489,24 +539,6 @@ test('the step and its bars are stacked in the middle, and the header keeps its 
     if (step === 'Paso 2 de 3') await page.getByRole('textbox', { name: 'Concepto' }).fill('super')
     if (step !== 'Paso 3 de 3') await next(page)
   }
-})
-
-test('the icons cog sits on the line of the concept field', async ({ page }) => {
-  // It was a small cog attached to a label above a grid of large tiles: the
-  // smallest thing on the screen, next to the one thing nobody touches.
-  await stubApi(page)
-  await signIn(page)
-  await typeAmount(page, '10')
-  await next(page)
-
-  const field = page.getByRole('textbox', { name: 'Concepto' })
-  const cog = page.getByRole('button', { name: 'Iconos' })
-
-  const [box, button] = await Promise.all([field.boundingBox(), cog.boundingBox()])
-  // Same line, to the right of the field, and the same height as it.
-  expect(button!.y).toBeCloseTo(box!.y, 0)
-  expect(button!.height).toBeCloseTo(box!.height, 0)
-  expect(button!.x).toBeGreaterThan(box!.x + box!.width - 1)
 })
 
 test('an observación can be typed, not only picked from the pills', async ({ page }) => {

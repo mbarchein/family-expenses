@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Icon } from './Icon'
 import { T } from '../i18n/strings'
 import { iconOfCategory } from '../lib/categories'
@@ -20,22 +20,32 @@ import type { Category } from '../api/types'
  * place is a question still open, and a category chosen at random to close it is
  * worse than the question.
  */
-export function CategoryField({ value, categories, onChange }: {
+export function CategoryField({ value, categories, onChange, trailing }: {
   value: string
   categories: readonly Category[]
   onChange: (category: string) => void
+  /**
+   * Something field-height, on the same line, to the right.
+   *
+   * The second step puts the way in to the icons here. It used to sit beside the
+   * concept box, and it was moved because that box needed the room: what is to
+   * the right of a text field is where a phone looks for the cross that empties
+   * it, not for a settings screen.
+   */
+  trailing?: ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const icon = iconOfCategory(value, categories)
 
   return (
-    <>
+    <div className="flex items-stretch gap-2">
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label={T.category.pick}
-        className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2.5
-                   text-left text-sm focus-visible:outline focus-visible:outline-2"
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-line
+                   bg-surface px-3 py-2.5 text-left text-sm
+                   focus-visible:outline focus-visible:outline-2"
       >
         {icon
           ? <Icon name={icon} className="h-5 w-5 shrink-0" />
@@ -56,7 +66,9 @@ export function CategoryField({ value, categories, onChange }: {
           onClose={() => setOpen(false)}
         />
       )}
-    </>
+
+      {trailing}
+    </div>
   )
 }
 

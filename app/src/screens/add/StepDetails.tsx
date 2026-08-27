@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { CategoryField } from '../../components/CategoryField'
+import { ClearButton } from '../../components/ClearButton'
 import { ConceptGrid, type ConceptTile } from '../../components/ConceptGrid'
 import { IconMenu } from '../../components/IconMenu'
 import { PlaceCards } from '../../components/PlaceCards'
@@ -225,21 +226,17 @@ export function StepDetails({
           onPick={concept => patch({ concept })}
         />
 
-        {/* The field and the way in to the icons, on one line.
+        {/* The field, with the cross that empties it inside it.
             
-            It used to be a small cog beside the words "Conceptos frecuentes",
-            above a grid of large tiles — the smallest thing on the screen,
-            attached to a label rather than to anything you touch. Here it is the
-            height of the field it sits next to, and the field is where the hand
-            already is. Still a cog and not the word "Iconos": on a screen whose
-            point is that the tiles are read as pictures, a word is the one thing
-            that reads as content. Its name is unchanged — the label moved out of
-            sight, not out of existence. */}
-        {/* `items-stretch`, so the button is exactly as tall as the field
-            whatever the font does to it. A hardcoded height here was two pixels
-            out on the first render and would have been a different two pixels on
-            somebody's phone. */}
-        <div className="flex items-stretch gap-2">
+            The cog used to be here, in a 56-pixel box to the right of the field,
+            and it has moved down a line onto the category row. Two reasons, and
+            the second is the one that decided it: to the right of a text box is
+            where a hand goes looking for the way to clear it, and a tap meant for
+            that landed on a settings sheet instead. The other is that the icons
+            and the category are the same subject — what kind of thing this was —
+            so the way in to them belongs beside the category rather than beside
+            the words. */}
+        <div className="relative">
           <input
             value={draft.concept}
             onChange={event => patch({ concept: event.target.value })}
@@ -247,31 +244,44 @@ export function StepDetails({
             aria-label={T.add.concept}
             enterKeyHint="done"
             autoComplete="off"
-            className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-3
+            className="w-full rounded-lg border border-line bg-surface py-3 pl-3 pr-11
                        text-base text-ink placeholder:text-ink-2
                        focus-visible:outline focus-visible:outline-2"
           />
-          <button
-            type="button"
-            onClick={onOpenMenu}
-            aria-label={T.icons.menu}
-            className="grid w-14 shrink-0 place-items-center rounded-lg border border-line
-                       focus-visible:outline focus-visible:outline-2"
-            style={{ color: 'var(--accent)' }}
-          >
-            <CogIcon />
-          </button>
+          {draft.concept && (
+            <ClearButton label={T.add.clearConcept} onClick={() => patch({ concept: '' })} />
+          )}
         </div>
 
         {/* The category the concept was placed in, under the field it comes
             from. Guessed rather than asked for: the point of the column is
             totals by kind, and a question on the fast path would be answered
             with whatever is nearest the thumb. What this shows is the guess, so
-            that a wrong one is visible before it is saved rather than after. */}
+            that a wrong one is visible before it is saved rather than after.
+            
+            And on the same line, the cog. Still a cog and not the word "Iconos":
+            on a screen whose point is that the tiles are read as pictures, a word
+            is the one thing that reads as content. Its accessible name is
+            unchanged — the label moved out of sight, not out of existence. */}
         <CategoryField
           value={draft.category}
           categories={categories}
           onChange={category => patch({ category })}
+          trailing={
+            /* As tall as the row rather than a height of its own: a hardcoded one
+               was two pixels out on the first render here, and would have been a
+               different two pixels on somebody's phone. */
+            <button
+              type="button"
+              onClick={onOpenMenu}
+              aria-label={T.icons.menu}
+              className="grid w-14 shrink-0 place-items-center rounded-lg border border-line
+                         focus-visible:outline focus-visible:outline-2"
+              style={{ color: 'var(--accent)' }}
+            >
+              <CogIcon />
+            </button>
+          }
         />
 
         {methodPills.length > 0 && (
