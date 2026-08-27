@@ -179,40 +179,45 @@ test.describe('with the location allowed', () => {
 
   test('the tiles are the same ones for a doorway a few metres away',
     async ({ page, context }) => {
-    // The promise in section 13 in one assertion: what leaves is the square, not
-    // the point. Two positions eight metres apart — different doorways, and the
-    // 15 m tolerance treats them as the same place — must produce the same set of
-    // tile URLs, or the requests themselves would narrow the position down past
-    // what the policy says they do.
+    // The promise in section 13 as an assertion: what leaves is the square, not
+    // the point. Two positions eight metres apart — different doorways, and near
+    // enough that the 15 m tolerance calls them the same place — must ask for the
+    // same tiles, or the set of URLs would narrow the position down past what the
+    // policy says it does. The fixture doorway is 58 m from the nearest tile edge
+    // at every zoom this map uses, so eight metres cannot cross one by accident.
+    //
+    // Read off the `img` elements rather than off the network, which is what this
+    // test got wrong first time round and CI caught: the second reading asks for
+    // the very same URLs, so the browser serves them from its own cache and no
+    // request goes out at all. What the app *asks for* is the claim; the test
+    // above is the one that watches the wire.
     await stubApi(page)
     await signIn(page)
 
-    const tilesFor = async (): Promise<string[]> => {
-      const seen: string[] = []
-      const collect = (url: string) => {
-        if (url.includes('tile.openstreetmap.org')) seen.push(url)
-      }
-      const listener = (request: { url: () => string }) => collect(request.url())
-      page.on('request', listener)
-      await reachReview(page, 'ferretería')
-      // Not `savePlace`: that one asserts the coordinate on screen, and the whole
-      // point here is that the second reading is a different coordinate.
-      const toggle = page.getByRole('switch', { name: 'Guardar este sitio' })
-      await toggle.click()
-      await expect(toggle).toHaveAttribute('aria-checked', 'true')
-      await expect.poll(() => seen.length).toBeGreaterThan(0)
-      await page.waitForTimeout(500)
-      page.off('request', listener)
-      await page.getByRole('button', { name: 'Descartar este gasto' }).click()
-      await expect(page.getByText('Paso 1 de 3')).toBeVisible()
-      return [...new Set(seen)].sort()
-    }
+    const tiles = () => page.locator('img[src*="tile.openstreetmap.org"]')
+      .evaluateAll(images => (images as HTMLImageElement[]).map(image => image.src).sort())
 
-    const atDoor = await tilesFor()
+    const toggle = page.getByRole('switch', { name: 'Guardar este sitio' })
+    await reachReview(page, 'ferretería')
+    await toggle.click()
+    await expect.poll(() => tiles().then(list => list.length)).toBeGreaterThan(0)
+    const atDoor = await tiles()
+
+    // Off and on again, which is what makes it read the position a second time.
     await context.setGeolocation(northOf(8))
-    const eightMetresUp = await tilesFor()
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-checked', 'false')
+    await toggle.click()
+    // The new coordinate on screen, so this is not the old fix being compared
+    // with itself — eight metres north is the fifth decimal.
+    await expect(toggle).toContainText('37.17737')
 
-    expect(eightMetresUp).toEqual(atDoor)
+    // Polled rather than read once: the map measures itself before it knows how
+    // many tiles wide it is, so the first render after it comes back has no
+    // images in it at all. Read on that frame this would compare a set against
+    // nothing — green here, red on a slower machine, which is the whole genre of
+    // test this suite has been bitten by before.
+    await expect.poll(() => tiles()).toEqual(atDoor)
   })
 
   test('the switch off means nothing is saved', async ({ page }) => {
