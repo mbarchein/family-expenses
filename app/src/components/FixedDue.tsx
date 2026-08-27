@@ -76,67 +76,78 @@ export function FixedDue({ due, warn, onConfirm, onSkip, onClose }: {
         </button>
       </header>
 
-      <ul className="flex-1 overflow-y-auto p-4">
-        {due.map(item => (
-          <li key={`${item.row}:${item.due}`} className="pb-2">
-            <div
-              className="flex flex-col gap-2 rounded-xl border border-line p-3"
-              style={{ background: 'var(--surface)' }}
-            >
-              <div className="flex items-baseline gap-3">
-                <span className="flex-1 truncate font-semibold">{item.concept}</span>
-                <span className="tabular font-mono text-sm">
-                  {item.amount === null ? '—' : formatEur(item.amount)}
-                </span>
-              </div>
+      {/* Nothing owed, with the sheet still open — which is what skipping the
+          last proposal leaves behind. The banner never opens an empty sheet, so
+          this is the state that arrives while you are looking at it, and a list
+          that empties into blank paper reads as a screen that broke. */}
+      {!due.length ? (
+        <div className="flex flex-1 flex-col gap-2 p-6 text-center">
+          <p className="text-sm font-semibold text-ink-2">{T.fixed.noneDue}</p>
+          <p className="mx-auto max-w-xs text-xs text-ink-3">{T.fixed.noneDueWhen}</p>
+        </div>
+      ) : (
+        <ul className="flex-1 overflow-y-auto p-4">
+          {due.map(item => (
+            <li key={`${item.row}:${item.due}`} className="pb-2">
+              <div
+                className="flex flex-col gap-2 rounded-xl border border-line p-3"
+                style={{ background: 'var(--surface)' }}
+              >
+                <div className="flex items-baseline gap-3">
+                  <span className="flex-1 truncate font-semibold">{item.concept}</span>
+                  <span className="tabular font-mono text-sm">
+                    {item.amount === null ? '—' : formatEur(item.amount)}
+                  </span>
+                </div>
 
-              <p className="text-[11px] text-ink-3">
-                {formatShortDate(item.due)}
-                {item.amount === null && ` · ${T.fixed.ask}`}
-              </p>
-
-              {/* A warning and not a block. Being too eager here costs a line
-                  nobody needed; being too strict costs the rent twice in a
-                  ledger where a row can only be struck through. */}
-              {warn(item) && (
-                <p className="text-[11px]" style={{ color: 'var(--danger)' }}>
-                  {T.fixed.already}
+                <p className="text-[11px] text-ink-3">
+                  {formatShortDate(item.due)}
+                  {item.amount === null && ` · ${T.fixed.ask}`}
                 </p>
-              )}
 
-              {/* Both disabled while either is working, and the one that was
-                  pressed says what it is doing. Neither of them did before: the
-                  skip went to the network with nothing on screen to show it, and
-                  confirming twice pushed the flow twice. */}
-              <div className="flex gap-2 pt-0.5">
-                <button
-                  type="button"
-                  onClick={() => onConfirm(item)}
-                  disabled={busy !== null}
-                  className="flex-1 rounded-lg py-2 text-sm font-bold disabled:opacity-40
-                             focus-visible:outline focus-visible:outline-2"
-                  style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
-                >
-                  {T.add.next}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void skip(item)}
-                  disabled={busy !== null}
-                  aria-busy={busy === keyOf(item)}
-                  className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-2
-                             text-sm font-semibold disabled:opacity-40
-                             focus-visible:outline focus-visible:outline-2"
-                  style={{ color: 'var(--ink-2)' }}
-                >
-                  {busy === keyOf(item) && <Spinner className="h-3.5 w-3.5" />}
-                  {busy === keyOf(item) ? T.fixed.skipping : T.fixed.skip}
-                </button>
+                {/* A warning and not a block. Being too eager here costs a line
+                    nobody needed; being too strict costs the rent twice in a
+                    ledger where a row can only be struck through. */}
+                {warn(item) && (
+                  <p className="text-[11px]" style={{ color: 'var(--danger)' }}>
+                    {T.fixed.already}
+                  </p>
+                )}
+
+                {/* Both disabled while either is working, and the one that was
+                    pressed says what it is doing. Neither of them did before: the
+                    skip went to the network with nothing on screen to show it, and
+                    confirming twice pushed the flow twice. */}
+                <div className="flex gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => onConfirm(item)}
+                    disabled={busy !== null}
+                    className="flex-1 rounded-lg py-2 text-sm font-bold disabled:opacity-40
+                               focus-visible:outline focus-visible:outline-2"
+                    style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+                  >
+                    {T.add.next}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void skip(item)}
+                    disabled={busy !== null}
+                    aria-busy={busy === keyOf(item)}
+                    className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-2
+                               text-sm font-semibold disabled:opacity-40
+                               focus-visible:outline focus-visible:outline-2"
+                    style={{ color: 'var(--ink-2)' }}
+                  >
+                    {busy === keyOf(item) && <Spinner className="h-3.5 w-3.5" />}
+                    {busy === keyOf(item) ? T.fixed.skipping : T.fixed.skip}
+                  </button>
+                </div>
               </div>
-            </div>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {problem && (
         <p role="alert" className="px-4 pb-4 text-center text-sm"

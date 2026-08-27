@@ -207,6 +207,34 @@ test('a skip that does not get through says so and can be tried again', async ({
   await expect(page.getByText('Paso 1 de 3')).toBeVisible()
 })
 
+test('the sheet says so when nothing is left owed', async ({ page }) => {
+  // The banner never opens an empty sheet, but skipping the last proposal empties
+  // one that is already open — and a list that empties into blank paper under a
+  // header saying «Fijos vencidos» reads as a screen that failed to load.
+  //
+  // The double has to remember the skip for this one: settling re-reads the
+  // sheet, and a bootstrap that still says nothing was settled proposes the same
+  // period again — which is a stub answering differently from the sheet, not the
+  // app refusing to empty. Registered on the same object `stubApi` answers from.
+  const data = bootstrap({ fixed: [fixed()] })
+  await stubApi(page, data)
+  await page.route('**/macros/s/**', async route => {
+    const body = JSON.parse(route.request().postData() ?? '{}')
+    if (body.action === 'fixedDone') data.fixed[0].last = body.payload.due
+    return route.fallback()
+  })
+  await signIn(page)
+
+  await page.getByRole('button', { name: 'Hay 1 fijo vencido' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Fijos vencidos' })
+  await sheet.getByRole('button', { name: 'Saltar' }).click()
+
+  await expect(sheet.getByText('No hay ningún fijo vencido')).toBeVisible()
+  // Still ours to close, rather than closing itself: the sheet was opened on
+  // purpose and taking it away mid-tap is how a stray press lands on the keypad.
+  await expect(sheet.getByRole('button', { name: 'Cerrar' })).toBeVisible()
+})
+
 test('a period already in the ledger is proposed with a warning', async ({ page }) => {
   // The bank-statement case, which is the reason this is a proposal at all.
   await stubApi(page, bootstrap({

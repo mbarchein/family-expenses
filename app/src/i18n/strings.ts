@@ -145,6 +145,16 @@ export const T = {
     // "1 fijos" is the kind of detail that makes an app feel unfinished.
     due: (n: number) => (n === 1 ? 'Hay 1 fijo vencido' : `Hay ${n} fijos vencidos`),
     title: 'Fijos vencidos',
+    /**
+     * The sheet with nothing left in it.
+     *
+     * Reachable even though the banner that opens the sheet is absent when
+     * nothing is owed: skipping the last proposal empties the list while the
+     * sheet is still up. An empty list under a header that says «Fijos vencidos»
+     * reads as something that failed to load.
+     */
+    noneDue: 'No hay ningún fijo vencido',
+    noneDueWhen: 'Cuando le toque al siguiente, te lo propone aquí.',
     close: 'Cerrar',
     skip: 'Saltar',
     /** On the button while the sheet is being told. A press that says nothing is
