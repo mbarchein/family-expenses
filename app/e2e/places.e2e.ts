@@ -133,12 +133,13 @@ test.describe('with the location allowed', () => {
     expect(overflows).toBe(false)
   })
 
-  test('the switch draws where the phone thinks it is, and fetches nothing',
+  test('the switch shows a map, and asks for tiles at tile granularity',
     async ({ page }) => {
-    // Not a map. A map means tiles, and tiles mean asking a server for the
-    // images around a coordinate — which is exactly what section 13 of the
-    // privacy policy and the Sitios screen promise does not happen. So: a
-    // drawing, from coordinates the phone already has.
+    // This used to assert that turning the switch on fetched *nothing*, and the
+    // schematic it was guarding got reported as circles that add nothing. The map
+    // is real now, so the claim is narrower and this is where it is kept honest:
+    // tiles go out, they go to openstreetmap.org and nowhere else, and the URLs
+    // name a tile — a hundred metres or more — rather than the doorway.
     await stubApi(page)
     await signIn(page)
     await reachDetails(page)
@@ -146,8 +147,7 @@ test.describe('with the location allowed', () => {
     await next(page)
 
     // Watched from here on, so the fonts the whole app loads at startup are not
-    // counted against the switch. What is being claimed is narrow and is the
-    // whole point: turning this on fetches nothing.
+    // counted against the switch.
     const outbound: string[] = []
     page.on('request', request => {
       const url = request.url()
@@ -158,9 +158,61 @@ test.describe('with the location allowed', () => {
     await expect(page.getByRole('img', { name: /Dónde estás/ })).toBeVisible()
     // The accuracy as a number beside it, because a circle is not one.
     await expect(page.getByText(/±\d+ m/).first()).toBeVisible()
+    // And whose streets these are, which is both the licence and the disclosure.
+    await expect(page.getByRole('link', { name: '© OpenStreetMap' })).toBeVisible()
 
-    await page.waitForTimeout(1000)
-    expect(outbound).toEqual([])
+    await expect.poll(() => outbound.length).toBeGreaterThan(0)
+    await page.waitForTimeout(500)
+
+    // Nowhere but the tile server.
+    expect(outbound.filter(url => !url.includes('tile.openstreetmap.org'))).toEqual([])
+
+    // The coordinate itself is not in any of those URLs: they carry z/x/y, and
+    // the mosaic is centred on the tile the fix is in rather than on the fix, so
+    // the set of tiles asked for is the same for anybody standing in this square.
+    expect(outbound.join(' ')).not.toContain('37.17')
+    expect(outbound.join(' ')).not.toContain('3.59')
+    for (const url of outbound) {
+      expect(url).toMatch(/tile\.openstreetmap\.org\/\d{1,2}\/\d+\/\d+\.png$/)
+    }
+  })
+
+  test('the tiles are the same ones for a doorway a few metres away',
+    async ({ page, context }) => {
+    // The promise in section 13 in one assertion: what leaves is the square, not
+    // the point. Two positions eight metres apart — different doorways, and the
+    // 15 m tolerance treats them as the same place — must produce the same set of
+    // tile URLs, or the requests themselves would narrow the position down past
+    // what the policy says they do.
+    await stubApi(page)
+    await signIn(page)
+
+    const tilesFor = async (): Promise<string[]> => {
+      const seen: string[] = []
+      const collect = (url: string) => {
+        if (url.includes('tile.openstreetmap.org')) seen.push(url)
+      }
+      const listener = (request: { url: () => string }) => collect(request.url())
+      page.on('request', listener)
+      await reachReview(page, 'ferretería')
+      // Not `savePlace`: that one asserts the coordinate on screen, and the whole
+      // point here is that the second reading is a different coordinate.
+      const toggle = page.getByRole('switch', { name: 'Guardar este sitio' })
+      await toggle.click()
+      await expect(toggle).toHaveAttribute('aria-checked', 'true')
+      await expect.poll(() => seen.length).toBeGreaterThan(0)
+      await page.waitForTimeout(500)
+      page.off('request', listener)
+      await page.getByRole('button', { name: 'Descartar este gasto' }).click()
+      await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+      return [...new Set(seen)].sort()
+    }
+
+    const atDoor = await tilesFor()
+    await context.setGeolocation(northOf(8))
+    const eightMetresUp = await tilesFor()
+
+    expect(eightMetresUp).toEqual(atDoor)
   })
 
   test('the switch off means nothing is saved', async ({ page }) => {

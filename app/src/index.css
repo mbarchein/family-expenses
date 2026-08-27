@@ -41,6 +41,8 @@
   --danger: #af3f38;
   --person-1: #2f62d9;
   --person-2: #a96f13;
+  /* The map tiles, untouched in daylight. See the dark block. */
+  --map-tint: none;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -58,6 +60,12 @@
     --danger: #ee8a81;
     --person-1: #82a6ff;
     --person-2: #e0a83f;
+    /* The standard OpenStreetMap style is a white sheet of paper, and a white
+     * sheet of paper at night is a torch. Inverted and turned back the right way
+     * round the hue wheel, which keeps the water blue and the parks green while
+     * the paper goes dark — the same trick every dark map style built on these
+     * tiles uses, and it costs one declaration instead of a second tile source. */
+    --map-tint: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.95);
   }
 }
 

@@ -375,11 +375,26 @@ it knows, how good the fix was when each was saved, how far away each one is
 right now, and how to delete one. A suggestion with no visible cause is magic,
 and magic that fills in the wrong concept is indistinguishable from a bug.
 
-**The coordinates never leave the device.** They are in IndexedDB, they are not
+**The coordinates never reach the backend.** They are in IndexedDB, they are not
 sent to the backend, they are not written to the spreadsheet, and there is no
 column for them — what reaches the ledger is the concept, exactly as if it had
 been typed. The other person in the house cannot see them. The first line of the
 screen says so, and section 13 of the privacy policy says it again.
+
+**With one exception, decided out loud: the map.** The review step used to draw
+its own schematic rather than show a map, so that nothing about the position
+reached any server at all. It was reported as circles that add nothing, and that
+was right — the drawing only ever knew one thing, the accuracy against the
+fifteen-metre tolerance, which is a sentence and not a picture; with no saved
+place nearby, the normal case, it was two concentric circles around a dot, and
+nothing on it was recognisable as anywhere. So the map is real now, from
+OpenStreetMap, and turning the switch on asks that server for tiles. The line
+that replaced "nothing leaves" is narrower and still worth having: **tiles are
+requested at tile granularity — a hundred metres or more, never the point.** The
+mosaic is centred on the tile the fix sits in rather than on the fix, so even the
+set of URLs asked for does not narrow it further; nothing is requested while the
+switch is off; and the accuracy ring and the fifteen-metre circle are still drawn
+locally, on top, which is the part of the old drawing that was doing work.
 
 Saving one is always a deliberate flick of the "Guardar este sitio" switch on
 the review step, which is the only thing in the app that asks for the location

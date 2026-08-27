@@ -203,6 +203,7 @@ export interface ApiCall {
  */
 export async function stubApi(page: Page, data: Bootstrap = bootstrap()): Promise<ApiCall[]> {
   const calls: ApiCall[] = []
+  await stubTiles(page)
 
   await page.route('**/macros/s/**', async route => {
     const body = JSON.parse(route.request().postData() ?? '{}')
@@ -216,6 +217,26 @@ export async function stubApi(page: Page, data: Bootstrap = bootstrap()): Promis
   })
 
   return calls
+}
+
+/**
+ * The map, answered from memory as well.
+ *
+ * The review step asks openstreetmap.org for tiles the moment the place switch
+ * goes on, and no test has any business leaving the machine: in CI it would be a
+ * suite that reports somebody else's uptime, and in a sandbox with no route out
+ * it would be twelve requests waiting to fail. One transparent pixel, per tile.
+ *
+ * Deliberately still routed rather than blocked, because what the tests need to
+ * be able to say is *which* requests went out and where to — see the place tests.
+ */
+export async function stubTiles(page: Page) {
+  const pixel = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    'base64',
+  )
+  await page.route('**/tile.openstreetmap.org/**', route =>
+    route.fulfill({ body: pixel, contentType: 'image/png' }))
 }
 
 /**

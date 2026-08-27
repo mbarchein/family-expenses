@@ -113,10 +113,14 @@ export const PRIVACY: LegalDocument = {
     {
       title: '8. Destinatarios',
       body:
-        'No vendemos ni cedemos datos a nadie. Para funcionar intervienen dos proveedores:\n' +
+        'No vendemos ni cedemos datos a nadie. Para funcionar intervienen tres proveedores:\n' +
         '• Google, que aloja la hoja de cálculo, ejecuta el script que la escribe y gestiona ' +
         'el inicio de sesión.\n' +
         '• Vercel, que sirve la página de la aplicación.\n' +
+        '• OpenStreetMap, que sirve las imágenes del mapa, y únicamente mientras el ' +
+        'interruptor «Guardar este sitio» está encendido: en ese momento es tu navegador el ' +
+        'que pide esas imágenes, y openstreetmap.org recibe tu dirección IP y la zona del ' +
+        'mapa que hay que dibujar (ver el punto 13).\n' +
         'No hay analítica, ni publicidad, ni herramientas de medición de terceros.',
     },
     {
@@ -124,7 +128,10 @@ export const PRIVACY: LegalDocument = {
       body:
         'Google y Vercel pueden tratar datos fuera del Espacio Económico Europeo. En ese ' +
         'caso, las transferencias se amparan en decisiones de adecuación o en las Cláusulas ' +
-        'Contractuales Tipo de la Comisión Europea.',
+        'Contractuales Tipo de la Comisión Europea. La Fundación OpenStreetMap tiene su sede ' +
+        'en el Reino Unido y sirve las imágenes del mapa desde una red de distribución con ' +
+        'servidores en varios países; esas peticiones las hace tu navegador directamente, y ' +
+        'solo mientras se está mostrando el mapa.',
     },
     {
       title: '10. Tus derechos',
@@ -163,10 +170,16 @@ export const PRIVACY: LegalDocument = {
         '«Guardar este sitio» al apuntar un gasto. Sirve para una cosa: reconocer que ' +
         'estás en un sitio que ya guardaste y proponerte el mismo concepto. Las ' +
         'coordenadas se guardan únicamente en el almacenamiento de tu navegador, en tu ' +
-        'dispositivo: no se envían a ningún servidor, no se escriben en la hoja de cálculo ' +
-        'y la otra persona de la casa no las ve. Puedes borrar cada sitio desde la ' +
-        'pantalla «Sitios», y retirar el permiso en los ajustes de tu navegador. Si no ' +
-        'concedes el permiso, el resto de la aplicación funciona igual.',
+        'dispositivo: no se envían a nuestro servidor, no se escriben en la hoja de ' +
+        'cálculo y la otra persona de la casa no las ve. Con ese interruptor encendido se ' +
+        'muestra un mapa, y sus imágenes las sirve OpenStreetMap: para pedirlas, tu ' +
+        'navegador se conecta a openstreetmap.org, que recibe tu dirección IP y la zona ' +
+        'del mapa que hay que dibujar. Esa zona es un cuadrado de cien metros o más, no ' +
+        'el punto exacto en el que estás, y no se pide nada mientras el interruptor esté ' +
+        'apagado. Es la única circunstancia en la que algo relativo a tu posición sale ' +
+        'del dispositivo. Puedes borrar cada sitio desde la pantalla «Sitios», y retirar ' +
+        'el permiso en los ajustes de tu navegador. Si no concedes el permiso, el resto ' +
+        'de la aplicación funciona igual.',
     },
     {
       title: '14. Cambios',

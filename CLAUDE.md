@@ -78,6 +78,20 @@ against the copy of the spreadsheet, never the live ledger.
   "while we are there" breaks a published document and not just a rule. The same
   goes for reading the position: only the button that says it will asks for the
   permission, and every other read gives up rather than prompting.
+
+  This rule used to be wider — nothing about the position reached *any* server,
+  which is why the review step drew its own schematic instead of showing a map.
+  That was dropped deliberately, not by drift: the drawing only ever knew one
+  thing, and with no saved place nearby it was two circles around a dot. The map
+  is real now, so turning that switch on asks openstreetmap.org for tiles and
+  tells it roughly where the phone is. The narrowing is exactly this: **tiles for
+  a map that was asked for, at tile granularity — a hundred metres or more, never
+  the point.** Which means the mosaic must keep being centred on the *tile* the
+  fix is in rather than on the fix, or the set of URLs requested would give the
+  doorway away. Everything else stands: our backend, the sheet, and the other
+  person's phone still never see a coordinate, and nothing is requested while the
+  switch is off. Section 13, the Sitios screen and this bullet say the same
+  thing — change one and the other two move in the same commit.
 - **Never let clasp push anything that is not a backend source.** Apps Script
   compiles every file in the project and runs the top level of every one of them
   on every single request, so one stray file breaks the whole web app rather than

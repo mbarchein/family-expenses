@@ -28,6 +28,10 @@ export function PlacesScreen({ onBack }: { onBack: () => void }) {
       <ScreenHeader title={T.tabs.places} onBack={onBack} />
 
       <p className="text-xs text-ink-2">{T.places.local}</p>
+      {/* The map is somebody else's server, so it is said here rather than only
+          in section 13 of the policy: this is the screen that explains the
+          feature, and a disclosure nobody reads is not one. */}
+      <p className="text-xs text-ink-3">{T.places.localMap}</p>
 
       {ready && !rows.length && (
         <div className="flex flex-col gap-2 pt-6 text-center">

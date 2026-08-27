@@ -154,16 +154,25 @@ export const T = {
   },
 
   places: {
-    /** The schematic under the switch. Not a map: no tiles, no request, no
-     *  street names — see the comment on `PlaceMap`. */
+    /** The map under the switch. A real one — streets from OpenStreetMap — which
+     *  is a decision with a cost, written up on `PlaceMap` and in section 13. */
     mapLabel: 'Dónde estás, según el móvil',
-    mapYou: 'Tú',
     mapImproving: 'Afinando la posición…',
     mapSteady: 'La posición ya no mejora',
     mapScale: (metres: number) => `${metres} m`,
-    // The line that has to be true and has to be visible: nothing here is
-    // uploaded, so nobody has to wonder whether it is.
+    mapCredit: '© OpenStreetMap',
+    mapFailed: 'No se ha podido cargar el mapa',
+    // The line that has to be true and has to be visible: the places themselves
+    // are not uploaded anywhere, so nobody has to wonder whether they are.
     local: 'Los sitios se guardan solo en este dispositivo. No se suben a la hoja.',
+    // And the other half of the truth, since the map arrived: the images come
+    // from somebody else's server, and asking for them says roughly where you
+    // are. It is on this screen because this is the screen that explains the
+    // feature, and hiding it in the policy alone would be hiding it.
+    localMap:
+      'Al guardar un sitio se ve un mapa. Las imágenes las sirve OpenStreetMap, ' +
+      'que recibe la zona en la que estás — un cuadrado de cien metros o más, no ' +
+      'el punto exacto — y solo mientras ese interruptor está encendido.',
     empty: 'Todavía no has guardado ningún sitio',
     emptyHow:
       'Al apuntar un gasto, toca «Guardar este sitio» y la próxima vez que estés ' +

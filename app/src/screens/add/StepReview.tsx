@@ -86,9 +86,9 @@ export function StepReview({
 
       <PlaceSwitch state={place} onToggle={onTogglePlace} />
 
-      {/* Under the switch and only while it is on: a drawing of where the phone
-          thinks it is, from coordinates it already has. Not a map — see the
-          comment on `PlaceMap` for why tiles are not an option here. */}
+      {/* Under the switch and only while it is on — which is also when the first
+          tile is asked for. See the comment on `PlaceMap`: it was a drawing until
+          somebody looked at it, and what it is now costs a line in section 13. */}
       {place.kind === 'on' && (
         <PlaceMap fix={place.fix} nearby={nearby} improving={place.improving} />
       )}
