@@ -27,10 +27,12 @@ const LEDGER_HEADERS = [
 const LEDGER_COLS = LEDGER_HEADERS.length
 
 /** The Fijos tab's header row. `categoría` was appended after `último`, so that
- *  `fixedDone` keeps writing to the same column it always has. */
+ *  `fixedDone` keeps writing to the same column it always has, and `id` after
+ *  that: a template is its id and not its row, since the tab is edited by hand
+ *  and a row number is not an identity. */
 const FIXED_HEADERS_ROW = [
   'concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo', 'desde', 'último',
-  'categoría'
+  'categoría', 'id'
 ]
 
 function sheet(name, values, maxColumns, formulas) {
@@ -124,8 +126,11 @@ function put(values, row, column, value) {
 }
 
 /** Installs the globals the sources reach for. Returns the sheets by name. */
+var uuids = 0
+
 function install(sheets, options) {
   var settings = options || {}
+  uuids = 0
   global.SpreadsheetApp = {
     // Only the member the append reads. `copyTo` here is a no-op that records
     // nothing, which is right: what it copies is *formatting*, and a fake with
@@ -178,6 +183,10 @@ function install(sheets, options) {
       return out
     },
     base64Encode: function (value) { return Buffer.from(String(value)).toString('base64') },
+    // Counted rather than random, so a test can name the id it expects. What
+    // matters about a uuid here is that two calls differ, not that they are
+    // unguessable — nothing about these ids is a secret.
+    getUuid: function () { uuids++; return 'uuid-' + uuids },
   }
   // Absent until the first writer with a lock was tested, which is to say: every
   // function in the backend that takes one had never run in here at all.

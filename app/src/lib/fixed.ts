@@ -14,7 +14,11 @@
 
 /** A period a template owes: the day it fell due. */
 export interface Due {
-  /** The row of the template on the Fijos tab, which is its identity. */
+  /** The template this period belongs to. Its id and not its row — see the
+   *  `Fixed` type for why the tab's rows are not identities. */
+  id: string
+  /** Kept beside the id so an operation queued against a template with no id yet
+   *  still has something to aim at. */
   row: number
   concept: string
   /** Null for the ones whose amount changes every month. */
@@ -28,6 +32,8 @@ export interface Due {
 }
 
 export interface Template {
+  /** See `Fixed.id`: the tab's rows move, so this is what names a template. */
+  id: string
   row: number
   concept: string
   amount: number | null
@@ -70,6 +76,7 @@ export function whatIsDue(templates: readonly Template[], today: string): Due[] 
     if (!template.active) continue
     for (const due of periodsFor(template, today)) {
       owed.push({
+        id: template.id,
         row: template.row,
         concept: template.concept,
         amount: template.amount,

@@ -63,7 +63,7 @@ export interface Draft {
    * Losing it would leave the expense apuntado and the period still owed, which
    * proposes the rent again tomorrow.
    */
-  fixed: { row: number; due: string } | null
+  fixed: { id: string; row: number; due: string } | null
   /**
    * The saved place that lent this concept, if one did.
    *
@@ -142,7 +142,12 @@ export function useDraft(defaultPayer: 0 | 1): DraftStore {
       setDraft({
         ...stored,
         pickDate: stored.pickDate === true,
-        fixed: stored.fixed ?? null,
+        // A `fixed` from before templates had ids would settle the period by row,
+        // which is the thing this stopped doing. Dropped rather than trusted: the
+        // expense is still apuntado and the fijo is simply proposed again, which
+        // is the safe half of that pair — the same reasoning as the comment on
+        // `settleFixed` failing.
+        fixed: stored.fixed && typeof stored.fixed.id === 'string' ? stored.fixed : null,
         // Missing on a draft stored before the field existed, and `undefined`
         // reaching a comparison is how a screen ends up claiming something
         // nobody told it.

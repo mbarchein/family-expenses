@@ -168,13 +168,13 @@ test('the year is on the rows, the day headings and the totals', async ({ page }
  */
 test('the detail of a fijo has its own address, and back closes it', async ({ page }) => {
   await stubApi(page, bootstrap({
-    fixed: [fixed({ row: 4, concept: 'alquiler', amount: 700, day: 1 })],
+    fixed: [fixed({ id: 'f-alquiler', row: 4, concept: 'alquiler', amount: 700, day: 1 })],
   }))
   await signIn(page)
   await page.getByRole('button', { name: 'Fijos', exact: true }).click()
 
   await page.getByRole('button', { name: /alquiler/ }).click()
-  await expect(page).toHaveURL(/\/fijos\/4$/)
+  await expect(page).toHaveURL(/\/fijos\/f-alquiler$/)
   await expect(page.getByRole('dialog')).toBeVisible()
 
   // Back closes the sheet and stays on the screen, which is the whole bug.
@@ -186,10 +186,10 @@ test('the detail of a fijo has its own address, and back closes it', async ({ pa
 
 test('a fijo detail survives a reload', async ({ page }) => {
   await stubApi(page, bootstrap({
-    fixed: [fixed({ row: 4, concept: 'alquiler', amount: 700, day: 1 })],
+    fixed: [fixed({ id: 'f-alquiler', row: 4, concept: 'alquiler', amount: 700, day: 1 })],
   }))
   await signIn(page)
-  await page.goto('/fijos/4')
+  await page.goto('/fijos/f-alquiler')
 
   await expect(page.getByRole('dialog')).toBeVisible()
   await expect(page.getByRole('combobox', { name: 'Concepto' })).toHaveValue('alquiler')
@@ -224,7 +224,7 @@ test('an address naming a row that is not there opens the screen, not a hole',
   // A stale link, or a template the other phone deleted.
   await stubApi(page)
   await signIn(page)
-  await page.goto('/fijos/99')
+  await page.goto('/fijos/no-existe')
 
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Fijos' })).toBeVisible()
@@ -297,10 +297,10 @@ test('an address for the cog sheet with the draft elsewhere opens the keypad', a
 
 test('back closes the category picker and leaves the editor open', async ({ page }) => {
   await stubApi(page, bootstrap({
-    fixed: [fixed({ row: 4, concept: 'alquiler', amount: 700, day: 1 })],
+    fixed: [fixed({ id: 'f-alquiler', row: 4, concept: 'alquiler', amount: 700, day: 1 })],
   }))
   await signIn(page)
-  await page.goto('/fijos/4')
+  await page.goto('/fijos/f-alquiler')
   await expect(page.getByRole('dialog')).toBeVisible()
 
   await page.getByRole('button', { name: 'Elegir categoría' }).click()
@@ -312,7 +312,7 @@ test('back closes the category picker and leaves the editor open', async ({ page
   await page.goBack()
   await expect(page.getByRole('dialog', { name: 'Elegir categoría' })).toHaveCount(0)
   await expect(page.getByRole('combobox', { name: 'Concepto' })).toHaveValue('alquiler')
-  await expect(page).toHaveURL(/\/fijos\/4$/)
+  await expect(page).toHaveURL(/\/fijos\/f-alquiler$/)
 })
 
 test('back closes what the fijos owe and stays on the keypad', async ({ page }) => {

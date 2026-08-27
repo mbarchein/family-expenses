@@ -200,6 +200,117 @@ test('a template with no row is appended rather than overwriting row two', () =>
   assert.equal(sheets.Fijos.values[2][0], 'gimnasio')
 })
 
+/**
+ * A template is its id, not its row.
+ *
+ * The tab is edited by hand in Google Sheets, so a row deleted or inserted above
+ * one moves every row below it — and a phone holding a list from a minute earlier
+ * would save a template over its neighbour, or mark the wrong one as dealt with.
+ * These are the two writes where that is expensive, since `último` is what stops
+ * a bill being proposed twice.
+ */
+test('a template is written by id, whatever row it has moved to', () => {
+  const sheets = world({
+    fixed: [
+      FIXED_HEADERS_ROW,
+      ['alquiler', 700, 1, 'Viqui', 'mensual', 'sí', '', '', '', 'id-alquiler'],
+      ['gimnasio', 40, 5, 'Mario', 'mensual', 'sí', '', '', '', 'id-gimnasio'],
+    ],
+  })
+
+  // Somebody deletes the rent by hand. The gym is on row 2 now, and the phone
+  // still believes it is on row 3.
+  sheets.Fijos.deleteRow(2)
+  assert.equal(sheets.Fijos.values[1][0], 'gimnasio')
+
+  const answer = saveFixed_({
+    id: 'id-gimnasio', row: 3, concept: 'gimnasio', amount: 45, day: 5, payer: 1,
+    months: 1, active: true,
+  })
+
+  assert.equal(answer.row, 2)
+  assert.equal(sheets.Fijos.values[1][1], 45)
+  // And nothing was appended below: the row was found, not created.
+  assert.equal(sheets.Fijos.values.length, 2)
+})
+
+test('a period is marked done by id, whatever row it has moved to', () => {
+  const sheets = world({
+    fixed: [
+      FIXED_HEADERS_ROW,
+      ['alquiler', 700, 1, 'Viqui', 'mensual', 'sí', '', '', '', 'id-alquiler'],
+      ['gimnasio', 40, 5, 'Mario', 'mensual', 'sí', '', '', '', 'id-gimnasio'],
+    ],
+  })
+  sheets.Fijos.deleteRow(2)
+
+  setFixedDone_({ id: 'id-gimnasio', row: 3, due: '2026-08-05' })
+
+  // On the gym, which is what the id names — and not into the empty space below
+  // the tab, which is where row 3 now points.
+  assert.equal(sheets.Fijos.values[1][FIXED_COL_LAST - 1], '2026-08-05')
+  assert.equal(sheets.Fijos.values.length, 2)
+})
+
+test('replaying a save writes the same row rather than a second rent', () => {
+  // The queue is on disk and replays what it holds. Keyed by id, a save that was
+  // sent twice is the same row twice.
+  const sheets = world({
+    fixed: [FIXED_HEADERS_ROW, ['alquiler', 700, 1, 'Viqui', 'mensual', 'sí', '', '', '', 'id-1']],
+  })
+  const template = {
+    id: 'id-1', concept: 'alquiler', amount: 720, day: 1, payer: 0, months: 1, active: true,
+  }
+
+  saveFixed_(template)
+  saveFixed_(template)
+
+  assert.equal(sheets.Fijos.values.length, 2)
+  assert.equal(sheets.Fijos.values[1][1], 720)
+})
+
+test('a template with no id is found by row, and stamped on the way past', () => {
+  // For a row added by hand after the migration: addressable, and stable from the
+  // first write onwards rather than for ever by row.
+  const sheets = world({
+    fixed: [FIXED_HEADERS_ROW, ['piscina', 30, 8, '', 'mensual', 'sí', '', '', '', '']],
+  })
+
+  saveFixed_({
+    id: 'id-piscina', row: 2, concept: 'piscina', amount: 35, day: 8, payer: null,
+    months: 1, active: true,
+  })
+
+  assert.equal(sheets.Fijos.values[1][1], 35)
+  assert.equal(sheets.Fijos.values[1][FIXED_COL_ID - 1], 'id-piscina')
+})
+
+test('the migration gives every template an id and can be run twice', () => {
+  const sheets = world({
+    fixed: [
+      FIXED_HEADERS_ROW,
+      ['alquiler', 700, 1, 'Viqui', 'mensual', 'sí', '', '', '', ''],
+      ['gimnasio', 40, 5, 'Mario', 'mensual', 'sí', '', '', '', 'ya-tenia'],
+      // No concepto: not a template, and inventing a row here would be inventing
+      // one nobody meant.
+      ['', '', '', '', '', '', '', '', '', ''],
+    ],
+  })
+
+  const first = stampFixedIds_(sheets.Fijos)
+  const ids = sheets.Fijos.values.slice(1).map(row => row[FIXED_COL_ID - 1])
+
+  assert.match(first, /1 template\(s\) given an id/)
+  assert.ok(ids[0], 'the rent has an id now')
+  assert.equal(ids[1], 'ya-tenia')
+  assert.equal(ids[2], '')
+
+  // Twice: the one it wrote is left exactly as it was.
+  const again = stampFixedIds_(sheets.Fijos)
+  assert.match(again, /every template already had an id/)
+  assert.equal(sheets.Fijos.values[1][FIXED_COL_ID - 1], ids[0])
+})
+
 test('marking a period done refuses a row and a date that are not one', () => {
   world({
     fixed: [
@@ -208,9 +319,12 @@ test('marking a period done refuses a row and a date that are not one', () => {
     ],
   })
 
-  // Both refusals, in the order they are checked — a row that does not exist is
-  // the one that would otherwise write `último` into empty space below the tab.
-  assert.throws(() => setFixedDone_({ row: 9, due: '2026-08-01' }), /no existe/)
+  // Both refusals, in the order they are checked — a template that cannot be
+  // found is the one that would otherwise write `último` into empty space below
+  // the tab. The message names both ways it looked, because "fila 9 no existe" is
+  // no help when the app sent an id.
+  assert.throws(() => setFixedDone_({ row: 9, due: '2026-08-01' }), /No hay ningún fijo/)
+  assert.throws(() => setFixedDone_({ id: 'nope', due: '2026-08-01' }), /No hay ningún fijo/)
   assert.throws(() => setFixedDone_({ row: 2, due: 'agosto' }), /inválida/)
 
   assert.deepEqual(setFixedDone_({ row: 2, due: '2026-08-01' }), { row: 2, last: '2026-08-01' })

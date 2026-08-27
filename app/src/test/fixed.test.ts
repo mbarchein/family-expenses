@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { addMonths, alreadyThere, dueDay, whatIsDue, type Template } from '../lib/fixed'
 
 const template = (over: Partial<Template> = {}): Template => ({
+  id: 'id-alquiler',
   row: 2,
   concept: 'alquiler',
   amount: 700,
@@ -109,7 +110,7 @@ describe('whatIsDue', () => {
 describe('alreadyThere', () => {
   const entry = (date: string, concept: string, voided = false) => ({ date, concept, voided })
   const due = {
-    row: 2, concept: 'alquiler', amount: 700, payer: 0 as const,
+    id: 'id-alquiler', row: 2, concept: 'alquiler', amount: 700, payer: 0 as const,
     due: '2026-08-01', category: 'Hogar',
   }
 

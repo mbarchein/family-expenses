@@ -298,6 +298,9 @@ export async function signIn(page: Page) {
 /** A recurring template, defaulting to the rent: monthly, on the 1st, 700. */
 export function fixed(over: Partial<Fixed> = {}): Fixed {
   return {
+    // Readable rather than a uuid, and it is what the address of a template is
+    // made of — `/fijos/f-alquiler` in a test says which one it means.
+    id: 'f-alquiler',
     row: 2,
     concept: 'alquiler',
     amount: 700,

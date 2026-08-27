@@ -316,11 +316,15 @@ export function StepDetails({
         {methodPills.length > 0 && (
           <div className="pt-1">
             <p className="pb-1 text-xs font-semibold text-ink-2">{T.add.methodRow}</p>
+            {/* Wrapped rather than scrolling: four cards of which two are off
+                the right edge is a list that hides half of itself, and this row
+                is short enough that a second line costs nothing. */}
             <Pills
               items={methodPills}
               active={draft.method}
               onPick={method => patch({ method })}
               label={T.add.methodRow}
+              wrap
             />
           </div>
         )}

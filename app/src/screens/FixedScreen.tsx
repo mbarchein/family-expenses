@@ -54,7 +54,7 @@ export function FixedScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: 
   // is not there — a stale link, a template deleted on the other phone — opens
   // the list rather than an empty sheet.
   const open = editing === NEW ? blank()
-    : editing ? rows.find(item => String(item.row) === editing) ?? null
+    : editing ? rows.find(item => (item.id || String(item.row)) === editing) ?? null
     : null
 
   return (
@@ -70,10 +70,13 @@ export function FixedScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: 
 
       <ul className="flex flex-col gap-2">
         {rows.map(item => (
-          <li key={item.row}>
+          <li key={item.id || `row:${item.row}`}>
             <button
               type="button"
-              onClick={() => onOpen(String(item.row))}
+              // By id, so a link to a template survives somebody deleting a row
+              // above it in the tab — and by row for one added by hand, which has
+              // no id until the app writes it.
+              onClick={() => onOpen(item.id || String(item.row))}
               className="flex w-full items-center gap-3 rounded-xl border border-line p-3 text-left
                          focus-visible:outline focus-visible:outline-2"
               style={{ background: 'var(--surface)', opacity: item.active ? 1 : 0.55 }}
@@ -123,11 +126,17 @@ export function FixedScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: 
   )
 }
 
-/** A new one, monthly on the first, amount to be asked for. The safest defaults:
- *  a wrong day is one edit, a wrong amount posted every month is a mess. */
+/**
+ * A new one, monthly on the first, amount to be asked for. The safest defaults:
+ * a wrong day is one edit, a wrong amount posted every month is a mess.
+ *
+ * The id is minted here rather than by the sheet, for the same reason an expense
+ * mints its own: the queue is keyed by it, so an edit made twice with no signal
+ * has to collapse into one template rather than append two.
+ */
 function blank(): Fixed {
   return {
-    row: 0, concept: '', amount: null, day: 1, payer: null,
+    id: crypto.randomUUID(), row: 0, concept: '', amount: null, day: 1, payer: null,
     months: 1, active: true, from: '', last: '', category: '',
   }
 }

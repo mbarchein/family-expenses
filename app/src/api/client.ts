@@ -210,8 +210,9 @@ export const api = {
     writtenFixed<{ row: number }>(await call<unknown>('saveFixed', fixed)),
   /** Marks a template dealt with up to `due` — confirmed and skipped are the
    *  same fact as far as "do not propose it again" goes. */
-  fixedDone: async (row: number, due: string) =>
-    writtenFixed<{ row: number; last: string }>(await call<unknown>('fixedDone', { row, due })),
+  fixedDone: async (id: string, row: number, due: string) =>
+    writtenFixed<{ row: number; last: string }>(
+      await call<unknown>('fixedDone', { id, row, due })),
   /**
    * A row of the Categorías tab, written from the phone.
    *

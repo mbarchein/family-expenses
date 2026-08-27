@@ -45,7 +45,7 @@ test('a due template is proposed, and confirming goes through the review', async
 
   // And the period recorded as dealt with, so tomorrow proposes nothing.
   await expect.poll(() => calls.find(call => call.action === 'fixedDone')?.payload)
-    .toMatchObject({ row: 2, due: firstOfThisMonth() })
+    .toMatchObject({ id: 'f-alquiler', due: firstOfThisMonth() })
 })
 
 test('confirming a proposal leaves one history entry per step and nothing over',
@@ -130,7 +130,7 @@ test('skipping records the period without writing an expense', async ({ page }) 
   await page.getByRole('dialog').getByRole('button', { name: 'Saltar' }).click()
 
   await expect.poll(() => calls.find(call => call.action === 'fixedDone')?.payload)
-    .toMatchObject({ row: 2, due: firstOfThisMonth() })
+    .toMatchObject({ id: 'f-alquiler', due: firstOfThisMonth() })
   expect(calls.filter(call => call.action === 'append')).toHaveLength(0)
 })
 
@@ -217,7 +217,7 @@ test('an amount left empty means "ask me every time"', async ({ page }) => {
 })
 
 test('an existing template opens with its values and can be switched off', async ({ page }) => {
-  const calls = await stubApi(page, bootstrap({ fixed: [fixed({ row: 4, concept: 'gimnasio', amount: 39 })] }))
+  const calls = await stubApi(page, bootstrap({ fixed: [fixed({ id: 'f-gimnasio', row: 4, concept: 'gimnasio', amount: 39 })] }))
   await signIn(page)
   await page.getByRole('button', { name: 'Fijos' }).click()
 
@@ -229,7 +229,7 @@ test('an existing template opens with its values and can be switched off', async
 
   // The same row, so it is edited rather than duplicated.
   await expect.poll(() => calls.find(call => call.action === 'saveFixed')?.payload)
-    .toMatchObject({ row: 4, concept: 'gimnasio', active: false })
+    .toMatchObject({ id: 'f-gimnasio', concept: 'gimnasio', active: false })
 })
 
 
@@ -303,7 +303,7 @@ test('the editor takes a category and offers the concepts the ledger knows',
 test('a template wears the icon of its category in the list', async ({ page }) => {
   await stubApi(page, bootstrap({
     fixed: [
-      fixed({ row: 2, concept: 'alquiler', day: 1, category: 'Luz' }),
+      fixed({ id: 'f-alquiler', row: 2, concept: 'alquiler', day: 1, category: 'Luz' }),
       // No category and a concept nothing can guess from: no icon at all, which
       // is deliberate — a guess that misses is a small lie on every row.
       fixed({ row: 3, concept: 'lo del jueves', day: 2, category: '' }),

@@ -222,7 +222,7 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
       category: item.category,
       method: '',
       note: '',
-      fixed: { row: item.row, due: item.due },
+      fixed: { id: item.id, row: item.row, due: item.due },
       step: known ? 2 : 0,
     })
     // The history has to grow with the step, or back from a proposed review
@@ -322,7 +322,7 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
     // is safe — by then the expense is in the list the duplicate warning reads.
     if (draft.fixed) {
       const settling = draft.fixed
-      void ledger.settleFixed(settling.row, settling.due).catch(() => {})
+      void ledger.settleFixed(settling.id, settling.row, settling.due).catch(() => {})
     }
 
     // What the next expense inherits, remembered before the draft is rebuilt from
@@ -478,7 +478,7 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
           due={due}
           warn={item => alreadyThere(ledger.entries, item)}
           onConfirm={confirm}
-          onSkip={item => { void ledger.settleFixed(item.row, item.due) }}
+          onSkip={item => { void ledger.settleFixed(item.id, item.row, item.due) }}
           onClose={() => setShowDue(false)}
         />
       )}

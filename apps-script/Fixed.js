@@ -21,22 +21,40 @@
  * months out of phase, six missed months — and calendar arithmetic without
  * tests is how a bill gets proposed twice or not at all.
  *
- * The row number is the identity of a template, the way it is for a ledger
- * entry. Nothing here reorders the tab.
+ * **A template is its `id`, not its row.** It was the row for a while, the way a
+ * ledger entry's row used to be, and the row is not an identity: this tab is
+ * edited by hand in Google Sheets, and deleting or inserting a row above one
+ * moves every row below it. A phone holding a list from a minute earlier would
+ * then save a template over its neighbour, or mark the wrong one as dealt with —
+ * silently, and on the two writes where being wrong is expensive, since `último`
+ * is what stops a bill being proposed twice.
+ *
+ * The row still comes back to the app: it is real information, it is what the
+ * users see in the tab, and it is what a report names. It is simply not what
+ * anything is looked up by.
+ *
+ * A row with no `id` is addressed by row as a fallback, and gets stamped with one
+ * the first time the app writes it. That is for the templates somebody adds by
+ * hand after the migration; `setupSpreadsheet` fills in the ones that were there
+ * before.
  */
 
-var FIXED_COLS = 9;
+var FIXED_COLS = 10;
 var FIXED_HEADERS = [
   'concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo', 'desde', 'último',
   // After `último` and not beside `concepto`, for the same reason the ledger's two
   // new columns went on the end: `último` is written by `fixedDone` and nothing
   // else, and inserting a column would move it out from under that write.
-  'categoría'
+  'categoría',
+  // Last, and written by us rather than by them: it is the only column on this
+  // tab that is ours. The users never need to look at it.
+  'id'
 ];
 /** The column `último` lives in. Named because two writes have to step around
  *  it: it is the tab's own record of what has been dealt with. */
 var FIXED_COL_LAST = 8;
 var FIXED_COL_CATEGORY = 9;
+var FIXED_COL_ID = 10;
 
 /** `activo` is opt-out: an empty cell is an active template, because a tab
  *  filled in by hand should not need a word in every row to work. */
@@ -100,6 +118,9 @@ function readFixed_() {
 
     items.push({
       row: rowNumber,
+      // Empty on a row added by hand since the migration. The app falls back to
+      // the row for those, and the first write stamps one in.
+      id: String(row[FIXED_COL_ID - 1] == null ? '' : row[FIXED_COL_ID - 1]).trim(),
       concept: concept,
       // Empty stays empty rather than becoming zero: it is the difference
       // between "always 60 euros" and "ask me every time".
@@ -118,11 +139,59 @@ function readFixed_() {
 }
 
 /**
+ * The row a template's id is on, or 0.
+ *
+ * Read as one range and walked from the bottom, like the ledger's own lookup: if
+ * an id ever appears twice — a row duplicated by hand in the tab — the later one
+ * wins, which is the one somebody just made.
+ */
+function findFixedRowById_(sheet, id) {
+  if (!id) return 0;
+  var last = sheet.getLastRow();
+  if (last < 2 || sheet.getMaxColumns() < FIXED_COL_ID) return 0;
+  var ids = sheet.getRange(2, FIXED_COL_ID, last - 1, 1).getValues();
+  for (var i = ids.length - 1; i >= 0; i--) {
+    if (String(ids[i][0]).trim() === id) return i + 2;
+  }
+  return 0;
+}
+
+/**
+ * The row a write is aimed at: by id, or by row while a template has no id.
+ *
+ * The row fallback is not only for rows added by hand. An operation queued by a
+ * phone running the previous version carries a row and no id — the queue is on
+ * disk and survives the app updating itself — so dropping the fallback would turn
+ * a saved template into a `BAD_REQUEST` the queue reports and discards. It can go
+ * once both phones have been through a cycle of saving a fijo.
+ */
+function fixedRowFor_(sheet, payload) {
+  var byId = findFixedRowById_(sheet, String(payload.id || '').trim());
+  if (byId) return byId;
+  var row = Number(payload.row) || 0;
+  return row >= 2 && row <= sheet.getLastRow() ? row : 0;
+}
+
+/** Writes the id into a row that has none, so the next write finds it by id. */
+function stampFixedId_(sheet, row, id) {
+  if (!id) return;
+  if (sheet.getMaxColumns() < FIXED_COL_ID) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), FIXED_COL_ID - sheet.getMaxColumns());
+  }
+  var cell = sheet.getRange(row, FIXED_COL_ID);
+  if (!String(cell.getValue()).trim()) cell.setValue(id);
+}
+
+/**
  * Writes one template, appending when it is new.
  *
  * `último` is never touched here. It is the app's record of what has been dealt
  * with, and an edit to the amount of the rent is not a statement about whether
  * this month's is paid — losing that distinction would propose the rent twice.
+ *
+ * Found by id, so replaying a queued save writes the same row twice rather than
+ * appending a second copy of the rent — the same reason `append` looks for the
+ * entry's id before writing a new line.
  */
 function saveFixed_(payload) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FIXED_SHEET);
@@ -143,12 +212,12 @@ function saveFixed_(payload) {
     payload.from || ''
   ];
 
-  var row = Number(payload.row) || 0;
-  if (row < 2 || row > sheet.getLastRow()) {
-    row = Math.max(sheet.getLastRow() + 1, 2);
-  }
+  var id = String(payload.id || '').trim();
+  var row = fixedRowFor_(sheet, payload);
+  if (!row) row = Math.max(sheet.getLastRow() + 1, 2);
   // Seven columns, not eight: `último` is left exactly as it was.
   sheet.getRange(row, 1, 1, values.length).setValues([values]);
+  stampFixedId_(sheet, row, id);
   // And the category on its own, over on the other side of `último`, which is
   // why this is a second write rather than a wider one.
   if (payload.category !== undefined) {
@@ -156,7 +225,7 @@ function saveFixed_(payload) {
       .setValue(String(payload.category == null ? '' : payload.category).trim());
   }
 
-  return { row: row };
+  return { row: row, id: id || String(sheet.getRange(row, FIXED_COL_ID).getValue()).trim() };
 }
 
 /** Marks a template as dealt with up to `due` — confirmed or skipped, which
@@ -165,15 +234,19 @@ function setFixedDone_(payload) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FIXED_SHEET);
   if (!sheet) throw apiError_('NO_FIXED_SHEET', 'Falta la pestaña ' + FIXED_SHEET);
 
-  var row = Number(payload.row) || 0;
-  if (row < 2 || row > sheet.getLastRow()) throw apiError_('BAD_REQUEST', 'Fila ' + row + ' no existe');
+  var row = fixedRowFor_(sheet, payload);
+  if (!row) {
+    throw apiError_('NOT_FOUND', 'No hay ningún fijo con id «' + (payload.id || '') +
+      '» ni fila ' + (payload.row || 0));
+  }
 
   var due = String(payload.due || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) throw apiError_('BAD_REQUEST', 'Fecha «' + due + '» inválida');
 
   // Written as text rather than as a Date: the app compares these as strings and
   // a cell Sheets decides to reformat is a comparison that stops matching.
-  sheet.getRange(row, 8).setNumberFormat('@').setValue(due);
+  sheet.getRange(row, FIXED_COL_LAST).setNumberFormat('@').setValue(due);
+  stampFixedId_(sheet, row, String(payload.id || '').trim());
   return { row: row, last: due };
 }
 

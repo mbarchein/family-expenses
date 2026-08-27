@@ -41,7 +41,7 @@ export interface Ledger {
   saveFixed: (fixed: Omit<Fixed, 'last'>) => Promise<void>
   /** Records that a due date has been dealt with, confirmed or skipped.
    *  Deliberately not queued — see the comment where it is implemented. */
-  settleFixed: (row: number, due: string) => Promise<void>
+  settleFixed: (id: string, row: number, due: string) => Promise<void>
   /** Writes one row of the Categorías tab and re-reads the sheet. Not queued —
    *  see the note on `api.saveCategory`. */
   saveCategory: (category: { name: string; icon: string; words: string[]; was?: string })
@@ -203,7 +203,11 @@ export function useLedger(): Ledger {
    * would quietly replace the first.
    */
   const saveFixed = useCallback(async (fixed: Omit<Fixed, 'last'>) => {
-    const key = fixed.row > 0 ? String(fixed.row) : `new:${crypto.randomUUID()}`
+    // Keyed by the template's id, so two edits to the same one collapse into the
+    // final state instead of being replayed in turn — and a row added by hand,
+    // which has no id yet, by its row. It was the row for both, which meant two
+    // edits to a *new* template appended it twice.
+    const key = fixed.id || `row:${fixed.row}`
     await enqueue({ kind: 'fixed', key, fixed })
     setPending(await pendingCount())
     void refresh()
@@ -220,8 +224,10 @@ export function useLedger(): Ledger {
    * out of order, which is how a period gets marked settled for an expense that
    * never made it.
    */
-  const settleFixed = useCallback(async (row: number, due: string) => {
-    await api.fixedDone(row, due)
+  const settleFixed = useCallback(async (id: string, row: number, due: string) => {
+    // Both: the id is what it is looked up by, and the row is what the backend
+    // falls back to for a template that has not got one yet.
+    await api.fixedDone(id, row, due)
     await refresh()
   }, [refresh])
 
@@ -295,20 +301,23 @@ function merge(server: Entry[], local: Map<string, QueuedEntry>,
  */
 function mergeFixed(server: Fixed[], queued: QueuedFixed[]): Fixed[] {
   if (!queued.length) return server
-  const byRow = new Map<number, Fixed>()
-  for (const item of server) byRow.set(item.row, item)
+  // Keyed the way the sheet is looked up: by id, and by row for a template
+  // somebody added by hand that has not got one yet.
+  const key = (item: { id: string; row: number }) => item.id || `row:${item.row}`
+  const known = new Map<string, Fixed>()
+  for (const item of server) known.set(key(item), item)
 
   const added: Fixed[] = []
   for (const item of queued) {
-    const existing = item.row > 0 ? byRow.get(item.row) : undefined
+    const existing = known.get(key(item))
     // `last` is the tab's own record of what has been dealt with, and saving a
     // template never touches it — so it comes from the server's copy, not from
     // the queue, which has no business knowing it.
     const merged = { ...item, last: existing?.last ?? '' }
-    if (existing) byRow.set(item.row, merged)
+    if (existing) known.set(key(item), merged)
     else added.push(merged)
   }
-  return [...byRow.values(), ...added]
+  return [...known.values(), ...added]
 }
 
 function handle(err: unknown, setStatus: (s: Status) => void, setError: (m: string) => void,

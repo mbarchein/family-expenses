@@ -49,7 +49,21 @@ export interface Suggestion {
  * is calendar arithmetic, and it happens in `lib/fixed.ts` where it is tested.
  */
 export interface Fixed {
-  /** Its row on the tab, which is its identity. Nothing reorders that tab. */
+  /**
+   * What names this template, everywhere.
+   *
+   * Its row was, for a while. A row is not an identity here: the Fijos tab is
+   * edited by hand in Google Sheets, so deleting or inserting a row above one
+   * moves every row below it — and a phone holding a list from a minute earlier
+   * would then save a template over its neighbour, or mark the wrong one as dealt
+   * with. See the top of `apps-script/Fixed.js`.
+   *
+   * Empty only for a row somebody added to the tab by hand: the backend addresses
+   * those by row and stamps an id into them the first time the app writes one.
+   */
+  id: string
+  /** Its row on the tab. Real information — it is what the users see, and what a
+   *  report names — but not what anything is looked up by. */
   row: number
   concept: string
   /** Null for the ones whose amount changes every month, like the light. */

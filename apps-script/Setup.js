@@ -67,6 +67,9 @@ function setupSpreadsheet() {
     }
     report.push(claimColumn_(existingFixed, FIXED_COL_CATEGORY, FIXED_HEADERS[8])
       .replace('Ledger:', 'Fijos:'));
+    report.push(claimColumn_(existingFixed, FIXED_COL_ID, FIXED_HEADERS[9])
+      .replace('Ledger:', 'Fijos:'));
+    report.push(stampFixedIds_(existingFixed));
   } else {
     var fixed = ss.insertSheet(FIXED_SHEET);
     fixed.getRange(1, 1, 1, FIXED_COLS).setValues([FIXED_HEADERS]).setFontWeight('bold');
@@ -138,6 +141,36 @@ function setupSpreadsheet() {
 
   console.log(report.join('\n'));
   return report;
+}
+
+/**
+ * Gives every template on the Fijos tab an id, and says how many it wrote.
+ *
+ * The migration behind "a template is its id, not its row" — see the top of
+ * `Fixed.js`. One read and one write for the whole column, because a tab with
+ * thirty rows is thirty round trips otherwise, and because a half-finished run
+ * leaves some rows addressed by id and some by row, which is exactly the state
+ * this is meant to end.
+ *
+ * Safe to run twice: a row that already has an id keeps it.
+ */
+function stampFixedIds_(sheet) {
+  var last = sheet.getLastRow();
+  if (last < 2) return 'Fijos: no templates to give an id to';
+
+  var ids = sheet.getRange(2, FIXED_COL_ID, last - 1, 1).getValues();
+  var concepts = sheet.getRange(2, 1, last - 1, 1).getValues();
+  var written = 0;
+  for (var i = 0; i < ids.length; i++) {
+    // A row with no concepto is not a template — `readFixed_` skips those, and
+    // stamping one would be inventing a row nobody meant.
+    if (!String(concepts[i][0]).trim()) continue;
+    if (String(ids[i][0]).trim()) continue;
+    ids[i][0] = Utilities.getUuid();
+    written++;
+  }
+  if (written) sheet.getRange(2, FIXED_COL_ID, ids.length, 1).setValues(ids);
+  return 'Fijos: ' + (written ? written + ' template(s) given an id' : 'every template already had an id');
 }
 
 /**
