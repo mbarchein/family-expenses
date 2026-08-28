@@ -203,9 +203,11 @@ export const T = {
     // are. It is on this screen because this is the screen that explains the
     // feature, and hiding it in the policy alone would be hiding it.
     localMap:
-      'Se ve un mapa al guardar un sitio y al abrir uno de la lista. Las imágenes ' +
-      'las sirve OpenStreetMap, que recibe la zona del mapa — un cuadrado de cien ' +
-      'metros o más, no el punto exacto — y solo mientras se está viendo.',
+      'Se ve un mapa al guardar un sitio, al abrir uno de la lista y al corregir ' +
+      'su posición. Las imágenes las sirve OpenStreetMap, que recibe la zona del ' +
+      'mapa — un cuadrado de cien metros o más, no el punto exacto — y solo ' +
+      'mientras se está viendo. Abrir un sitio no lee dónde estás; corregirlo sí, ' +
+      'y por eso el botón lo dice.',
     /** The row's own name, because the row is now a button: read out loud, a list
      *  of dates and metres does not say what tapping it does. */
     open: (concept: string) => `Ver «${concept}» en el mapa`,
@@ -246,8 +248,39 @@ export const T = {
     savedOn: (date: string) => `Guardado el ${date}`,
     uses: (n: number) => (n === 1 ? 'Usado una vez' : `Usado ${n} veces`),
     close: 'Cerrar',
-    forget: 'Borrar',
-    forgetConfirm: '¿Borrar este sitio? Los gastos ya apuntados no se tocan.',
+    forget: 'Borrar este sitio',
+    /** The dialog, in the app rather than the browser's — the same one the
+     *  review step asks with. The old wording was `window.confirm`'s single
+     *  line; this is a question and what it costs. */
+    forgetAsk: '¿Borrar este sitio?',
+    forgetBody:
+      'Dejará de proponerte el concepto al llegar aquí. Los gastos ya apuntados ' +
+      'no se tocan.',
+    forgetYes: 'Sí, borrar',
+    /**
+     * The other half of the detail: writing a better fix over the one a place
+     * was saved with.
+     *
+     * The reason it exists is the ±40 m indoors: a place saved through a roof is
+     * outside the fifteen-metre tolerance from the first day, so it never comes
+     * back, and until now the only cure was deleting it and apuntando another
+     * gasto at that door.
+     *
+     * This button is the third thing in the app that reads the position, so it
+     * says so — the rule is that only a control announcing it may prompt. The
+     * privacy policy names it too.
+     */
+    fix: 'Corregir la posición',
+    fixHow: 'Ponte en la puerta y usa la posición de ahora.',
+    fixAsking: 'Buscando dónde estás…',
+    /** Over the map while the new fix is being looked at, before anything is
+     *  written: what is on screen is the phone now, not the place. */
+    fixPreview: 'La posición de ahora',
+    fixMoves: (metres: number) => `El sitio se movería ${metres} m`,
+    fixSame: 'El sitio se quedaría donde está',
+    fixSave: 'Guardar esta posición',
+    fixCancel: 'Dejarlo como estaba',
+    fixDone: 'Posición corregida',
   },
 
   /** The in-app dialog's own words — see `components/Confirm.tsx`. The question

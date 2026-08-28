@@ -93,14 +93,23 @@ against the copy of the spreadsheet, never the live ledger.
   map is on screen. Section 13, the Sitios screen and this bullet say the same
   thing — change one and the other two move in the same commit.
 
-  There are two of those maps now, and the second one is why that last clause
-  reads "a map is on screen" rather than "the switch is on": opening a saved place
-  from Sitios shows the same map, centred on the fix that place was saved with.
-  Which is the same bargain rather than a wider one — the tile asked for is the
-  tile the review step already asked for the day it was saved — and it reads no
-  position at all, so it never prompts and works with the permission refused. A
-  third occasion is not free: it is another line in a published document, and the
-  three places above have to move with it.
+  There are three of those maps now, and the second one is why that clause reads
+  "a map is on screen" rather than "the switch is on": opening a saved place from
+  Sitios shows the same map, centred on the fix that place was saved with. That
+  one is the same bargain rather than a wider one — the tile asked for is the tile
+  the review step already asked for the day it was saved — and it reads no
+  position at all, so it never prompts and works with the permission refused.
+
+  The third is **Corregir la posición**, on that same detail, and it is the one
+  that is genuinely new: it reads where the phone is now and draws a map of it, so
+  it both prompts and asks for a tile nobody has asked for before. It is allowed
+  by the rule rather than an exception to it — the button says what it will do,
+  which is the whole of the reading rule — and it exists because a place saved
+  indoors at ±40 m is outside the fifteen-metre tolerance from the day it was
+  written, so it never comes back and deleting it was the only cure. It cost what
+  a third occasion always costs: section 13, the two lines at the top of Sitios
+  and this bullet were rewritten in the same commit, and a fourth occasion costs
+  the same again.
 - **Never let clasp push anything that is not a backend source.** Apps Script
   compiles every file in the project and runs the top level of every one of them
   on every single request, so one stray file breaks the whole web app rather than

@@ -80,6 +80,23 @@ export interface PlacesStore {
    *  step reads the position when it is turned on, and the place is written
    *  only if the expense it belongs to is saved. */
   rememberAt: (fix: Fix, concept: string, method: string) => Promise<RememberResult>
+  /**
+   * Moves a place already saved to a fix taken now.
+   *
+   * The fix a place was saved with is the fix the phone happened to have at the
+   * till — often ±40 m, indoors, through a roof — and the tolerance is fifteen.
+   * A place saved that way is one that never comes back, and until now the only
+   * cure was deleting it and apuntando another gasto at the same door. This is
+   * the cure: stand at the door, look at the map, and write the better fix over
+   * the worse one.
+   *
+   * `savedAt` moves with it because that date is what the screen calls the
+   * position's own — "guardado el 3 de marzo" beside a fix taken this morning is
+   * a date describing something that is no longer there. What does not move is
+   * `uses`: the place is the same place, and its history is why it is ranked
+   * where it is.
+   */
+  moveTo: (id: string, fix: Fix) => Promise<void>
   forget: (id: string) => Promise<void>
 }
 
@@ -177,12 +194,30 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
     setPlaces(current => current.map(item => (item.id === id ? place : item)))
   }, [])
 
+  const moveTo = useCallback(async (id: string, fix: Fix) => {
+    // Read back from the disk for the same reason `countUse` does: what is being
+    // corrected is the stored record, not this hook's copy of it.
+    const stored = await idb.get<Place>('places', id)
+    if (!isPlace(stored)) return
+    const place: Place = {
+      ...readPlace(stored),
+      lat: fix.lat,
+      lon: fix.lon,
+      accuracy: fix.accuracy,
+      savedAt: Date.now(),
+    }
+    await idb.set('places', id, place)
+    setPlaces(current => current.map(item => (item.id === id ? place : item)))
+  }, [])
+
   const forget = useCallback(async (id: string) => {
     await idb.del('places', id)
     setPlaces(current => current.filter(place => place.id !== id))
   }, [])
 
-  return { places, ready, here, nearby, locateNow, knows, rememberAt, countUse, forget }
+  return {
+    places, ready, here, nearby, locateNow, knows, rememberAt, countUse, moveTo, forget,
+  }
 }
 
 /** Guards against a half-written record from an older shape of this store: a

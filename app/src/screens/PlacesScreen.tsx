@@ -1,9 +1,12 @@
+import { useEffect, useState } from 'react'
+import { Confirm } from '../components/Confirm'
 import { PlaceMap } from '../components/PlaceMap'
 import { ScreenHeader } from '../components/ScreenHeader'
+import { Spinner } from '../components/Spinner'
 import { T } from '../i18n/strings'
 import { formatShortDate, toIso } from '../lib/dates'
 import { metresBetween } from '../lib/geo'
-import type { Fix } from '../lib/position'
+import { watchPosition, type Fix, type PositionFailure } from '../lib/position'
 import { usePlaces, type NearPlace, type Place } from '../store/places'
 
 /**
@@ -26,7 +29,7 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
   onOpen: (detail: string) => void
   onCloseDetail: () => void
 }) {
-  const { places, ready, here, forget } = usePlaces()
+  const { places, ready, here, locateNow, moveTo, forget } = usePlaces()
 
   const rows = [...places].sort((a, b) => {
     const near = distance(a, here) - distance(b, here)
@@ -60,21 +63,19 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
         {rows.map(place => {
           const metres = here ? Math.round(metresBetween(here, place)) : null
           return (
-            <li
-              key={place.id}
-              className="flex items-start gap-3 rounded-xl border border-line p-3"
-              style={{ background: 'var(--surface)' }}
-            >
-              {/* The facts are the button, and Borrar stays beside it: a button
-                  inside a button is not markup, and the destructive one has no
-                  business being the whole row. Its own name, because a list of
-                  dates and metres read out loud does not say what tapping does. */}
+            <li key={place.id}>
+              {/* The whole row opens the place now that there is somewhere to
+                  open. Borrar used to sit on the right of it and has moved
+                  inside, next to the other thing you can do to a place: a
+                  destructive button a thumb's width from the row that scrolls
+                  past it is a place to press by accident. */}
               <button
                 type="button"
                 onClick={() => onOpen(place.id)}
                 aria-label={T.places.open(place.concept)}
-                className="flex flex-1 items-center gap-2 rounded-lg text-left
-                           focus-visible:outline focus-visible:outline-2"
+                className="flex w-full items-center gap-2 rounded-xl border border-line p-3
+                           text-left focus-visible:outline focus-visible:outline-2"
+                style={{ background: 'var(--surface)' }}
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{place.concept}</span>
@@ -92,18 +93,6 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
                     chevron the fijos banner uses, for the same reason. */}
                 <span aria-hidden="true" className="shrink-0 text-ink-3">›</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm(T.places.forgetConfirm)) void forget(place.id)
-                }}
-                className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-semibold
-                           focus-visible:outline focus-visible:outline-2"
-                style={{ color: 'var(--danger)' }}
-              >
-                {T.places.forget}
-              </button>
             </li>
           )
         })}
@@ -115,6 +104,9 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
           place={open}
           others={around(open, places)}
           here={here}
+          onLocate={locateNow}
+          onMove={fix => moveTo(open.id, fix)}
+          onForget={async () => { await forget(open.id); onCloseDetail() }}
           onClose={onCloseDetail}
         />
       )}
@@ -131,22 +123,96 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
  * in, with the accuracy it had and the fifteen metres inside which another fix
  * counts as the same door.
  *
- * It reads no position. The coordinate is the one on the disk, so opening this
- * never prompts for the permission and works with it refused. What it does do is
- * ask openstreetmap.org for tiles — the second occasion in the app, after the
- * switch, and the reason section 13 and the two lines at the top of this screen
- * had to be rewritten in the same commit as it.
+ * It is also the two things you can do to a place: correct where it is, and
+ * delete it.
+ *
+ * **Correcting is the one that earns its keep.** The fix a place was saved with
+ * is whatever the phone had at the till, which indoors is often ±40 m through a
+ * roof — and places match within fifteen. A place saved that way is outside its
+ * own tolerance from the first day, so it never comes back, and the only cure
+ * this screen offered was deleting it and apuntando another gasto at that door.
+ * Now: stand at the door, look at the new fix on the map with the old position
+ * drawn beside it, and write it over the old one. Nothing is stored until
+ * Guardar, and the watch that keeps improving the fix stops the moment it is.
+ *
+ * **Opening this reads nothing**, exactly as before: the map is drawn from the
+ * coordinate on the disk, so it never prompts and works with the permission
+ * refused. The correction button is the one that reads, and it says so — the
+ * rule this app follows is that only a control announcing it may prompt. It is
+ * the third occasion something about a position leaves this device, since the
+ * map it then draws is of where the phone is: section 13, the two lines at the
+ * top of this screen and the rule in `CLAUDE.md` all moved in the same commit.
  */
-function Detail({ place, others, here, onClose }: {
+type Fixing =
+  | { kind: 'off' }
+  | { kind: 'asking' }
+  /** A fix in hand and nothing written yet. `improving` while the watch is still
+   *  running, exactly as on the review step: the first reading indoors is often
+   *  ±40 m and the one thirty seconds later is ±8. */
+  | { kind: 'found'; fix: Fix; improving: boolean }
+  | { kind: 'denied' }
+  | { kind: 'unavailable' }
+
+function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
   place: Place
   /** The other saved places near this one, measured from it. Drawn because they
    *  are the answer to "why does this door offer me two concepts". */
   others: NearPlace[]
   /** Where the phone is now, if it was already known. Not asked for here. */
   here: Fix | null
+  /** Reads the position, prompting if the permission has not been decided. Only
+   *  ever reached from the button that says it will. */
+  onLocate: () => Promise<Fix | PositionFailure>
+  onMove: (fix: Fix) => Promise<void>
+  onForget: () => Promise<void>
   onClose: () => void
 }) {
+  const [fixing, setFixing] = useState<Fixing>({ kind: 'off' })
+  const [asking, setAsking] = useState(false)
+  const [done, setDone] = useState(false)
   const metres = here ? Math.round(metresBetween(here, place)) : null
+
+  /**
+   * While a new fix is on screen, keep improving it.
+   *
+   * The same watch the review step runs and for the same reason — the best fix
+   * wins rather than the latest, because a later reading can be worse and
+   * replacing a ±8 with a ±25 would be a downgrade dressed as an update. Stopped
+   * the moment the correction is cancelled, saved or the sheet goes away: a watch
+   * left running is a GPS held open on somebody's phone.
+   */
+  useEffect(() => {
+    if (fixing.kind !== 'found') return
+    return watchPosition(fix => setFixing(current => {
+      if (current.kind !== 'found') return current
+      return fix.accuracy < current.fix.accuracy
+        ? { ...current, fix, improving: true }
+        : { ...current, improving: false }
+    }))
+  }, [fixing.kind])
+
+  async function locate() {
+    setDone(false)
+    setFixing({ kind: 'asking' })
+    const fix = await onLocate()
+    if (fix === 'denied' || fix === 'unavailable') return setFixing({ kind: fix })
+    setFixing({ kind: 'found', fix, improving: true })
+  }
+
+  async function save() {
+    if (fixing.kind !== 'found') return
+    await onMove(fixing.fix)
+    setFixing({ kind: 'off' })
+    setDone(true)
+  }
+
+  // What is on the map: the place, or the position being offered in its stead.
+  // The preview says so in its own words, because a map that changed under a
+  // heading saying "dónde se guardó este sitio" would be showing one thing and
+  // naming another.
+  const preview = fixing.kind === 'found' ? fixing.fix : null
+  const moved = preview ? Math.round(metresBetween(preview, place)) : null
+
   return (
     <div
       className="absolute inset-0 z-10 flex flex-col"
@@ -168,27 +234,122 @@ function Detail({ place, others, here, onClose }: {
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
         <PlaceMap
-          // The saved fix, not a fresh one: this map is about where the place is,
-          // and a phone that has moved has nothing to add to that.
-          fix={{ lat: place.lat, lon: place.lon, accuracy: place.accuracy }}
+          // The saved fix, or the one being offered to replace it. Either way it
+          // is a coordinate this device already has: nothing is read to draw
+          // this, and nothing is written until Guardar.
+          fix={preview ?? { lat: place.lat, lon: place.lon, accuracy: place.accuracy }}
           // Its own name goes under the dot rather than into this list: the
-          // centre is the place here, not the person looking at it.
-          nearby={others}
-          label={T.places.mapSaved}
-          note={T.places.mapSavedNote}
-          centreLabel={place.concept}
+          // centre is the place here, not the person looking at it. While a
+          // correction is being looked at the centre is the phone, so the place
+          // joins the neighbours and its label shows how far the move would be.
+          nearby={preview ? [{ ...place, metres: moved ?? 0 }, ...others] : others}
+          label={preview ? T.places.fixPreview : T.places.mapSaved}
+          note={preview ? undefined : T.places.mapSavedNote}
+          improving={fixing.kind === 'found' && fixing.improving}
+          // Named in both states, and differently: on the place's own map the dot
+          // is the place, and while a correction is being looked at the dot is
+          // the phone and the place is the label forty metres down the street.
+          // Two identical labels either side of a move is a picture that does not
+          // say which one is which.
+          centreLabel={preview ? T.places.here : place.concept}
         />
 
-        <p className="text-xs text-ink-2">
-          {T.places.savedOn(formatShortDate(toIso(new Date(place.savedAt))))}
-          {' · '}{T.places.uses(place.uses)}
-          {metres !== null && ` · ${T.places.distance(metres)}`}
-        </p>
-        {place.method && <p className="text-xs text-ink-2">{place.method}</p>}
-        {others.length > 0 && (
-          <p className="text-[11px] text-ink-3">{T.places.mapOthers(others.length)}</p>
-        )}
+        {preview
+          ? (
+            <>
+              <p className="text-xs text-ink-2">
+                {moved ? T.places.fixMoves(moved) : T.places.fixSame}
+              </p>
+              <div className="flex items-stretch gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFixing({ kind: 'off' })}
+                  className="flex-1 rounded-xl border border-line py-2.5 text-sm font-semibold
+                             focus-visible:outline focus-visible:outline-2"
+                  style={{ background: 'var(--surface)' }}
+                >
+                  {T.places.fixCancel}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void save()}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-bold
+                             focus-visible:outline focus-visible:outline-2"
+                  style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+                >
+                  {T.places.fixSave}
+                </button>
+              </div>
+            </>
+          )
+          : (
+            <>
+              <p className="text-xs text-ink-2">
+                {T.places.savedOn(formatShortDate(toIso(new Date(place.savedAt))))}
+                {' · '}{T.places.uses(place.uses)}
+                {metres !== null && ` · ${T.places.distance(metres)}`}
+              </p>
+              {place.method && <p className="text-xs text-ink-2">{place.method}</p>}
+              {others.length > 0 && (
+                <p className="text-[11px] text-ink-3">{T.places.mapOthers(others.length)}</p>
+              )}
+
+              {/* The two things you can do to a saved place, at the bottom where
+                  they cannot be pressed on the way to reading it. Correcting is
+                  the useful one and it goes first: a place saved indoors at ±40 m
+                  is outside the fifteen-metre tolerance from the day it was
+                  written, so it never comes back — and deleting it was the only
+                  cure this screen offered. */}
+              <button
+                type="button"
+                onClick={() => void locate()}
+                disabled={fixing.kind === 'asking'}
+                className="mt-2 flex items-center justify-center gap-2 rounded-xl py-3 text-sm
+                           font-bold disabled:opacity-60 focus-visible:outline
+                           focus-visible:outline-2"
+                style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+              >
+                {fixing.kind === 'asking' && <Spinner className="h-4 w-4" />}
+                {fixing.kind === 'asking' ? T.places.fixAsking : T.places.fix}
+              </button>
+              <p className="text-center text-[11px] text-ink-3">{T.places.fixHow}</p>
+
+              {(fixing.kind === 'denied' || fixing.kind === 'unavailable') && (
+                <p role="alert" className="text-xs" style={{ color: 'var(--danger)' }}>
+                  {fixing.kind === 'denied' ? T.places.denied : T.places.unavailable}
+                </p>
+              )}
+              {done && (
+                <p role="status" className="text-xs" style={{ color: 'var(--accent)' }}>
+                  {T.places.fixDone}
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setAsking(true)}
+                className="rounded-xl border py-2.5 text-sm font-semibold focus-visible:outline
+                           focus-visible:outline-2"
+                style={{ borderColor: 'var(--line)', color: 'var(--danger)' }}
+              >
+                {T.places.forget}
+              </button>
+            </>
+          )}
       </div>
+
+      {/* In the app rather than the browser's dialog — see `Confirm`. Deleting a
+          place is small and irreversible, and `window.confirm` in a standalone
+          PWA is labelled with the hostname and looks like something went wrong. */}
+      {asking && (
+        <Confirm
+          title={T.places.forgetAsk}
+          body={T.places.forgetBody}
+          confirmLabel={T.places.forgetYes}
+          onConfirm={() => { setAsking(false); void onForget() }}
+          onCancel={() => setAsking(false)}
+        />
+      )}
     </div>
   )
 }

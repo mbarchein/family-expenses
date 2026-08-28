@@ -402,9 +402,87 @@ test.describe('with the location allowed', () => {
     // The line that has to be on this screen: it says where the coordinates live.
     await expect(page.getByText('solo en este dispositivo')).toBeVisible()
 
-    page.once('dialog', dialog => void dialog.accept())
-    await row.getByRole('button', { name: 'Borrar' }).click()
+    // Borrar lives inside the place now rather than on the row: a destructive
+    // button a thumb's width from a row that scrolls past it is a button to
+    // press by accident. And it asks with the app's own dialog — no
+    // `page.once('dialog')` here, because there is no browser dialog any more.
+    await row.getByRole('button', { name: /Ver «ferretería»/ }).click()
+    await page.getByRole('button', { name: 'Borrar este sitio' }).click()
+    await page.getByRole('dialog', { name: '¿Borrar este sitio?' })
+      .getByRole('button', { name: 'Sí, borrar' }).click()
+
     await expect(page.getByText('Todavía no has guardado ningún sitio')).toBeVisible()
+    // The sheet went with it: what it was showing does not exist.
+    await expect(page.getByRole('dialog', { name: 'Sitio guardado' })).toHaveCount(0)
+  })
+
+  test('a place saved with a bad fix can be corrected to where you are standing',
+    async ({ page, context }) => {
+    // The failure this answers: a place saved indoors at ±40 m is outside its own
+    // fifteen-metre tolerance from the day it was written, so it never comes back
+    // — and deleting it was the only cure this screen offered.
+    await stubApi(page)
+    await signIn(page)
+
+    await reachReview(page, 'ferretería')
+    await savePlace(page)
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+    // Forty metres up the street, which is where the door actually is: outside
+    // the tolerance, so nothing would ever match it from here.
+    await context.setGeolocation(northOf(40))
+    await page.getByRole('button', { name: 'Sitios' }).click()
+    await page.getByRole('button', { name: 'Ver «ferretería» en el mapa' }).click()
+    const sheet = page.getByRole('dialog', { name: 'Sitio guardado' })
+
+    await sheet.getByRole('button', { name: 'Corregir la posición' }).click()
+
+    // Nothing is written yet: the map now shows where the phone is, with the old
+    // position beside it and how far the move would be.
+    await expect(sheet.getByRole('img', { name: 'La posición de ahora' })).toBeVisible()
+    await expect(sheet.getByText(/El sitio se movería 4\d m/)).toBeVisible()
+
+    await sheet.getByRole('button', { name: 'Guardar esta posición' }).click()
+    await expect(sheet.getByText('Posición corregida')).toBeVisible()
+    // Back to the place's own map, on the corrected fix — the phone is standing
+    // on it now, so the distance from here is nothing.
+    await expect(sheet.getByRole('img', { name: 'Dónde se guardó este sitio' })).toBeVisible()
+    await expect(sheet.getByText('A 0 m de aquí')).toBeVisible()
+
+    // And the point of all of it: the concept comes back at this doorway now.
+    // The sheet covers the screen, tab bar included, so it is closed first —
+    // which is also the gesture a person makes here.
+    await sheet.getByRole('button', { name: 'Cerrar' }).click()
+    await page.getByRole('button', { name: 'Añadir' }).click()
+    await reachDetails(page)
+    await expect(page.getByRole('group', { name: 'Aquí has apuntado' })
+      .getByRole('button', { name: /ferretería/ })).toBeVisible()
+  })
+
+  test('a correction can be looked at and turned down', async ({ page, context }) => {
+    // Cancelling has to leave the place exactly as it was: this is a screen that
+    // overwrites the one thing a place is.
+    await stubApi(page)
+    await signIn(page)
+
+    await reachReview(page, 'ferretería')
+    await savePlace(page)
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+    await context.setGeolocation(northOf(40))
+    await page.getByRole('button', { name: 'Sitios' }).click()
+    await page.getByRole('button', { name: 'Ver «ferretería» en el mapa' }).click()
+    const sheet = page.getByRole('dialog', { name: 'Sitio guardado' })
+
+    await sheet.getByRole('button', { name: 'Corregir la posición' }).click()
+    await expect(sheet.getByRole('img', { name: 'La posición de ahora' })).toBeVisible()
+    await sheet.getByRole('button', { name: 'Dejarlo como estaba' }).click()
+
+    await expect(sheet.getByRole('img', { name: 'Dónde se guardó este sitio' })).toBeVisible()
+    // Forty metres away, exactly as it was saved.
+    await expect(sheet.getByText(/A 4\d m de aquí/)).toBeVisible()
   })
 })
 

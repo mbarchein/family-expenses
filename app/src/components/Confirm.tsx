@@ -5,7 +5,7 @@ import { useBackClose } from '../lib/route'
 /**
  * A question with two answers, inside the app.
  *
- * `window.confirm` is what the rest of this app still uses for the other three
+ * `window.confirm` is what the rest of this app still uses for the other two
  * questions it asks, and it is not good enough for this one. It is the browser's
  * dialog, not ours: on iOS a standalone PWA labels it with the site's hostname,
  * the wording of the buttons is the browser's, and it looks like something has

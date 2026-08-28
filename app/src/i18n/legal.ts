@@ -118,9 +118,10 @@ export const PRIVACY: LegalDocument = {
         'el inicio de sesión.\n' +
         '• Vercel, que sirve la página de la aplicación.\n' +
         '• OpenStreetMap, que sirve las imágenes del mapa, y únicamente mientras hay un ' +
-        'mapa a la vista — al guardar un sitio o al abrir uno guardado desde «Sitios»: en ' +
-        'ese momento es tu navegador el que pide esas imágenes, y openstreetmap.org recibe ' +
-        'tu dirección IP y la zona del mapa que hay que dibujar (ver el punto 13).\n' +
+        'mapa a la vista — al guardar un sitio, al abrir uno guardado desde «Sitios» o al ' +
+        'corregir su posición: en ese momento es tu navegador el que pide esas imágenes, ' +
+        'y openstreetmap.org recibe tu dirección IP y la zona del mapa que hay que ' +
+        'dibujar (ver el punto 13).\n' +
         'No hay analítica, ni publicidad, ni herramientas de medición de terceros.',
     },
     {
@@ -166,22 +167,26 @@ export const PRIVACY: LegalDocument = {
     {
       title: '13. Ubicación',
       body:
-        'La aplicación puede pedirte permiso para saber dónde estás, y solo cuando pulsas ' +
-        '«Guardar este sitio» al apuntar un gasto. Sirve para una cosa: reconocer que ' +
-        'estás en un sitio que ya guardaste y proponerte el mismo concepto. Las ' +
-        'coordenadas se guardan únicamente en el almacenamiento de tu navegador, en tu ' +
+        'La aplicación puede pedirte permiso para saber dónde estás, y solo cuando lo ' +
+        'pulsas tú: al activar «Guardar este sitio» apuntando un gasto, o al pulsar ' +
+        '«Corregir la posición» en un sitio que ya tienes guardado. Sirve para una cosa: ' +
+        'reconocer que estás en un sitio que ya guardaste y proponerte el mismo concepto. ' +
+        'Las coordenadas se guardan únicamente en el almacenamiento de tu navegador, en tu ' +
         'dispositivo: no se envían a nuestro servidor, no se escriben en la hoja de ' +
-        'cálculo y la otra persona de la casa no las ve. Hay un mapa a la vista en dos ' +
-        'momentos: con ese interruptor encendido, y cuando abres uno de los sitios que ya ' +
-        'has guardado desde la pantalla «Sitios». En ese segundo caso el mapa es el del ' +
-        'sitio guardado, con la posición que quedó anotada aquel día, y no se lee la tuya ' +
-        'de ahora. Las imágenes las sirve OpenStreetMap: para pedirlas, tu navegador se ' +
-        'conecta a openstreetmap.org, que recibe tu dirección IP y la zona del mapa que ' +
+        'cálculo y la otra persona de la casa no las ve. Hay un mapa a la vista en tres ' +
+        'momentos: con ese interruptor encendido, cuando abres uno de los sitios que ya ' +
+        'has guardado desde la pantalla «Sitios», y mientras corriges la posición de uno ' +
+        'de ellos. Al abrirlo, el mapa es el del sitio guardado, con la posición que quedó ' +
+        'anotada aquel día, y no se lee la tuya de ahora; al corregirlo, el mapa es el de ' +
+        'donde estás en ese momento, que es lo que estás decidiendo guardar. Las ' +
+        'imágenes las sirve OpenStreetMap: para pedirlas, tu navegador se conecta a ' +
+        'openstreetmap.org, que recibe tu dirección IP y la zona del mapa que ' +
         'hay que dibujar. Esa zona es un cuadrado de cien metros o más, no el punto ' +
-        'exacto, y no se pide nada mientras no estés viendo un mapa. Son las dos únicas ' +
+        'exacto, y no se pide nada mientras no estés viendo un mapa. Son las únicas ' +
         'circunstancias en las que algo relativo a una posición, la tuya o la de un sitio ' +
-        'guardado, sale del dispositivo. Puedes borrar cada sitio desde «Sitios», y retirar ' +
-        'el permiso en los ajustes de tu navegador. Si no concedes el permiso, el resto ' +
+        'guardado, sale del dispositivo. Puedes corregir la posición de cada sitio o ' +
+        'borrarlo desde «Sitios», y retirar el permiso en los ajustes de tu navegador. ' +
+        'Si no concedes el permiso, el resto ' +
         'de la aplicación funciona igual.',
     },
     {
