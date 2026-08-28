@@ -5,7 +5,7 @@ import { ScreenHeader } from '../components/ScreenHeader'
 import { Spinner } from '../components/Spinner'
 import { T } from '../i18n/strings'
 import { formatShortDate, toIso } from '../lib/dates'
-import { metresBetween } from '../lib/geo'
+import { PLACED_METRES, metresBetween } from '../lib/geo'
 import { watchPosition, type Fix, type PositionFailure } from '../lib/position'
 import { usePlaces, type NearPlace, type Place } from '../store/places'
 
@@ -143,15 +143,29 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
  * map it then draws is of where the phone is: section 13, the two lines at the
  * top of this screen and the rule in `CLAUDE.md` all moved in the same commit.
  */
-type Fixing =
-  | { kind: 'off' }
-  | { kind: 'asking' }
-  /** A fix in hand and nothing written yet. `improving` while the watch is still
-   *  running, exactly as on the review step: the first reading indoors is often
-   *  ±40 m and the one thirty seconds later is ±8. */
-  | { kind: 'found'; fix: Fix; improving: boolean }
-  | { kind: 'denied' }
-  | { kind: 'unavailable' }
+/**
+ * Where the point on screen came from, which is the whole of this state.
+ *
+ * `saved` is the position the place already has, which is what the correction
+ * opens on: no reading, no prompt, and a map you can drag from a sofa. `here` is
+ * a fix just read from the device, still being refined by the watch. `hand` is
+ * one somebody dragged the map to, which has no device accuracy at all and takes
+ * `PLACED_METRES` instead.
+ */
+type Chosen = 'saved' | 'here' | 'hand'
+
+/** A correction in progress: a point in hand and nothing written yet.
+ *  `improving` while the watch is still running, exactly as on the review step —
+ *  the first reading indoors is often ±40 m and the one half a minute later ±8. */
+interface Editing {
+  fix: Fix
+  from: Chosen
+  improving: boolean
+}
+
+/** The device read, which is its own state because it happens *inside* a
+ *  correction: the map has to stay on screen while the phone is being asked. */
+type Reading = 'idle' | 'asking' | 'denied' | 'unavailable'
 
 function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
   place: Place
@@ -167,51 +181,78 @@ function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
   onForget: () => Promise<void>
   onClose: () => void
 }) {
-  const [fixing, setFixing] = useState<Fixing>({ kind: 'off' })
+  const [editing, setEditing] = useState<Editing | null>(null)
+  const [reading, setReading] = useState<Reading>('idle')
   const [asking, setAsking] = useState(false)
   const [done, setDone] = useState(false)
   const metres = here ? Math.round(metresBetween(here, place)) : null
+  const watching = editing?.from === 'here'
 
   /**
-   * While a new fix is on screen, keep improving it.
+   * While a fix read from the device is on screen, keep improving it.
    *
    * The same watch the review step runs and for the same reason — the best fix
    * wins rather than the latest, because a later reading can be worse and
-   * replacing a ±8 with a ±25 would be a downgrade dressed as an update. Stopped
-   * the moment the correction is cancelled, saved or the sheet goes away: a watch
-   * left running is a GPS held open on somebody's phone.
+   * replacing a ±8 with a ±25 would be a downgrade dressed as an update.
+   *
+   * Only while the point came from the device: the moment somebody drags the map
+   * the point is theirs, and a watch still running would shove it back under
+   * their thumb a second later. Stopped too when the correction is saved,
+   * cancelled or the sheet goes away — a watch left running is a GPS held open on
+   * somebody's phone.
    */
   useEffect(() => {
-    if (fixing.kind !== 'found') return
-    return watchPosition(fix => setFixing(current => {
-      if (current.kind !== 'found') return current
+    if (!watching) return
+    return watchPosition(fix => setEditing(current => {
+      if (current?.from !== 'here') return current
       return fix.accuracy < current.fix.accuracy
         ? { ...current, fix, improving: true }
         : { ...current, improving: false }
     }))
-  }, [fixing.kind])
+  }, [watching])
 
-  async function locate() {
+  /** Opens the correction on the position the place already has. Reads nothing
+   *  and prompts for nothing: the map is drawn from what is on the disk, and
+   *  from there it can be dragged. */
+  function startFixing() {
     setDone(false)
-    setFixing({ kind: 'asking' })
+    setReading('idle')
+    setEditing({
+      fix: { lat: place.lat, lon: place.lon, accuracy: place.accuracy },
+      from: 'saved',
+      improving: false,
+    })
+  }
+
+  /** The one control on this screen that reads the position, which is why it is
+   *  a button of its own and says what it does. */
+  async function locateHere() {
+    setDone(false)
+    setReading('asking')
     const fix = await onLocate()
-    if (fix === 'denied' || fix === 'unavailable') return setFixing({ kind: fix })
-    setFixing({ kind: 'found', fix, improving: true })
+    if (fix === 'denied' || fix === 'unavailable') return setReading(fix)
+    setReading('idle')
+    setEditing({ fix, from: 'here', improving: true })
+  }
+
+  /** A drag. The point stops being the device's the moment it is moved, so the
+   *  accuracy stops being the device's too. */
+  function pan(fix: Fix) {
+    setEditing(current => (current
+      ? { fix: { ...fix, accuracy: PLACED_METRES }, from: 'hand', improving: false }
+      : current))
   }
 
   async function save() {
-    if (fixing.kind !== 'found') return
-    await onMove(fixing.fix)
-    setFixing({ kind: 'off' })
+    if (!editing) return
+    await onMove(editing.fix)
+    setEditing(null)
     setDone(true)
   }
 
-  // What is on the map: the place, or the position being offered in its stead.
-  // The preview says so in its own words, because a map that changed under a
-  // heading saying "dónde se guardó este sitio" would be showing one thing and
-  // naming another.
-  const preview = fixing.kind === 'found' ? fixing.fix : null
-  const moved = preview ? Math.round(metresBetween(preview, place)) : null
+  // How far the correction would move it, which is the one number that says what
+  // pressing Guardar would do.
+  const moved = editing ? Math.round(metresBetween(editing.fix, place)) : null
 
   return (
     <div
@@ -234,36 +275,65 @@ function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
         <PlaceMap
-          // The saved fix, or the one being offered to replace it. Either way it
-          // is a coordinate this device already has: nothing is read to draw
-          // this, and nothing is written until Guardar.
-          fix={preview ?? { lat: place.lat, lon: place.lon, accuracy: place.accuracy }}
+          // The saved position, or the one being chosen in its stead. Either way
+          // it is a coordinate this device already has — the correction opens on
+          // the place's own, so nothing is read to draw this and nothing is
+          // written until Guardar.
+          fix={editing?.fix ?? { lat: place.lat, lon: place.lon, accuracy: place.accuracy }}
           // Its own name goes under the dot rather than into this list: the
           // centre is the place here, not the person looking at it. While a
-          // correction is being looked at the centre is the phone, so the place
-          // joins the neighbours and its label shows how far the move would be.
-          nearby={preview ? [{ ...place, metres: moved ?? 0 }, ...others] : others}
-          label={preview ? T.places.fixPreview : T.places.mapSaved}
-          note={preview ? undefined : T.places.mapSavedNote}
-          improving={fixing.kind === 'found' && fixing.improving}
-          // Named in both states, and differently: on the place's own map the dot
-          // is the place, and while a correction is being looked at the dot is
-          // the phone and the place is the label forty metres down the street.
-          // Two identical labels either side of a move is a picture that does not
-          // say which one is which.
-          centreLabel={preview ? T.places.here : place.concept}
+          // position is being chosen the centre is the crosshair, so the place
+          // joins the neighbours and its label is where it would be moving from.
+          nearby={editing && moved && moved >= APART_METRES
+            ? [{ ...place, metres: moved }, ...others]
+            : others}
+          label={editing ? T.places.fixDrag : T.places.mapSaved}
+          note={editing
+            ? (editing.from === 'here' ? undefined
+              : editing.from === 'hand' ? T.places.fixByHand
+              : T.places.fixFromSaved)
+            : T.places.mapSavedNote}
+          improving={editing?.from === 'here' && editing.improving}
+          centreLabel={editing ? undefined : place.concept}
+          // The map is draggable only here, where a position is being chosen:
+          // this is the correction that needs no fix at all, for the phone that
+          // says the far side of the block while its owner can see the doorway.
+          onPan={editing ? pan : undefined}
         />
 
-        {preview
+        {editing
           ? (
             <>
               <p className="text-xs text-ink-2">
                 {moved ? T.places.fixMoves(moved) : T.places.fixSame}
               </p>
+
+              {/* The reading is inside the correction rather than the way into
+                  it, which is the difference between this screen prompting and
+                  not: dragging the map asks the device nothing. */}
+              <button
+                type="button"
+                onClick={() => void locateHere()}
+                disabled={reading === 'asking'}
+                className="flex items-center justify-center gap-2 rounded-xl border border-line
+                           py-2.5 text-sm font-semibold disabled:opacity-60
+                           focus-visible:outline focus-visible:outline-2"
+                style={{ background: 'var(--surface)' }}
+              >
+                {reading === 'asking' && <Spinner className="h-4 w-4" />}
+                {reading === 'asking' ? T.places.fixAsking : T.places.fixHere}
+              </button>
+
+              {(reading === 'denied' || reading === 'unavailable') && (
+                <p role="alert" className="text-xs" style={{ color: 'var(--danger)' }}>
+                  {reading === 'denied' ? T.places.denied : T.places.unavailable}
+                </p>
+              )}
+
               <div className="flex items-stretch gap-2">
                 <button
                   type="button"
-                  onClick={() => setFixing({ kind: 'off' })}
+                  onClick={() => setEditing(null)}
                   className="flex-1 rounded-xl border border-line py-2.5 text-sm font-semibold
                              focus-visible:outline focus-visible:outline-2"
                   style={{ background: 'var(--surface)' }}
@@ -302,23 +372,15 @@ function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
                   cure this screen offered. */}
               <button
                 type="button"
-                onClick={() => void locate()}
-                disabled={fixing.kind === 'asking'}
-                className="mt-2 flex items-center justify-center gap-2 rounded-xl py-3 text-sm
-                           font-bold disabled:opacity-60 focus-visible:outline
+                onClick={startFixing}
+                className="mt-2 rounded-xl py-3 text-sm font-bold focus-visible:outline
                            focus-visible:outline-2"
                 style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
               >
-                {fixing.kind === 'asking' && <Spinner className="h-4 w-4" />}
-                {fixing.kind === 'asking' ? T.places.fixAsking : T.places.fix}
+                {T.places.fix}
               </button>
               <p className="text-center text-[11px] text-ink-3">{T.places.fixHow}</p>
 
-              {(fixing.kind === 'denied' || fixing.kind === 'unavailable') && (
-                <p role="alert" className="text-xs" style={{ color: 'var(--danger)' }}>
-                  {fixing.kind === 'denied' ? T.places.denied : T.places.unavailable}
-                </p>
-              )}
               {done && (
                 <p role="status" className="text-xs" style={{ color: 'var(--accent)' }}>
                   {T.places.fixDone}
@@ -363,6 +425,15 @@ function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
  * shop across the road, and that one is deliberately *not* a match.
  */
 const AROUND_METRES = 120
+
+/**
+ * How far the correction has to have moved before the old position is labelled.
+ *
+ * It is drawn so you can see what you are moving away from, and at two metres it
+ * is a label sitting on top of the crosshair hiding the thing being aimed. Five
+ * is about where the two stop overlapping at street zoom.
+ */
+const APART_METRES = 5
 
 function around(place: Place, places: Place[]): NearPlace[] {
   return places

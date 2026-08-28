@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { signIn, stubApi, stubGoogle } from './harness'
 
 /**
@@ -47,6 +47,21 @@ async function savePlace(page: Page) {
   // can see how sure of itself the phone was.
   await expect(toggle).toContainText('37.17730, -3.59860')
   return toggle
+}
+
+/** Drags the map inside a sheet by so many pixels, in steps, the way a thumb
+ *  does — one jump from press to release is a gesture some handlers never see. */
+async function drag(page: Page, sheet: Locator, dx: number, dy: number) {
+  const map = sheet.getByRole('img', { name: /Arrastra el mapa/ })
+  const box = await map.boundingBox()
+  if (!box) throw new Error('the map has no box to drag')
+  const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  for (let step = 1; step <= 8; step++) {
+    await page.mouse.move(from.x + (dx * step) / 8, from.y + (dy * step) / 8)
+  }
+  await page.mouse.up()
 }
 
 test.beforeEach(async ({ page }) => {
@@ -387,6 +402,75 @@ test.describe('with the location allowed', () => {
     await expect(map.getByText('ferretería')).toBeVisible()
   })
 
+  test('the point can be dragged onto the door the phone cannot find',
+    async ({ page, context }) => {
+    // The case standing still cannot fix: the phone says the far side of the
+    // block and the person holding it can see which doorway it should be. Asked
+    // for in as many words — corregir desplazando el mapa.
+    await stubApi(page)
+    await signIn(page)
+
+    await reachReview(page, 'ferretería')
+    await savePlace(page)
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+    // The door is forty metres north of where the fix landed. The phone is left
+    // there for the last step of this test, and never asked in the middle of it.
+    await context.setGeolocation(northOf(40))
+    await page.getByRole('button', { name: 'Sitios' }).click()
+    await page.getByRole('button', { name: 'Ver «ferretería» en el mapa' }).click()
+    const sheet = page.getByRole('dialog', { name: 'Sitio guardado' })
+    await sheet.getByRole('button', { name: 'Corregir la posición' }).click()
+
+    // Dragging downwards brings what was above the centre into it, so the point
+    // goes north: 42 px is about 40 m at this latitude and zoom. If the sign were
+    // the other way round this would put the place eighty metres from the door
+    // and the last assertion below would fail — which is the point of doing it
+    // end to end rather than only in `mercator.test.ts`.
+    await drag(page, sheet, 0, 42)
+    await expect(sheet.getByText(/El sitio se movería (3\d|4\d) m/)).toBeVisible()
+    // Placed by hand, so the accuracy is no longer the device's claim about a fix
+    // that has been thrown away.
+    await expect(sheet.getByText('Lo has puesto tú en el mapa')).toBeVisible()
+    await expect(sheet.getByText(/±10 m/)).toBeVisible()
+
+    await sheet.getByRole('button', { name: 'Guardar esta posición' }).click()
+    await expect(sheet.getByText('Posición corregida')).toBeVisible()
+
+    // And the point of the whole thing: the concept comes back at the door now.
+    await sheet.getByRole('button', { name: 'Cerrar' }).click()
+    await page.getByRole('button', { name: 'Añadir' }).click()
+    await reachDetails(page)
+    await expect(page.getByRole('group', { name: 'Aquí has apuntado' })
+      .getByRole('button', { name: /ferretería/ })).toBeVisible()
+  })
+
+  test('dragging the map asks the device for nothing', async ({ page, context }) => {
+    // The promise in section 13 and on the Sitios screen: correcting by hand
+    // reads no position, so it works with the permission gone and never prompts.
+    await stubApi(page)
+    await signIn(page)
+
+    await reachReview(page, 'ferretería')
+    await savePlace(page)
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+    // Taken away after the place was saved, which is the only order this can
+    // happen in: saving one needs the position, correcting it does not.
+    await context.clearPermissions()
+    await page.getByRole('button', { name: 'Sitios' }).click()
+    await page.getByRole('button', { name: 'Ver «ferretería» en el mapa' }).click()
+    const sheet = page.getByRole('dialog', { name: 'Sitio guardado' })
+
+    await sheet.getByRole('button', { name: 'Corregir la posición' }).click()
+    await drag(page, sheet, -30, 0)
+    await expect(sheet.getByText(/El sitio se movería \d+ m/)).toBeVisible()
+    await sheet.getByRole('button', { name: 'Guardar esta posición' }).click()
+    await expect(sheet.getByText('Posición corregida')).toBeVisible()
+  })
+
   test('the places screen lists what was saved and can forget it', async ({ page }) => {
     await stubApi(page)
     await signIn(page)
@@ -437,10 +521,15 @@ test.describe('with the location allowed', () => {
     const sheet = page.getByRole('dialog', { name: 'Sitio guardado' })
 
     await sheet.getByRole('button', { name: 'Corregir la posición' }).click()
+    // It opens on the position the place already has — nothing read, nothing
+    // moved — and only then is the device asked.
+    await expect(sheet.getByText('El sitio se quedaría donde está')).toBeVisible()
+    await sheet.getByRole('button', { name: 'Usar dónde estoy ahora' }).click()
 
     // Nothing is written yet: the map now shows where the phone is, with the old
     // position beside it and how far the move would be.
-    await expect(sheet.getByRole('img', { name: 'La posición de ahora' })).toBeVisible()
+    await expect(sheet.getByRole('img', { name: 'Arrastra el mapa para poner el punto' }))
+      .toBeVisible()
     await expect(sheet.getByText(/El sitio se movería 4\d m/)).toBeVisible()
 
     await sheet.getByRole('button', { name: 'Guardar esta posición' }).click()
@@ -477,7 +566,8 @@ test.describe('with the location allowed', () => {
     const sheet = page.getByRole('dialog', { name: 'Sitio guardado' })
 
     await sheet.getByRole('button', { name: 'Corregir la posición' }).click()
-    await expect(sheet.getByRole('img', { name: 'La posición de ahora' })).toBeVisible()
+    await sheet.getByRole('button', { name: 'Usar dónde estoy ahora' }).click()
+    await expect(sheet.getByText(/El sitio se movería 4\d m/)).toBeVisible()
     await sheet.getByRole('button', { name: 'Dejarlo como estaba' }).click()
 
     await expect(sheet.getByRole('img', { name: 'Dónde se guardó este sitio' })).toBeVisible()

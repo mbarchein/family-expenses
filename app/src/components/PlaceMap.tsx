@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { T } from '../i18n/strings'
 import { metresBetween, TOLERANCE_METRES } from '../lib/geo'
+import { TILE, metresPerPixel, panned, tileOf } from '../lib/mercator'
 import type { Fix } from '../lib/position'
 import type { NearPlace } from '../store/places'
 
@@ -40,13 +41,17 @@ import type { NearPlace } from '../store/places'
  * which is the tile the review step already asked for on the day it was saved.
  *
  * No mapping library: the tiles are `<img>` elements laid out from the same Web
- * Mercator arithmetic the servers are keyed by, which is thirty lines and no
- * dependency, and there is nothing here to pan or zoom — it is a picture of one
- * spot, opened for a couple of seconds on the way to saving an expense.
+ * Mercator arithmetic the servers are keyed by — `lib/mercator.ts`, thirty lines
+ * and no dependency. There is still no zoom: this is a picture of one spot at the
+ * scale the accuracy asks for, not something to explore.
+ *
+ * It does drag, on the one screen that is choosing a position rather than showing
+ * one — see `onPan`. Which is a third of a mapping library and worth exactly what
+ * it costs, because a fix is sometimes wrong in a way no amount of standing still
+ * will fix: the phone says the far side of the block, and the person holding it
+ * can see which doorway it should be.
  */
 
-/** Tiles are 256 pixels square, which is what all the arithmetic below assumes. */
-const TILE = 256
 const HEIGHT = 176
 /**
  * Street level, and as far out as a very unsure fix needs.
@@ -65,12 +70,6 @@ const MIN_ZOOM = 13
 const MAX_COLUMNS = 7
 const TILES = 'https://tile.openstreetmap.org'
 
-/** Metres to a pixel, at a latitude and a zoom. Shrinks away from the equator:
- *  a tile covers less ground in Granada than it does in Quito. */
-function metresPerPixel(lat: number, zoom: number): number {
-  return (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom
-}
-
 /**
  * The closest zoom at which the accuracy ring still fits.
  *
@@ -85,17 +84,6 @@ function zoomFor(fix: Fix): number {
   return MIN_ZOOM
 }
 
-/** Fractional tile coordinates — the Web Mercator maths every XYZ tile server is
- *  keyed by. The whole part names the tile, the fraction is where inside it. */
-function tileOf(lat: number, lon: number, zoom: number): { x: number; y: number } {
-  const n = 2 ** zoom
-  const rad = (lat * Math.PI) / 180
-  return {
-    x: ((lon + 180) / 360) * n,
-    y: ((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * n,
-  }
-}
-
 /** A round number of metres whose bar is comfortably readable at this scale. */
 function scaleBar(metresPerPx: number): { metres: number; pixels: number } {
   for (const metres of [10, 20, 50, 100, 200, 500, 1000]) {
@@ -106,7 +94,7 @@ function scaleBar(metresPerPx: number): { metres: number; pixels: number } {
 }
 
 export function PlaceMap({
-  fix, nearby, improving = false, label = T.places.mapLabel, note, centreLabel,
+  fix, nearby, improving = false, label = T.places.mapLabel, note, centreLabel, onPan,
 }: {
   /**
    * The centre, and the accuracy the ring is drawn from.
@@ -137,6 +125,21 @@ export function PlaceMap({
    * on top of it and hid the thing it was naming.
    */
   centreLabel?: string
+  /**
+   * Makes the map draggable, and reports the point the centre lands on.
+   *
+   * Set only by the screen that is choosing a position rather than showing one.
+   * Every move reports a new fix and the caller hands it straight back as `fix`,
+   * so this component keeps no position of its own to disagree with — the same
+   * discipline as the wizard keeping its step in the URL rather than in two
+   * places.
+   *
+   * Panning asks for the tiles you pan over, which is what panning is and is the
+   * same bargain the map already makes: squares of the world, never the point.
+   * What it must not turn into is a way to look around from a map somebody opened
+   * to read, which is why it is a prop and not the default.
+   */
+  onPan?: (fix: Fix) => void
 }) {
   const box = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
@@ -167,6 +170,40 @@ export function PlaceMap({
   const rows = Math.ceil(HEIGHT / TILE) + 2
   const first = { x: Math.floor(centre.x) - (columns >> 1), y: Math.floor(centre.y) - (rows >> 1) }
 
+  /**
+   * The drag, in the map's own pixels.
+   *
+   * Reported on every move rather than on release, so the streets follow the
+   * thumb instead of jumping when it lifts. Pointer events rather than touch
+   * ones: a finger, a mouse and a stylus are the same three handlers, and the
+   * capture is what stops a fast drag being dropped the moment it leaves the box.
+   */
+  const drag = useRef<{ pointer: number; x: number; y: number } | null>(null)
+
+  function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (!onPan) return
+    drag.current = { pointer: event.pointerId, x: event.clientX, y: event.clientY }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function onPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    const held = drag.current
+    if (!onPan || !held || held.pointer !== event.pointerId) return
+    const dx = event.clientX - held.x
+    const dy = event.clientY - held.y
+    if (!dx && !dy) return
+    drag.current = { ...held, x: event.clientX, y: event.clientY }
+    onPan(panned(fix, dx, dy, zoom))
+  }
+
+  function endDrag(event: React.PointerEvent<HTMLDivElement>) {
+    if (drag.current?.pointer !== event.pointerId) return
+    drag.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
   const shown = nearby.slice(0, 4)
   const bar = scaleBar(metresPerPx)
 
@@ -175,8 +212,19 @@ export function PlaceMap({
       <p className="text-xs font-semibold text-ink-2">{label}</p>
       <div
         ref={box}
-        className="relative overflow-hidden rounded-xl border border-line"
-        style={{ height: HEIGHT, background: 'var(--surface-2)' }}
+        className={'relative overflow-hidden rounded-xl border border-line'
+          + (onPan ? ' cursor-grab active:cursor-grabbing' : '')}
+        style={{
+          height: HEIGHT,
+          background: 'var(--surface-2)',
+          // Or the browser claims the gesture for scrolling the screen and the
+          // map moves once, by whatever was left over.
+          touchAction: onPan ? 'none' : undefined,
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
       >
         <div className="absolute inset-0" role="img" aria-label={label}>
           {/* The tiles. `--map-tint` is `none` in daylight and an inversion in the
@@ -213,11 +261,17 @@ export function PlaceMap({
           <Ring radius={TOLERANCE_METRES / metresPerPx} dashed />
           {/* What the device admits it does not know. */}
           <Ring radius={fix.accuracy / metresPerPx} />
-          <span
-            className="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full
-                       ring-2 ring-white"
-            style={{ left: '50%', top: '50%', background: 'var(--accent)' }}
-          />
+          {/* The centre. A dot when the map is reporting where something is, and
+              a sight when it is being aimed: what moves under a drag is the map,
+              so the marker has to read as the crosshair rather than as the
+              subject. */}
+          {onPan ? <Crosshair /> : (
+            <span
+              className="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full
+                         ring-2 ring-white"
+              style={{ left: '50%', top: '50%', background: 'var(--accent)' }}
+            />
+          )}
           {centreLabel && (
             <span
               className="absolute -translate-x-1/2 whitespace-nowrap rounded px-1 py-px
@@ -306,6 +360,27 @@ export function PlaceMap({
         {T.places.accuracy(Math.round(fix.accuracy))}
       </p>
     </div>
+  )
+}
+
+/** The sight, while a position is being aimed at. A hole in the middle, so the
+ *  doorway under it is not hidden by the thing pointing at it, and a white
+ *  underlay on every stroke because these streets are printed in every colour. */
+function Crosshair() {
+  return (
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
+      style={{ left: '50%', top: '50%' }}
+    >
+      <svg viewBox="0 0 32 32" className="h-8 w-8" fill="none" stroke="var(--accent)"
+           strokeWidth={2} strokeLinecap="round">
+        <circle cx="16" cy="16" r="7" stroke="white" strokeWidth={4} />
+        <path d="M16 1v7M16 24v7M1 16h7M24 16h7" stroke="white" strokeWidth={4} />
+        <circle cx="16" cy="16" r="7" />
+        <path d="M16 1v7M16 24v7M1 16h7M24 16h7" />
+      </svg>
+    </span>
   )
 }
 

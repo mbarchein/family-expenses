@@ -11,6 +11,18 @@
 
 export const TOLERANCE_METRES = 15
 
+/**
+ * How sure a position is when a person put it there rather than a phone.
+ *
+ * A point placed by dragging a street map has no device accuracy at all, and
+ * leaving the old number beside it would be a claim about a fix that has just
+ * been thrown away. Ten metres is what a fingertip on a street-level map is
+ * worth — the doorway is visible, the exact pixel is not — and it is inside the
+ * fifteen the tolerance allows, which is the whole reason somebody bothered to
+ * move it.
+ */
+export const PLACED_METRES = 10
+
 export interface Point {
   lat: number
   lon: number

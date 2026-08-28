@@ -206,8 +206,8 @@ export const T = {
       'Se ve un mapa al guardar un sitio, al abrir uno de la lista y al corregir ' +
       'su posición. Las imágenes las sirve OpenStreetMap, que recibe la zona del ' +
       'mapa — un cuadrado de cien metros o más, no el punto exacto — y solo ' +
-      'mientras se está viendo. Abrir un sitio no lee dónde estás; corregirlo sí, ' +
-      'y por eso el botón lo dice.',
+      'mientras se está viendo. Ni abrir un sitio ni arrastrar el mapa leen dónde ' +
+      'estás: eso solo lo hace «Usar dónde estoy ahora», y por eso el botón lo dice.',
     /** The row's own name, because the row is now a button: read out loud, a list
      *  of dates and metres does not say what tapping it does. */
     open: (concept: string) => `Ver «${concept}» en el mapa`,
@@ -271,11 +271,17 @@ export const T = {
      * privacy policy names it too.
      */
     fix: 'Corregir la posición',
-    fixHow: 'Ponte en la puerta y usa la posición de ahora.',
+    fixHow: 'Arrastra el mapa hasta la puerta, o usa dónde estás ahora.',
+    /** The button inside the correction that reads the position — the only one
+     *  on this screen that does. Arrastrar el mapa no lee nada. */
+    fixHere: 'Usar dónde estoy ahora',
     fixAsking: 'Buscando dónde estás…',
-    /** Over the map while the new fix is being looked at, before anything is
-     *  written: what is on screen is the phone now, not the place. */
-    fixPreview: 'La posición de ahora',
+    /** Over the map while a position is being chosen. It says what the gesture
+     *  is, because a map that can be moved looks exactly like one that cannot. */
+    fixDrag: 'Arrastra el mapa para poner el punto',
+    /** Under it, one line per way the point on screen got there. */
+    fixFromSaved: 'Es la posición que tiene guardada ahora',
+    fixByHand: 'Lo has puesto tú en el mapa',
     fixMoves: (metres: number) => `El sitio se movería ${metres} m`,
     fixSame: 'El sitio se quedaría donde está',
     fixSave: 'Guardar esta posición',

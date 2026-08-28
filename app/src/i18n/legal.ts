@@ -169,7 +169,8 @@ export const PRIVACY: LegalDocument = {
       body:
         'La aplicación puede pedirte permiso para saber dónde estás, y solo cuando lo ' +
         'pulsas tú: al activar «Guardar este sitio» apuntando un gasto, o al pulsar ' +
-        '«Corregir la posición» en un sitio que ya tienes guardado. Sirve para una cosa: ' +
+        '«Usar dónde estoy ahora» mientras corriges un sitio guardado. Corregirlo ' +
+        'arrastrando el mapa no lee nada. Sirve para una cosa: ' +
         'reconocer que estás en un sitio que ya guardaste y proponerte el mismo concepto. ' +
         'Las coordenadas se guardan únicamente en el almacenamiento de tu navegador, en tu ' +
         'dispositivo: no se envían a nuestro servidor, no se escriben en la hoja de ' +
@@ -177,8 +178,10 @@ export const PRIVACY: LegalDocument = {
         'momentos: con ese interruptor encendido, cuando abres uno de los sitios que ya ' +
         'has guardado desde la pantalla «Sitios», y mientras corriges la posición de uno ' +
         'de ellos. Al abrirlo, el mapa es el del sitio guardado, con la posición que quedó ' +
-        'anotada aquel día, y no se lee la tuya de ahora; al corregirlo, el mapa es el de ' +
-        'donde estás en ese momento, que es lo que estás decidiendo guardar. Las ' +
+        'anotada aquel día, y no se lee la tuya de ahora. Al corregirlo, el mapa empieza ' +
+        'en esa misma posición y lo arrastras hasta el punto que quieras, que sigue sin ' +
+        'leer nada; si pulsas «Usar dónde estoy ahora», entonces sí se lee tu posición y ' +
+        'el mapa pasa a ser el de donde estás. Las ' +
         'imágenes las sirve OpenStreetMap: para pedirlas, tu navegador se conecta a ' +
         'openstreetmap.org, que recibe tu dirección IP y la zona del mapa que ' +
         'hay que dibujar. Esa zona es un cuadrado de cien metros o más, no el punto ' +

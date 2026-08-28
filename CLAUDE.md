@@ -101,15 +101,21 @@ against the copy of the spreadsheet, never the live ledger.
   position at all, so it never prompts and works with the permission refused.
 
   The third is **Corregir la posición**, on that same detail, and it is the one
-  that is genuinely new: it reads where the phone is now and draws a map of it, so
-  it both prompts and asks for a tile nobody has asked for before. It is allowed
-  by the rule rather than an exception to it — the button says what it will do,
-  which is the whole of the reading rule — and it exists because a place saved
-  indoors at ±40 m is outside the fifteen-metre tolerance from the day it was
-  written, so it never comes back and deleting it was the only cure. It cost what
-  a third occasion always costs: section 13, the two lines at the top of Sitios
-  and this bullet were rewritten in the same commit, and a fourth occasion costs
-  the same again.
+  that moves. It opens on the position the place already has — so it reads nothing
+  and prompts for nothing — and the map can then be dragged until the crosshair is
+  on the right doorway. Dragging asks for the tiles you drag over, which is what
+  dragging is and is the same bargain: squares, never the point. Inside it, and
+  only there, **Usar dónde estoy ahora** reads the position and recentres on it.
+  That button is the third thing in the app that may prompt, and it is allowed by
+  the rule rather than an exception to it — the whole of the reading rule is that
+  the control says what it will do.
+
+  Which is why the map is draggable through a prop and not by default: a map
+  somebody opened to read must not become a way to look around, or the "tiles for
+  a map that was asked for" clause stops describing what is happening. All of this
+  costs what it always costs — section 13, the two lines at the top of Sitios and
+  this bullet were rewritten in the same commit, and the next occasion costs the
+  same again.
 - **Never let clasp push anything that is not a backend source.** Apps Script
   compiles every file in the project and runs the top level of every one of them
   on every single request, so one stray file breaks the whole web app rather than

@@ -424,20 +424,37 @@ address rather than state for the usual reason: the phone's back button closes t
 map instead of leaving the screen.
 
 **And the two things you can do to a place, both of them there.** *Corregir la
-posición* writes a fix taken now over the one the place was saved with: stand at
-the door, and the map shows the new position with the old one drawn beside it and
-how far the move would be, with nothing stored until Guardar. It is the cure for
-the failure this feature has that nothing else could fix — a place saved indoors
-at ±40 m is outside its own fifteen-metre tolerance from the first day, so it
-never comes back, and until now the only answer was deleting it and apuntando
-another gasto at that door. The watch that keeps refining the fix is the review
-step's, best-fix-wins, stopped the moment the correction is saved or cancelled.
+posición* replaces the position a place was saved with, and it is the cure for the
+failure this feature has that nothing else could fix: a place saved indoors at
+±40 m is outside its own fifteen-metre tolerance from the first day, so it never
+comes back, and the only answer used to be deleting it and apuntando another gasto
+at that door.
 
-That button is the third thing in the app that reads the position and the third
-occasion a map is drawn, so it prompts and it asks for tiles of where the phone
-is. It follows the rule rather than bending it — only a control that says it will
-may ask — and it cost what the rule says it costs: section 13, the lines at the
-top of the Sitios screen and the bullet in `CLAUDE.md` moved with it.
+It opens on the position the place already has and **the map is dragged** until
+the crosshair is on the doorway — which needs no fix at all, and is the answer to
+the case standing still cannot fix: the phone says the far side of the block, and
+the person holding it can see which door it should be. A point placed that way has
+no device accuracy, so it takes `PLACED_METRES` — ten, what a fingertip on a
+street map is worth, and inside the tolerance, which is the whole reason somebody
+moved it. The old position is labelled on the map once the two are far enough
+apart to be told apart, with the distance under it, and nothing is stored until
+Guardar.
+
+Inside that correction, *Usar dónde estoy ahora* reads the device and recentres on
+it, with the review step's watch refining the fix — best fix wins, not latest —
+until a drag takes over, at which point the point is the person's and the watch
+stops rather than shoving it back. That button is the third thing in the app that
+reads the position, and it follows the rule rather than bending it: only a control
+that says it will may ask. Dragging asks for the tiles it drags over, which is
+what dragging is; the map is draggable through a prop rather than by default,
+because a map opened to read must not become a way to look around. Section 13, the
+lines at the top of the Sitios screen and the bullet in `CLAUDE.md` moved with all
+of it.
+
+The Mercator arithmetic moved out to `lib/mercator.ts` when the map learned to
+drag: a sign error there moves somebody's doorway quietly in the wrong direction,
+and as three pure functions it has a round trip a test can check. Dragging down
+moves the point *north*, which is the line in that file worth reading twice.
 
 *Borrar este sitio* is on the same screen and has moved off the list row, where it
 sat a thumb's width from the row that scrolls past it. It asks with the app's own
