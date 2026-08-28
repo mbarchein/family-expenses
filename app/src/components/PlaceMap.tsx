@@ -20,7 +20,7 @@ import type { NearPlace } from '../store/places'
  * cost is that asking for a tile tells openstreetmap.org roughly where this phone
  * is — the tile URL *is* the square of the world you are standing in. That is
  * written down in three places that have to move together, and did: section 13 of
- * the privacy policy, the first lines of the Sitios screen, and the rule in
+ * the privacy policy, the disclosure on the Sitios screen, and the rule in
  * `CLAUDE.md`.
  *
  * What survives from the old drawing is the part that was useful, now on top of

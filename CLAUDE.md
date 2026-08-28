@@ -113,9 +113,12 @@ against the copy of the spreadsheet, never the live ledger.
   Which is why the map is draggable through a prop and not by default: a map
   somebody opened to read must not become a way to look around, or the "tiles for
   a map that was asked for" clause stops describing what is happening. All of this
-  costs what it always costs — section 13, the two lines at the top of Sitios and
+  costs what it always costs — section 13, the disclosure on the Sitios screen and
   this bullet were rewritten in the same commit, and the next occasion costs the
-  same again.
+  same again. That disclosure is folded behind «Cómo se guardan los sitios» now,
+  which was asked for and is fine: one tap from the list it describes, and still
+  on the screen. Deleting it is not the same thing and is not available — a
+  published document would be claiming something the app no longer says.
 - **Never let clasp push anything that is not a backend source.** Apps Script
   compiles every file in the project and runs the top level of every one of them
   on every single request, so one stray file breaks the whole web app rather than

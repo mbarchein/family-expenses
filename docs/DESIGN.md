@@ -448,8 +448,11 @@ reads the position, and it follows the rule rather than bending it: only a contr
 that says it will may ask. Dragging asks for the tiles it drags over, which is
 what dragging is; the map is draggable through a prop rather than by default,
 because a map opened to read must not become a way to look around. Section 13, the
-lines at the top of the Sitios screen and the bullet in `CLAUDE.md` moved with all
-of it.
+disclosure on the Sitios screen and the bullet in `CLAUDE.md` moved with all of
+it. That disclosure sits behind a fold — «Cómo se guardan los sitios», at the
+bottom of the list — because as two paragraphs above the list it was four lines of
+prose between the header and the thing the screen is for. Folded, not deleted: it
+is the policy said where the feature is, and that repetition is the point of it.
 
 The Mercator arithmetic moved out to `lib/mercator.ts` when the map learned to
 drag: a sign error there moves somebody's doorway quietly in the wrong direction,

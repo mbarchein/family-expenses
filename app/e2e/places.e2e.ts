@@ -483,8 +483,15 @@ test.describe('with the location allowed', () => {
     await page.getByRole('button', { name: 'Sitios' }).click()
     const row = page.getByRole('listitem').filter({ hasText: 'ferretería' })
     await expect(row).toHaveCount(1)
-    // The line that has to be on this screen: it says where the coordinates live.
+
+    // The line that has to be on this screen: it says where the coordinates
+    // live. It is folded away now — it was four lines of prose above the list —
+    // but folded is not gone, and this is what says so: it is one tap from the
+    // list, and the same promise as section 13 of the policy.
+    await expect(page.getByText('solo en este dispositivo')).toBeHidden()
+    await page.getByText('Cómo se guardan los sitios').click()
     await expect(page.getByText('solo en este dispositivo')).toBeVisible()
+    await expect(page.getByText(/Usar dónde estoy ahora/)).toBeVisible()
 
     // Borrar lives inside the place now rather than on the row: a destructive
     // button a thumb's width from a row that scrolls past it is a button to

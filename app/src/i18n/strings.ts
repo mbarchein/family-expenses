@@ -195,6 +195,16 @@ export const T = {
     mapScale: (metres: number) => `${metres} m`,
     mapCredit: '© OpenStreetMap',
     mapFailed: 'No se ha podido cargar el mapa',
+    /**
+     * The fold the two lines below live behind now.
+     *
+     * They were paragraphs at the top of the list — four lines of prose between
+     * the header and the sitios themselves, which is a lot of screen for
+     * something read once. What is inside them still has to be here, though:
+     * they are section 13 of the privacy policy said where the feature is, and
+     * that repetition is the whole point of it.
+     */
+    how: 'Cómo se guardan los sitios',
     // The line that has to be true and has to be visible: the places themselves
     // are not uploaded anywhere, so nobody has to wonder whether they are.
     local: 'Los sitios se guardan solo en este dispositivo. No se suben a la hoja.',

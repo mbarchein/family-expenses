@@ -46,12 +46,6 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
     <div className="flex flex-col gap-3 p-4">
       <ScreenHeader title={T.tabs.places} onBack={onBack} />
 
-      <p className="text-xs text-ink-2">{T.places.local}</p>
-      {/* The map is somebody else's server, so it is said here rather than only
-          in section 13 of the policy: this is the screen that explains the
-          feature, and a disclosure nobody reads is not one. */}
-      <p className="text-xs text-ink-3">{T.places.localMap}</p>
-
       {ready && !rows.length && (
         <div className="flex flex-col gap-2 pt-6 text-center">
           <p className="text-sm font-semibold text-ink-2">{T.places.empty}</p>
@@ -97,6 +91,27 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
           )
         })}
       </ul>
+
+      {/* The two paragraphs that used to sit above the list, folded away.
+          
+          They were four lines of prose between the header and the thing the
+          screen is for, read once and then in the way for ever. Folded rather
+          than deleted, and this is the part not to undo: they are the same
+          promise as section 13 of the privacy policy, and the reason it is
+          repeated here is that a disclosure only in a policy is a disclosure
+          nobody reads. A closed `details` is still on the screen, one tap from
+          the list it describes, and it is `<summary>` text rather than a
+          paragraph — which is what was asked for. Deleting them outright would
+          leave the app claiming something in a published document that it no
+          longer says where it happens. */}
+      <details className="pt-2 text-xs text-ink-3">
+        <summary className="cursor-pointer font-semibold focus-visible:outline
+                            focus-visible:outline-2">
+          {T.places.how}
+        </summary>
+        <p className="pt-2">{T.places.local}</p>
+        <p className="pt-1.5">{T.places.localMap}</p>
+      </details>
 
       {open && (
         <Detail
