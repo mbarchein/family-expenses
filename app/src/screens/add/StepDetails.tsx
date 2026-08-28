@@ -232,18 +232,26 @@ export function StepDetails({
           places={nearby}
           concept={draft.concept}
           method={draft.method}
-          onPick={place => patch(
-            place.concept === draft.concept && place.method === draft.method
-              ? { concept: '', method: '', fromPlace: null }
+          onPick={place => {
+            if (place.concept === draft.concept && place.method === draft.method) {
+              return patch({ concept: '', method: '', fromPlace: null })
+            }
+            // A place that carries a category hands that over too, and the guess
+            // above is told not to run: it derives the category from the concept,
+            // and this is the case where somebody has already said what this
+            // doorway sells. Without the ref the effect would fire on the new
+            // concept and overwrite the answer with its own guess.
+            if (place.category) guessedFor.current = place.concept
+            patch({
+              concept: place.concept,
+              method: place.method,
               // `fromPlace` so the review step knows this doorway is already
               // saved and can say so instead of offering to save it again — and
               // so that saving counts a use against the right row.
-              : {
-                  concept: place.concept,
-                  method: place.method,
-                  fromPlace: { id: place.id, concept: place.concept },
-                },
-          )}
+              fromPlace: { id: place.id, concept: place.concept },
+              ...(place.category ? { category: place.category } : {}),
+            })
+          }}
         />
 
         {/* Sets the concept and nothing else. This used to set the payer too, so

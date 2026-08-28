@@ -216,8 +216,10 @@ export const T = {
       'Se ve un mapa al guardar un sitio, al abrir uno de la lista y al corregir ' +
       'su posición. Las imágenes las sirve OpenStreetMap, que recibe la zona del ' +
       'mapa — un cuadrado de cien metros o más, no el punto exacto — y solo ' +
-      'mientras se está viendo. Ni abrir un sitio ni arrastrar el mapa leen dónde ' +
-      'estás: eso solo lo hace «Usar dónde estoy ahora», y por eso el botón lo dice.',
+      'mientras se está viendo. Pedirte permiso solo lo hace «Usar dónde estoy ' +
+      'ahora», y por eso el botón lo dice; si ya se lo has dado, esta pantalla lee ' +
+      'tu posición para decirte a qué distancia queda cada sitio. Arrastrar el mapa ' +
+      'no lee nada.',
     /** The row's own name, because the row is now a button: read out loud, a list
      *  of dates and metres does not say what tapping it does. */
     open: (concept: string) => `Ver «${concept}» en el mapa`,
@@ -235,6 +237,33 @@ export const T = {
     mapOthers: (n: number) => (n === 1
       ? 'Hay otro sitio guardado cerca'
       : `Hay ${n} sitios guardados cerca`),
+    /**
+     * Adding one by hand, from the Sitios screen.
+     *
+     * The switch on the review step only saves a place while apuntando a gasto
+     * there, which is the wrong moment for the two useful cases: the shop you
+     * are standing in front of with nothing to apuntar, and the one you want to
+     * name and file properly without the queue behind you at the till.
+     */
+    add: 'Añadir un sitio',
+    addTitle: 'Nuevo sitio',
+    /** Labelled by what it becomes rather than by what it is: this text is
+     *  written into the hoja as the concepto of every gasto apuntado here. */
+    addConcept: 'Concepto',
+    addConceptHow: 'Es lo que se escribirá en la hoja al apuntar un gasto aquí.',
+    addConceptPlaceholder: 'farmacia, super, la de la esquina…',
+    addSave: 'Guardar el sitio',
+    addNeedConcept: 'Ponle un concepto',
+    /** No position, no place: what a place *is* is a position with a concept on
+     *  it. Only reachable on a phone that has never granted the permission and
+     *  has no saved place to start the map from. */
+    addNeedFix: 'Falta la posición: usa dónde estás o arrastra el mapa',
+    /** The map when it opens on a guess rather than on a reading. Said out loud
+     *  because a map centred on somewhere plausible looks exactly like a map
+     *  centred on you. */
+    addFromLast: 'Empieza en el último sitio que guardaste',
+    addFromHere: 'Empieza donde está el móvil',
+    addAgain: 'Ya tenías ese sitio guardado ahí',
     empty: 'Todavía no has guardado ningún sitio',
     emptyHow:
       'Al apuntar un gasto, toca «Guardar este sitio» y la próxima vez que estés ' +
@@ -256,7 +285,9 @@ export const T = {
     distance: (metres: number) => `A ${metres} m de aquí`,
     accuracy: (metres: number) => `±${metres} m`,
     savedOn: (date: string) => `Guardado el ${date}`,
-    uses: (n: number) => (n === 1 ? 'Usado una vez' : `Usado ${n} veces`),
+    uses: (n: number) => (n === 0 ? 'Sin usar todavía'
+      : n === 1 ? 'Usado una vez'
+      : `Usado ${n} veces`),
     close: 'Cerrar',
     forget: 'Borrar este sitio',
     /** The dialog, in the app rather than the browser's — the same one the

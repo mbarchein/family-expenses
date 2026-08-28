@@ -417,11 +417,14 @@ the reason a place never matches, and the map is where that stops being a
 mystery. The places within 120 m are also the answer to why one door offers two
 concepts, seen instead of explained.
 
-Opening it reads no position — the coordinate comes off the disk — so it neither
-prompts nor needs the permission, and it works with it refused. What it does do is
-ask for tiles, the second of the occasions section 13 names. The detail is an
-address rather than state for the usual reason: the phone's back button closes the
-map instead of leaving the screen.
+Drawing it reads no position — the coordinate comes off the disk — so the map
+neither prompts nor needs the permission, and it works with it refused. What it
+does do is ask for tiles, the second of the occasions section 13 names. (The
+screen itself does read the position where the permission was already granted,
+through `positionIfAlreadyAllowed`, which is what the distances on the list are
+and never raises a dialog. Prompting is one button's job and it says so.) The
+detail is an address rather than state for the usual reason: the phone's back
+button closes the map instead of leaving the screen.
 
 **And the two things you can do to a place, both of them there.** *Corregir la
 posición* replaces the position a place was saved with, and it is the cure for the
@@ -453,6 +456,36 @@ it. That disclosure sits behind a fold — «Cómo se guardan los sitios», at t
 bottom of the list — because as two paragraphs above the list it was four lines of
 prose between the header and the thing the screen is for. Folded, not deleted: it
 is the policy said where the feature is, and that repetition is the point of it.
+
+**A place can also be added from this screen**, with a concept and a category and
+no gasto involved. The switch on the review step is the other way in and it only
+fires while something is being apuntado at that doorway, which misses both useful
+moments: the shop you are standing outside with nothing to apuntar, and the one
+you want to name and file deliberately rather than with whatever the guess made of
+its concept while there was a queue behind you. The form is `/sitios/nuevo`, the
+same picker as the correction — a map that opens on the phone's position where the
+permission was already granted, on the last place saved where it was not, dragged
+from either — plus the concept field and the same category picker the second step
+uses. `uses` starts at nothing, because that counter means "how often this doorway
+really turned out to be the one" and a place typed in at the kitchen table has not
+been the one yet. The same concept at the same doorway is still the same place: the
+form says so instead of listing it twice.
+
+**Which is what the category on a place is for.** It is stored on the place rather
+than guessed from the concept, because the guess is the thing it exists to
+override — `guessCategory` reads the Categorías tab's keywords, and «la de la
+esquina» is not a word on any row of it. A place that carries one hands it to the
+expense along with the concept, and the step-two guess is told to stand down for
+that tap; a place saved by the switch keeps whatever category the expense was
+filed under, which is usually one somebody has just looked at. Empty is not a
+category: without one, the guess happens exactly as before.
+
+The picker behind both — the fix from the device, the drag, the watch that stops
+the moment somebody drags — is one hook, `lib/picker.ts`. Two screens choosing a
+position had to agree about three things that are easy to get subtly different,
+and the third is the one worth naming: a refusal is said out loud, because this
+app cannot re-ask for a permission it has been refused and a button that silently
+did nothing would be indistinguishable from a broken one.
 
 The Mercator arithmetic moved out to `lib/mercator.ts` when the map learned to
 drag: a sign error there moves somebody's doorway quietly in the wrong direction,

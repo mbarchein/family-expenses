@@ -169,19 +169,22 @@ export const PRIVACY: LegalDocument = {
       body:
         'La aplicación puede pedirte permiso para saber dónde estás, y solo cuando lo ' +
         'pulsas tú: al activar «Guardar este sitio» apuntando un gasto, o al pulsar ' +
-        '«Usar dónde estoy ahora» mientras corriges un sitio guardado. Corregirlo ' +
-        'arrastrando el mapa no lee nada. Sirve para una cosa: ' +
+        '«Usar dónde estoy ahora» al añadir o corregir un sitio guardado. Con el ' +
+        'permiso ya concedido, la pantalla «Sitios» lee tu posición para ordenar la ' +
+        'lista y decirte a qué distancia queda cada sitio, y el mapa de un sitio nuevo ' +
+        'se abre donde estás; arrastrar el mapa no lee nada. Sirve para una cosa: ' +
         'reconocer que estás en un sitio que ya guardaste y proponerte el mismo concepto. ' +
         'Las coordenadas se guardan únicamente en el almacenamiento de tu navegador, en tu ' +
         'dispositivo: no se envían a nuestro servidor, no se escriben en la hoja de ' +
         'cálculo y la otra persona de la casa no las ve. Hay un mapa a la vista en tres ' +
         'momentos: con ese interruptor encendido, cuando abres uno de los sitios que ya ' +
-        'has guardado desde la pantalla «Sitios», y mientras corriges la posición de uno ' +
-        'de ellos. Al abrirlo, el mapa es el del sitio guardado, con la posición que quedó ' +
-        'anotada aquel día, y no se lee la tuya de ahora. Al corregirlo, el mapa empieza ' +
-        'en esa misma posición y lo arrastras hasta el punto que quieras, que sigue sin ' +
-        'leer nada; si pulsas «Usar dónde estoy ahora», entonces sí se lee tu posición y ' +
-        'el mapa pasa a ser el de donde estás. Las ' +
+        'has guardado desde la pantalla «Sitios», mientras corriges la posición de uno ' +
+        'de ellos y al añadir uno nuevo. Al abrirlo, el mapa es el del sitio guardado, ' +
+        'con la posición que quedó anotada aquel día. Al corregirlo, el mapa empieza en ' +
+        'esa misma posición y lo arrastras hasta el punto que quieras, que sigue sin leer ' +
+        'nada; si pulsas «Usar dónde estoy ahora», entonces sí se lee tu posición y el ' +
+        'mapa pasa a ser el de donde estás. Al añadir uno, el mapa empieza donde estás si ' +
+        'ya nos habías dado el permiso, y si no, en el último sitio que guardaste. Las ' +
         'imágenes las sirve OpenStreetMap: para pedirlas, tu navegador se conecta a ' +
         'openstreetmap.org, que recibe tu dirección IP y la zona del mapa que ' +
         'hay que dibujar. Esa zona es un cuadrado de cien metros o más, no el punto ' +

@@ -46,7 +46,7 @@ test('the keypad is the root, and going to it says so', async ({ page }) => {
   await signIn(page)
 
   await page.getByRole('button', { name: 'Gastos' }).click()
-  await page.getByRole('button', { name: 'Añadir' }).click()
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click()
 
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByText('Paso 1 de 3')).toBeVisible()

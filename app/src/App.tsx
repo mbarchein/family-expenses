@@ -90,6 +90,7 @@ export default function App() {
         {route === 'balance' && <BalanceScreen ledger={ledger} onBack={back} />}
         {route === 'places' && (
           <PlacesScreen
+            categories={ledger.data?.categories ?? []}
             onBack={back}
             viewing={detail}
             onOpen={openDetail}

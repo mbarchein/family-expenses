@@ -1,13 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { CategoryField } from '../components/CategoryField'
+import { ClearButton } from '../components/ClearButton'
 import { Confirm } from '../components/Confirm'
+import { HereButton } from '../components/HereButton'
 import { PlaceMap } from '../components/PlaceMap'
 import { ScreenHeader } from '../components/ScreenHeader'
-import { Spinner } from '../components/Spinner'
 import { T } from '../i18n/strings'
+import type { Category } from '../api/types'
 import { formatShortDate, toIso } from '../lib/dates'
-import { PLACED_METRES, metresBetween } from '../lib/geo'
-import { watchPosition, type Fix, type PositionFailure } from '../lib/position'
+import { metresBetween } from '../lib/geo'
+import { usePositionPicker } from '../lib/picker'
+import type { Fix, PositionFailure } from '../lib/position'
 import { usePlaces, type NearPlace, type Place } from '../store/places'
+
+/** The detail segment that means "a place that does not exist yet", like the
+ *  fijos screen's own. A word rather than a number, because it ends up in the
+ *  address bar — and no uuid can collide with it. */
+const NEW = 'nuevo'
 
 /**
  * The saved places, and what was bought at each one.
@@ -20,16 +29,24 @@ import { usePlaces, type NearPlace, type Place } from '../store/places'
  *
  * Nothing here has ever been uploaded, and the first line of the screen says so.
  */
-export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
+export function PlacesScreen({ categories, onBack, viewing, onOpen, onCloseDetail }: {
+  /** The Categorías tab, for the picker on the new-place form. From the ledger,
+   *  because a place files its gastos under the same names the gastos do. */
+  categories: readonly Category[]
   onBack: () => void
-  /** From the address: the id of the place whose map is open, or '' for the list.
-   *  An address is what makes the phone's back button close the map instead of
-   *  leaving the screen — the same reason the fijos detail has one. */
+  /** From the address: the id of the place whose map is open, `nuevo` for the
+   *  form, or '' for the list. An address is what makes the phone's back button
+   *  close the sheet instead of leaving the screen — the same reason the fijos
+   *  detail has one. */
   viewing: string
   onOpen: (detail: string) => void
   onCloseDetail: () => void
 }) {
-  const { places, ready, here, locateNow, moveTo, forget } = usePlaces()
+  const { places, ready, here, locateNow, addPlace, moveTo, forget } = usePlaces(
+    // The distances on this screen were always worth having; now the new-place
+    // form opens on the position too, where it is already allowed. Still never a
+    // prompt — that is `HereButton`'s job and nothing else's.
+    { locate: true })
 
   const rows = [...places].sort((a, b) => {
     const near = distance(a, here) - distance(b, here)
@@ -40,7 +57,10 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
   // to "what is open". An id nothing matches — a place forgotten on this phone
   // while a link to it was still around — leaves the list rather than an empty
   // sheet.
-  const open = viewing ? rows.find(place => place.id === viewing) ?? null : null
+  const open = viewing && viewing !== NEW
+    ? rows.find(place => place.id === viewing) ?? null
+    : null
+  const adding = viewing === NEW
 
   return (
     <div className="flex flex-col gap-3 p-4">
@@ -73,8 +93,14 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{place.concept}</span>
-                  {place.method && (
-                    <span className="block text-xs text-ink-2">{place.method}</span>
+                  {/* What this doorway files its gastos under, when somebody has
+                      said. On its own line with the card, because both are things
+                      the place hands to the expense rather than facts about the
+                      place. */}
+                  {(place.category || place.method) && (
+                    <span className="block truncate text-xs text-ink-2">
+                      {[place.category, place.method].filter(Boolean).join(' · ')}
+                    </span>
                   )}
                   <span className="block pt-1 text-[11px] text-ink-3">
                     {T.places.savedOn(formatShortDate(toIso(new Date(place.savedAt))))}
@@ -91,6 +117,20 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
           )
         })}
       </ul>
+
+      {/* Below the list rather than above it: the list is what the screen is
+          for, and this is the second way to get a place — the first being the
+          switch on the review step, which only fires while a gasto is being
+          apuntado there. */}
+      <button
+        type="button"
+        onClick={() => onOpen(NEW)}
+        className="rounded-xl py-3 text-sm font-bold focus-visible:outline
+                   focus-visible:outline-2"
+        style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+      >
+        {T.places.add}
+      </button>
 
       {/* The two paragraphs that used to sit above the list, folded away.
           
@@ -113,6 +153,20 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
         <p className="pt-1.5">{T.places.localMap}</p>
       </details>
 
+      {adding && (
+        <NewPlace
+          categories={categories}
+          // Somewhere to start the map: where the phone is if that was already
+          // allowed, and otherwise the last place saved — a coordinate off the
+          // disk, so opening this form reads nothing and prompts for nothing.
+          start={here ?? lastSaved(places)}
+          startedHere={Boolean(here)}
+          onLocate={locateNow}
+          onSave={(fix, fields) => addPlace(fix, fields)}
+          onClose={onCloseDetail}
+        />
+      )}
+
       {open && (
         <Detail
           key={open.id}
@@ -125,6 +179,149 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
           onClose={onCloseDetail}
         />
       )}
+    </div>
+  )
+}
+
+/**
+ * A place typed in from the Sitios screen, with a concept and a category.
+ *
+ * The switch on the review step is the other way in and it only fires while a
+ * gasto is being apuntado at that doorway, which is the wrong moment twice over:
+ * the shop you are standing outside with nothing to apuntar never gets saved, and
+ * the one you do apuntar gets whatever category the guess made of its concept
+ * while somebody was in a queue. This is the deliberate version of the same
+ * thing — name it, file it, and put the point where the door is.
+ *
+ * It reads nothing on the way in. The map opens on the phone's position if that
+ * was already known without asking, and otherwise on the last place saved, which
+ * is a coordinate off the disk; from either it is dragged. The only control here
+ * that touches the device is `HereButton`, which says so.
+ */
+function NewPlace({ categories, start, startedHere, onLocate, onSave, onClose }: {
+  categories: readonly Category[]
+  /** Somewhere for the map to open on, or null on a phone with no permission and
+   *  no saved place — there the map waits for the button. */
+  start: Fix | null
+  /** Whether `start` is the phone rather than a guess. The map says which, since
+   *  a map centred on somewhere plausible looks exactly like one centred on you. */
+  startedHere: boolean
+  onLocate: () => Promise<Fix | PositionFailure>
+  onSave: (
+    fix: Fix, fields: { concept: string; method: string; category: string },
+  ) => Promise<'saved' | 'again' | 'denied' | 'unavailable'>
+  onClose: () => void
+}) {
+  const { picked, reading, locateHere, pan } = usePositionPicker(start, onLocate)
+  const [concept, setConcept] = useState('')
+  const [category, setCategory] = useState('')
+  const [problem, setProblem] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    const named = concept.trim()
+    if (!named) return setProblem(T.places.addNeedConcept)
+    if (!picked.fix) return setProblem(T.places.addNeedFix)
+
+    setProblem(null)
+    setSaving(true)
+    // `again` rather than a second row: the same concept at the same doorway is
+    // the same place, and the store says so instead of listing it twice.
+    const result = await onSave(picked.fix, { concept: named, method: '', category })
+    if (result === 'again') {
+      setSaving(false)
+      return setProblem(T.places.addAgain)
+    }
+    onClose()
+  }
+
+  return (
+    <div
+      className="absolute inset-0 z-10 flex flex-col"
+      style={{ background: 'var(--paper)' }}
+      role="dialog"
+      aria-label={T.places.addTitle}
+    >
+      <header className="flex items-center gap-3 border-b border-line px-4 py-3">
+        <p className="flex-1 truncate text-sm font-semibold">{T.places.addTitle}</p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-sm font-semibold focus-visible:outline focus-visible:outline-2"
+          style={{ color: 'var(--accent)' }}
+        >
+          {T.places.close}
+        </button>
+      </header>
+
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+        {picked.fix
+          ? (
+            <PlaceMap
+              fix={picked.fix}
+              nearby={[]}
+              label={T.places.fixDrag}
+              note={picked.from === 'here' ? undefined
+                : picked.from === 'hand' ? T.places.fixByHand
+                : startedHere ? T.places.addFromHere
+                : T.places.addFromLast}
+              improving={picked.from === 'here' && picked.improving}
+              onPan={pan}
+            />
+          )
+          : (
+            // No position and nothing to guess from. Said rather than shown as an
+            // empty box: a map of nowhere is worse than no map.
+            <p className="rounded-xl border border-line p-4 text-center text-xs text-ink-3"
+               style={{ background: 'var(--surface)' }}>
+              {T.places.addNeedFix}
+            </p>
+          )}
+
+        <HereButton reading={reading} onClick={() => void locateHere()} />
+
+        <div className="flex flex-col gap-1">
+          <p className="text-xs font-semibold text-ink-2">{T.places.addConcept}</p>
+          <div className="relative">
+            <input
+              value={concept}
+              onChange={event => setConcept(event.target.value)}
+              placeholder={T.places.addConceptPlaceholder}
+              aria-label={T.places.addConcept}
+              autoComplete="off"
+              className="w-full rounded-lg border border-line bg-surface py-2.5 pl-3 pr-11
+                         text-base text-ink placeholder:text-ink-3
+                         focus-visible:outline focus-visible:outline-2"
+            />
+            {concept && (
+              <ClearButton label={T.add.clearConcept} onClick={() => setConcept('')} />
+            )}
+          </div>
+          <p className="text-[11px] text-ink-3">{T.places.addConceptHow}</p>
+        </div>
+
+        {/* The same picker the second step uses, and the same names: a place
+            files its gastos under the categories the gastos are filed under, or
+            the column would mean two different things. */}
+        <CategoryField value={category} categories={categories} onChange={setCategory} />
+
+        {problem && (
+          <p role="alert" className="text-sm" style={{ color: 'var(--danger)' }}>
+            {problem}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={saving}
+          className="mt-1 rounded-xl py-3 text-sm font-bold disabled:opacity-60
+                     focus-visible:outline focus-visible:outline-2"
+          style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+        >
+          {T.places.addSave}
+        </button>
+      </div>
     </div>
   )
 }
@@ -146,42 +343,15 @@ export function PlacesScreen({ onBack, viewing, onOpen, onCloseDetail }: {
  * roof — and places match within fifteen. A place saved that way is outside its
  * own tolerance from the first day, so it never comes back, and the only cure
  * this screen offered was deleting it and apuntando another gasto at that door.
- * Now: stand at the door, look at the new fix on the map with the old position
- * drawn beside it, and write it over the old one. Nothing is stored until
- * Guardar, and the watch that keeps improving the fix stops the moment it is.
+ * Now: open it on the position it already has, drag the map until the crosshair
+ * is on the doorway, and Guardar writes what is under the crosshair. Nothing is
+ * stored until then.
  *
- * **Opening this reads nothing**, exactly as before: the map is drawn from the
- * coordinate on the disk, so it never prompts and works with the permission
- * refused. The correction button is the one that reads, and it says so — the
- * rule this app follows is that only a control announcing it may prompt. It is
- * the third occasion something about a position leaves this device, since the
- * map it then draws is of where the phone is: section 13, the two lines at the
- * top of this screen and the rule in `CLAUDE.md` all moved in the same commit.
+ * **Opening this reads nothing**: the map is drawn from the coordinate on the
+ * disk, so it never prompts and works with the permission refused. Inside the
+ * correction, and only there, `HereButton` reads the device — the rule this app
+ * follows is that only a control announcing it may prompt.
  */
-/**
- * Where the point on screen came from, which is the whole of this state.
- *
- * `saved` is the position the place already has, which is what the correction
- * opens on: no reading, no prompt, and a map you can drag from a sofa. `here` is
- * a fix just read from the device, still being refined by the watch. `hand` is
- * one somebody dragged the map to, which has no device accuracy at all and takes
- * `PLACED_METRES` instead.
- */
-type Chosen = 'saved' | 'here' | 'hand'
-
-/** A correction in progress: a point in hand and nothing written yet.
- *  `improving` while the watch is still running, exactly as on the review step —
- *  the first reading indoors is often ±40 m and the one half a minute later ±8. */
-interface Editing {
-  fix: Fix
-  from: Chosen
-  improving: boolean
-}
-
-/** The device read, which is its own state because it happens *inside* a
- *  correction: the map has to stay on screen while the phone is being asked. */
-type Reading = 'idle' | 'asking' | 'denied' | 'unavailable'
-
 function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
   place: Place
   /** The other saved places near this one, measured from it. Drawn because they
@@ -196,78 +366,40 @@ function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
   onForget: () => Promise<void>
   onClose: () => void
 }) {
-  const [editing, setEditing] = useState<Editing | null>(null)
-  const [reading, setReading] = useState<Reading>('idle')
+  const saved: Fix = { lat: place.lat, lon: place.lon, accuracy: place.accuracy }
+  const { picked, reading, locateHere, pan, reset } = usePositionPicker(saved, onLocate)
+  /** Whether the correction is open. Separate from the picker, which always holds
+   *  a position: this screen shows the place's own until somebody says otherwise. */
+  const [correcting, setCorrecting] = useState(false)
   const [asking, setAsking] = useState(false)
   const [done, setDone] = useState(false)
   const metres = here ? Math.round(metresBetween(here, place)) : null
-  const watching = editing?.from === 'here'
-
-  /**
-   * While a fix read from the device is on screen, keep improving it.
-   *
-   * The same watch the review step runs and for the same reason — the best fix
-   * wins rather than the latest, because a later reading can be worse and
-   * replacing a ±8 with a ±25 would be a downgrade dressed as an update.
-   *
-   * Only while the point came from the device: the moment somebody drags the map
-   * the point is theirs, and a watch still running would shove it back under
-   * their thumb a second later. Stopped too when the correction is saved,
-   * cancelled or the sheet goes away — a watch left running is a GPS held open on
-   * somebody's phone.
-   */
-  useEffect(() => {
-    if (!watching) return
-    return watchPosition(fix => setEditing(current => {
-      if (current?.from !== 'here') return current
-      return fix.accuracy < current.fix.accuracy
-        ? { ...current, fix, improving: true }
-        : { ...current, improving: false }
-    }))
-  }, [watching])
 
   /** Opens the correction on the position the place already has. Reads nothing
    *  and prompts for nothing: the map is drawn from what is on the disk, and
    *  from there it can be dragged. */
   function startFixing() {
     setDone(false)
-    setReading('idle')
-    setEditing({
-      fix: { lat: place.lat, lon: place.lon, accuracy: place.accuracy },
-      from: 'saved',
-      improving: false,
-    })
+    reset(saved)
+    setCorrecting(true)
   }
 
-  /** The one control on this screen that reads the position, which is why it is
-   *  a button of its own and says what it does. */
-  async function locateHere() {
-    setDone(false)
-    setReading('asking')
-    const fix = await onLocate()
-    if (fix === 'denied' || fix === 'unavailable') return setReading(fix)
-    setReading('idle')
-    setEditing({ fix, from: 'here', improving: true })
-  }
-
-  /** A drag. The point stops being the device's the moment it is moved, so the
-   *  accuracy stops being the device's too. */
-  function pan(fix: Fix) {
-    setEditing(current => (current
-      ? { fix: { ...fix, accuracy: PLACED_METRES }, from: 'hand', improving: false }
-      : current))
+  function stopFixing() {
+    setCorrecting(false)
+    reset(saved)
   }
 
   async function save() {
-    if (!editing) return
-    await onMove(editing.fix)
-    setEditing(null)
+    if (!picked.fix) return
+    await onMove(picked.fix)
+    setCorrecting(false)
     setDone(true)
   }
 
   // How far the correction would move it, which is the one number that says what
   // pressing Guardar would do.
-  const moved = editing ? Math.round(metresBetween(editing.fix, place)) : null
+  const editing = correcting && picked.fix ? picked : null
+  const moved = editing?.fix ? Math.round(metresBetween(editing.fix, place)) : null
 
   return (
     <div
@@ -294,7 +426,7 @@ function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
           // it is a coordinate this device already has — the correction opens on
           // the place's own, so nothing is read to draw this and nothing is
           // written until Guardar.
-          fix={editing?.fix ?? { lat: place.lat, lon: place.lon, accuracy: place.accuracy }}
+          fix={editing?.fix ?? saved}
           // Its own name goes under the dot rather than into this list: the
           // centre is the place here, not the person looking at it. While a
           // position is being chosen the centre is the crosshair, so the place
@@ -326,29 +458,12 @@ function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
               {/* The reading is inside the correction rather than the way into
                   it, which is the difference between this screen prompting and
                   not: dragging the map asks the device nothing. */}
-              <button
-                type="button"
-                onClick={() => void locateHere()}
-                disabled={reading === 'asking'}
-                className="flex items-center justify-center gap-2 rounded-xl border border-line
-                           py-2.5 text-sm font-semibold disabled:opacity-60
-                           focus-visible:outline focus-visible:outline-2"
-                style={{ background: 'var(--surface)' }}
-              >
-                {reading === 'asking' && <Spinner className="h-4 w-4" />}
-                {reading === 'asking' ? T.places.fixAsking : T.places.fixHere}
-              </button>
-
-              {(reading === 'denied' || reading === 'unavailable') && (
-                <p role="alert" className="text-xs" style={{ color: 'var(--danger)' }}>
-                  {reading === 'denied' ? T.places.denied : T.places.unavailable}
-                </p>
-              )}
+              <HereButton reading={reading} onClick={() => void locateHere()} />
 
               <div className="flex items-stretch gap-2">
                 <button
                   type="button"
-                  onClick={() => setEditing(null)}
+                  onClick={stopFixing}
                   className="flex-1 rounded-xl border border-line py-2.5 text-sm font-semibold
                              focus-visible:outline focus-visible:outline-2"
                   style={{ background: 'var(--surface)' }}
@@ -374,7 +489,11 @@ function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
                 {' · '}{T.places.uses(place.uses)}
                 {metres !== null && ` · ${T.places.distance(metres)}`}
               </p>
-              {place.method && <p className="text-xs text-ink-2">{place.method}</p>}
+              {(place.category || place.method) && (
+                <p className="text-xs text-ink-2">
+                  {[place.category, place.method].filter(Boolean).join(' · ')}
+                </p>
+              )}
               {others.length > 0 && (
                 <p className="text-[11px] text-ink-3">{T.places.mapOthers(others.length)}</p>
               )}
@@ -429,6 +548,21 @@ function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
       )}
     </div>
   )
+}
+
+/**
+ * The most recently saved place, or null.
+ *
+ * Somewhere for the new-place map to open on when the phone's position is not
+ * already known: a coordinate off the disk rather than a reading, and the most
+ * recent one because places are saved where their owner has been lately. The map
+ * says out loud that this is where it started, since a map centred on somewhere
+ * plausible looks exactly like a map centred on you.
+ */
+function lastSaved(places: readonly Place[]): Fix | null {
+  let latest: Place | null = null
+  for (const place of places) if (!latest || place.savedAt > latest.savedAt) latest = place
+  return latest ? { lat: latest.lat, lon: latest.lon, accuracy: latest.accuracy } : null
 }
 
 /**

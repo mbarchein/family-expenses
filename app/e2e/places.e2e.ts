@@ -140,7 +140,7 @@ test.describe('with the location allowed', () => {
 
     // And editing the concept puts the offer back, because the claim was about
     // that concept at that doorway and it is no longer the same one.
-    await page.getByRole('button', { name: 'Añadir' }).click()
+    await page.getByRole('button', { name: 'Añadir', exact: true }).click()
     await reachDetails(page)
     await page.getByRole('group', { name: 'Aquí has apuntado' }).getByRole('button').first().click()
     await page.getByRole('textbox', { name: 'Concepto' }).fill('estanco')
@@ -440,7 +440,7 @@ test.describe('with the location allowed', () => {
 
     // And the point of the whole thing: the concept comes back at the door now.
     await sheet.getByRole('button', { name: 'Cerrar' }).click()
-    await page.getByRole('button', { name: 'Añadir' }).click()
+    await page.getByRole('button', { name: 'Añadir', exact: true }).click()
     await reachDetails(page)
     await expect(page.getByRole('group', { name: 'Aquí has apuntado' })
       .getByRole('button', { name: /ferretería/ })).toBeVisible()
@@ -469,6 +469,105 @@ test.describe('with the location allowed', () => {
     await expect(sheet.getByText(/El sitio se movería \d+ m/)).toBeVisible()
     await sheet.getByRole('button', { name: 'Guardar esta posición' }).click()
     await expect(sheet.getByText('Posición corregida')).toBeVisible()
+  })
+
+  test('a place can be added by hand, with a concept and a category',
+    async ({ page }) => {
+    // The switch on the review step only saves a place while a gasto is being
+    // apuntado there, which misses the two useful moments: the shop you are
+    // standing outside with nothing to apuntar, and the one you want to file
+    // properly rather than with whatever the guess made of its concept.
+    await stubApi(page)
+    await signIn(page)
+    await page.getByRole('button', { name: 'Sitios' }).click()
+
+    await page.getByRole('button', { name: 'Añadir un sitio' }).click()
+    const form = page.getByRole('dialog', { name: 'Nuevo sitio' })
+    // The map opens on the phone, which is allowed here — and it says so, since a
+    // map centred on somewhere plausible looks exactly like one centred on you.
+    await expect(form.getByText('Empieza donde está el móvil')).toBeVisible()
+
+    await form.getByRole('textbox', { name: 'Concepto' }).fill('farmacia')
+    await form.getByRole('button', { name: 'Elegir categoría' }).click()
+    await page.getByRole('dialog', { name: 'Elegir categoría' })
+      .getByRole('button', { name: 'Luz' }).click()
+    await form.getByRole('button', { name: 'Guardar el sitio' }).click()
+
+    // On the list, with the category it files under and a counter that has not
+    // started: nothing has been spent here yet.
+    const row = page.getByRole('listitem').filter({ hasText: 'farmacia' })
+    await expect(row).toContainText('Luz')
+    await expect(row).toContainText('Sin usar todavía')
+
+    // And the payoff: the doorway offers its concept *and* hands over the
+    // category, instead of the second step guessing one from the word.
+    // Exact: the button on this screen is called "Añadir un sitio" and a loose
+    // match takes it instead of the tab.
+    await page.getByRole('button', { name: 'Añadir', exact: true }).click()
+    await reachDetails(page)
+    await page.getByRole('group', { name: 'Aquí has apuntado' })
+      .getByRole('button', { name: /farmacia/ }).click()
+    await expect(page.getByRole('textbox', { name: 'Concepto' })).toHaveValue('farmacia')
+    await expect(page.getByRole('button', { name: 'Elegir categoría' })).toContainText('Luz')
+  })
+
+  test('adding a place that is already there says so instead of listing it twice',
+    async ({ page }) => {
+    await stubApi(page)
+    await signIn(page)
+    await page.getByRole('button', { name: 'Sitios' }).click()
+
+    for (const attempt of [1, 2]) {
+      await page.getByRole('button', { name: 'Añadir un sitio' }).click()
+      const form = page.getByRole('dialog', { name: 'Nuevo sitio' })
+      await form.getByRole('textbox', { name: 'Concepto' }).fill('farmacia')
+      await form.getByRole('button', { name: 'Guardar el sitio' }).click()
+      if (attempt === 2) {
+        // The same concept at the same doorway is the same place — the store says
+        // so, and the form says it out loud rather than closing on a no-op.
+        await expect(form.getByRole('alert')).toContainText('Ya tenías ese sitio')
+        await form.getByRole('button', { name: 'Cerrar' }).click()
+      }
+    }
+
+    await expect(page.getByRole('listitem').filter({ hasText: 'farmacia' })).toHaveCount(1)
+  })
+
+  test('a place needs a concept before it can be saved', async ({ page }) => {
+    // A place is a position with a concept on it: without the word there is
+    // nothing to offer at that doorway later.
+    await stubApi(page)
+    await signIn(page)
+    await page.getByRole('button', { name: 'Sitios' }).click()
+    await page.getByRole('button', { name: 'Añadir un sitio' }).click()
+
+    const form = page.getByRole('dialog', { name: 'Nuevo sitio' })
+    await form.getByRole('button', { name: 'Guardar el sitio' }).click()
+    await expect(form.getByRole('alert')).toContainText('Ponle un concepto')
+    await expect(form).toBeVisible()
+  })
+
+  test('a place saved with a gasto keeps the category that gasto was filed under',
+    async ({ page }) => {
+    // The switch saves the place with the expense, and the category it carries is
+    // the one on screen, which somebody may just have corrected by hand. Better
+    // than re-guessing it from the concept next time.
+    await stubApi(page)
+    await signIn(page)
+
+    await reachDetails(page)
+    await page.getByRole('textbox', { name: 'Concepto' }).fill('ferretería')
+    await page.getByRole('button', { name: 'Elegir categoría' }).click()
+    await page.getByRole('dialog', { name: 'Elegir categoría' })
+      .getByRole('button', { name: 'Colegio' }).click()
+    await next(page)
+    await savePlace(page)
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Sitios' }).click()
+    await expect(page.getByRole('listitem').filter({ hasText: 'ferretería' }))
+      .toContainText('Colegio')
   })
 
   test('the places screen lists what was saved and can forget it', async ({ page }) => {
@@ -550,7 +649,7 @@ test.describe('with the location allowed', () => {
     // The sheet covers the screen, tab bar included, so it is closed first —
     // which is also the gesture a person makes here.
     await sheet.getByRole('button', { name: 'Cerrar' }).click()
-    await page.getByRole('button', { name: 'Añadir' }).click()
+    await page.getByRole('button', { name: 'Añadir', exact: true }).click()
     await reachDetails(page)
     await expect(page.getByRole('group', { name: 'Aquí has apuntado' })
       .getByRole('button', { name: /ferretería/ })).toBeVisible()

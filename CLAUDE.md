@@ -93,7 +93,8 @@ against the copy of the spreadsheet, never the live ledger.
   map is on screen. Section 13, the Sitios screen and this bullet say the same
   thing — change one and the other two move in the same commit.
 
-  There are three of those maps now, and the second one is why that clause reads
+  There are four of those maps now — the review step, a saved place, correcting
+  one, and adding one by hand — and the second one is why that clause reads
   "a map is on screen" rather than "the switch is on": opening a saved place from
   Sitios shows the same map, centred on the fix that place was saved with. That
   one is the same bargain rather than a wider one — the tile asked for is the tile
@@ -109,6 +110,18 @@ against the copy of the spreadsheet, never the live ledger.
   That button is the third thing in the app that may prompt, and it is allowed by
   the rule rather than an exception to it — the whole of the reading rule is that
   the control says what it will do.
+
+  The fourth is the new-place form on Sitios, which is the correction's twin: it
+  opens on the phone's position where the permission was already granted, on the
+  last place saved where it was not, and is dragged from there. Same button
+  inside it, same rule.
+
+  Reading without prompting is the other half of that rule and it is allowed:
+  the Sitios screen reads the position on mount through
+  `positionIfAlreadyAllowed`, which looks at the permission and gives up rather
+  than asking. That is what the distances on the list are, and it is why the two
+  Spanish lines say «pedirte permiso solo lo hace este botón» rather than
+  «nada lee tu posición» — the first is true and the second was not.
 
   Which is why the map is draggable through a prop and not by default: a map
   somebody opened to read must not become a way to look around, or the "tiles for

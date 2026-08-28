@@ -39,6 +39,18 @@ export interface Place {
    *  it just travelled inside the observaciones. Places already on a phone still
    *  have the old key, so reading one falls back to it. */
   method: string
+  /**
+   * The expense category this doorway files its gastos under, or ''.
+   *
+   * Stored on the place and not guessed from the concept, because the guess is
+   * the thing it exists to override: `categoriseRows` reads the Categorías tab's
+   * keywords, and «lo de la esquina» is not a word on any row of it. A place is
+   * where somebody can say once what kind of thing this shop sells.
+   *
+   * Empty on every place saved before the field existed, and empty is not a
+   * category: the step-two guess is what happens then, exactly as before.
+   */
+  category: string
   savedAt: number
   uses: number
 }
@@ -79,7 +91,21 @@ export interface PlacesStore {
    *  it because the two happen at different times: the switch on the review
    *  step reads the position when it is turned on, and the place is written
    *  only if the expense it belongs to is saved. */
-  rememberAt: (fix: Fix, concept: string, method: string) => Promise<RememberResult>
+  rememberAt: (
+    fix: Fix, concept: string, method: string, category: string,
+  ) => Promise<RememberResult>
+  /**
+   * Writes a place nobody has spent anything at yet, from the Sitios screen.
+   *
+   * The difference from `rememberAt` is `uses`, which starts at nothing: that
+   * counter is how often this doorway really turned out to be the one, and a
+   * place typed in at the kitchen table has not been the one yet. Everything
+   * else — the same doorway with the same concept is the same place — is shared,
+   * so adding one that already exists says so instead of listing it twice.
+   */
+  addPlace: (
+    fix: Fix, fields: { concept: string; method: string; category: string },
+  ) => Promise<RememberResult>
   /**
    * Moves a place already saved to a fix taken now.
    *
@@ -154,32 +180,55 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
     [places],
   )
 
-  const rememberAt = useCallback(async (
-    fix: Fix, concept: string, method: string,
+  /**
+   * The write both ways in share.
+   *
+   * The same concept at the same doorway is the same place: saving it again
+   * counts as a use rather than adding a second row that would always be offered
+   * twice. What the two callers disagree about is the counter — see `addPlace`.
+   */
+  const write = useCallback(async (
+    fix: Fix,
+    fields: { concept: string; method: string; category: string },
+    counts: boolean,
   ): Promise<RememberResult> => {
-    // The same concept at the same doorway is the same place. Saving it again
-    // counts as a use rather than adding a second row that will always be
-    // offered twice.
     const existing = places.find(
-      place => place.concept === concept && samePlace(fix, place),
+      place => place.concept === fields.concept && samePlace(fix, place),
     )
     const place: Place = existing
-      ? { ...existing, uses: existing.uses + 1, method: method || existing.method }
+      ? {
+          ...existing,
+          uses: existing.uses + (counts ? 1 : 0),
+          // Filled in, never emptied: the second visit knows the card and the
+          // first one may not have, and neither of them is a reason to forget
+          // what was chosen by hand on the Sitios screen.
+          method: fields.method || existing.method,
+          category: fields.category || existing.category,
+        }
       : {
           id: crypto.randomUUID(),
           lat: fix.lat,
           lon: fix.lon,
           accuracy: fix.accuracy,
-          concept,
-          method,
+          concept: fields.concept,
+          method: fields.method,
+          category: fields.category,
           savedAt: Date.now(),
-          uses: 1,
+          uses: counts ? 1 : 0,
         }
 
     await idb.set('places', place.id, place)
     setPlaces(current => [...current.filter(item => item.id !== place.id), place])
     return existing ? 'again' : 'saved'
   }, [places])
+
+  const rememberAt = useCallback((
+    fix: Fix, concept: string, method: string, category: string,
+  ) => write(fix, { concept, method, category }, true), [write])
+
+  const addPlace = useCallback((
+    fix: Fix, fields: { concept: string; method: string; category: string },
+  ) => write(fix, fields, false), [write])
 
   const countUse = useCallback(async (id: string) => {
     // Read back from the disk rather than from `places`, because the caller is
@@ -216,7 +265,8 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
   }, [])
 
   return {
-    places, ready, here, nearby, locateNow, knows, rememberAt, countUse, moveTo, forget,
+    places, ready, here, nearby, locateNow, knows, rememberAt, addPlace, countUse,
+    moveTo, forget,
   }
 }
 
@@ -231,9 +281,10 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
  * saved before the rename are read here or not at all.
  */
 function readPlace(place: Place): Place {
-  if (place.method !== undefined) return place
+  const category = typeof place.category === 'string' ? place.category : ''
+  if (place.method !== undefined) return { ...place, category }
   const legacy = (place as Place & { note?: string }).note
-  return { ...place, method: typeof legacy === 'string' ? legacy : '' }
+  return { ...place, category, method: typeof legacy === 'string' ? legacy : '' }
 }
 
 function isPlace(value: unknown): value is Place {

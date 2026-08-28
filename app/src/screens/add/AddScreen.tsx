@@ -292,7 +292,11 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
     // is local and instant, while the entry goes through the outbound queue.
     // Failing to store a place must never stop an expense being apuntado.
     if (place.kind === 'on') {
-      await rememberAt(place.fix, draft.concept.trim(), draft.method).catch(() => {})
+      // With the category the expense is being filed under, which is what the
+      // doorway will hand back next time — better than guessing from the concept,
+      // since the guess is what somebody has just corrected on the screen above.
+      await rememberAt(place.fix, draft.concept.trim(), draft.method, draft.category)
+        .catch(() => {})
     }
 
     // The doorway the review step recognised instead of offering to save. Flicking
