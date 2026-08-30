@@ -66,7 +66,7 @@ test('the fields come in the order the keypad asks for them', async ({ page }) =
     dialog.locator('input[type="date"]').boundingBox(),
     dialog.getByRole('textbox', { name: 'Importe' }).boundingBox(),
     dialog.getByRole('button', { name: 'Paga Viqui' }).boundingBox(),
-    dialog.getByRole('textbox', { name: 'Concepto' }).boundingBox(),
+    dialog.getByRole('combobox', { name: 'Concepto' }).boundingBox(),
     dialog.getByRole('textbox', { name: 'Observaciones' }).boundingBox(),
   ])
   // Middles, not tops: the amount sits inside a bordered box with the € beside
@@ -90,7 +90,7 @@ test('saving an edit sends it, and voiding asks first', async ({ page }) => {
   await page.getByRole('button', { name: 'Gastos' }).click()
   await page.getByRole('button', { name: /super/ }).click()
 
-  await page.getByRole('textbox', { name: 'Concepto' }).fill('super mercadona')
+  await page.getByRole('combobox', { name: 'Concepto' }).fill('super mercadona')
   await page.getByRole('button', { name: 'Guardar cambios' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
 
