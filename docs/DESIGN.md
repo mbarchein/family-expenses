@@ -127,7 +127,8 @@ Display names come from here, not from the C and D headers, so a header can be
 renamed without breaking anything. No name is hardcoded anywhere.
 
 **`Fijos`** — templates for recurring entries (concept, amount, day, person,
-period, active). They are not ledger rows until confirmed.
+period, active), plus `categoría`, our own `id`, and `forma de pago` on the end.
+They are not ledger rows until confirmed.
 
 **`Sugerencias`** — the lists the phone offers, three columns:
 
@@ -331,6 +332,20 @@ uploads in the background.
 
 The last few months grouped by day, filterable by person, searchable by concept.
 Swipe to edit or void. Either person can edit any row.
+
+**The edit sheet offers what the app knows**, which for a long time it did not:
+the concept box has the same vocabulary as the fijos editor behind a `datalist`
+(`lib/concepts.ts` — the Sugerencias tab, then the backend's ranking, then this
+phone's own rows, folded for duplicates), the category is re-guessed when the
+concept is *replaced*, and the payment method has the cards off the Sugerencias
+tab as pills above its box. The box stays: a row can hold a method the tab has
+never heard of, an old one's or one typed on the other phone. What was wrong was
+treating that as a reason to make somebody type «Tarjeta BBVA» in full.
+
+Re-guessing only on replacement is the caveat that screen always had, kept:
+opening the sheet refiles nothing, because the row's category may have been picked
+by hand or typed into the spreadsheet. Change the word and the derivation is
+invalid, exactly as on the second step.
 
 Over the list, three totals: **last month, this month, this year**. They are
 computed from the entries the list is showing, so they follow the filter and the
@@ -540,7 +555,12 @@ that posted them by itself would write the rent twice into a ledger where a row
 can only be voided, never removed.
 
 The tab is the list and the editor: what they are, how often, on which day, whose
-card, and whether they are switched on. `importe` left empty means *ask me every
+card, what card, and whether they are switched on. The category and the payment
+method are the two the template carries on behalf of the gasto it proposes: the
+rent is filed the same way and comes off the same account every month, so both are
+chosen once here rather than every time a proposal is confirmed. Empty leaves each
+to what the second step would have done anyway — the guess for the category, the
+pills for the card. `importe` left empty means *ask me every
 time*, which is the light and the water. `persona` left empty means whoever is
 holding the phone. It is a tab and not a corner of another screen because an
 editor needs a door that is there when the list is empty — the proposals appear

@@ -220,7 +220,11 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
       // way every month without anybody choosing again. Empty falls through to
       // the guess on the second step, exactly as a typed concept does.
       category: item.category,
-      method: '',
+      // The template's card, where it has one. The pills on the second step are
+      // filtered by payer and this is not: a fijo says who pays and what it is
+      // paid with in the same row, so the two cannot disagree the way a carried
+      // card and a changed payer could.
+      method: item.method,
       note: '',
       fixed: { id: item.id, row: item.row, due: item.due },
       step: known ? 2 : 0,

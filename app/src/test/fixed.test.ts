@@ -11,6 +11,7 @@ const template = (over: Partial<Template> = {}): Template => ({
   months: 1,
   active: true,
   category: 'Hogar',
+  method: 'Tarjeta BBVA',
   from: '',
   last: '',
   ...over,
@@ -111,7 +112,7 @@ describe('alreadyThere', () => {
   const entry = (date: string, concept: string, voided = false) => ({ date, concept, voided })
   const due = {
     id: 'id-alquiler', row: 2, concept: 'alquiler', amount: 700, payer: 0 as const,
-    due: '2026-08-01', category: 'Hogar',
+    due: '2026-08-01', category: 'Hogar', method: 'Tarjeta BBVA',
   }
 
   it('finds the row somebody pasted from the bank', () => {

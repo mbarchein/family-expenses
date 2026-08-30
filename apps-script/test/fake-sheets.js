@@ -32,7 +32,7 @@ const LEDGER_COLS = LEDGER_HEADERS.length
  *  and a row number is not an identity. */
 const FIXED_HEADERS_ROW = [
   'concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo', 'desde', 'último',
-  'categoría', 'id'
+  'categoría', 'id', 'forma de pago'
 ]
 
 function sheet(name, values, maxColumns, formulas) {

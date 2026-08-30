@@ -285,6 +285,50 @@ test('a template with no id is found by row, and stamped on the way past', () =>
   assert.equal(sheets.Fijos.values[1][FIXED_COL_ID - 1], 'id-piscina')
 })
 
+test('a template carries the card it is paid with', () => {
+  // The column after the id: what the gasto a template proposes starts with, so
+  // the card for the rent is chosen once rather than every month. Written on its
+  // own like the category, because both live on the far side of `último`.
+  const sheets = world({
+    fixed: [
+      FIXED_HEADERS_ROW,
+      ['alquiler', 700, 1, 'Viqui', 'mensual', 'sí', '', '', 'Hogar', 'id-alquiler', 'Tarjeta BBVA'],
+    ],
+  })
+
+  assert.equal(readFixed_().items[0].method, 'Tarjeta BBVA')
+
+  saveFixed_({
+    id: 'id-alquiler', concept: 'alquiler', amount: 700, day: 1, payer: 0,
+    months: 1, active: true, category: 'Hogar', method: 'Efectivo',
+  })
+
+  assert.equal(sheets.Fijos.values[1][FIXED_COL_METHOD - 1], 'Efectivo')
+  // And `último` is still untouched by a save, which is the whole reason these
+  // columns are where they are.
+  assert.equal(sheets.Fijos.values[1][FIXED_COL_LAST - 1], '')
+})
+
+test('a tab that predates the card column is widened rather than written past', () => {
+  // The same courtesy the id stamp does. A sheet nobody has run
+  // `setupSpreadsheet` against still has to be writable, or what was typed on the
+  // phone would land nowhere and say it saved.
+  const sheets = world({
+    fixed: [
+      ['concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo', 'desde', 'último'],
+      ['alquiler', 700, 1, 'Viqui', 'mensual', 'sí', '', ''],
+    ],
+  })
+
+  saveFixed_({
+    row: 2, concept: 'alquiler', amount: 700, day: 1, payer: 0, months: 1,
+    active: true, method: 'Efectivo',
+  })
+
+  assert.equal(sheets.Fijos.values[1][FIXED_COL_METHOD - 1], 'Efectivo')
+  assert.equal(readFixed_().items[0].method, 'Efectivo')
+})
+
 test('a template written before the id column gets one the first time it is touched',
   () => {
   // The two rows that were in this tab before the column existed. The app reads

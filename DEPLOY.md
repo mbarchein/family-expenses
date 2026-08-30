@@ -267,7 +267,8 @@ On the **real** spreadsheet:
 3. Run `setupSpreadsheet` and **read its log**. It creates `Config`, `Fijos`,
    `Sugerencias` and `Categorías`, writes the `id` header in column G, and claims
    `categoría` in H and `forma de pago` in I. On the `Fijos` tab it claims
-   `categoría` and `id` too, and gives an id to every template that has none —
+   `categoría`, `id` and its own `forma de pago` too, and gives an id to every
+   template that has none —
    the ones written before that column existed. Nothing breaks without it: the
    backend mints an id for a template the first time it writes to it. Running this
    is how they stop being addressed by row now rather than eventually.

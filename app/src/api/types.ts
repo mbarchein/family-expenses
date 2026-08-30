@@ -81,6 +81,11 @@ export interface Fixed {
    *  as, so a bill that arrives every month is filed the same way every month
    *  without anybody choosing again. */
   category: string
+  /** And the card it is paid with, from the column after the id. Same reason:
+   *  the rent comes off the same account every month, and choosing that again
+   *  each time is the tap this feature exists to save. Empty leaves the expense
+   *  to the pills on the second step, exactly as before. */
+  method: string
 }
 
 export interface Bootstrap {

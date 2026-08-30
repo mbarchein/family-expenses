@@ -42,22 +42,28 @@
  * whichever happens sooner.
  */
 
-var FIXED_COLS = 10;
+var FIXED_COLS = 11;
 var FIXED_HEADERS = [
   'concepto', 'importe', 'dia', 'persona', 'periodicidad', 'activo', 'desde', 'último',
   // After `último` and not beside `concepto`, for the same reason the ledger's two
   // new columns went on the end: `último` is written by `fixedDone` and nothing
   // else, and inserting a column would move it out from under that write.
   'categoría',
-  // Last, and written by us rather than by them: it is the only column on this
-  // tab that is ours. The users never need to look at it.
-  'id'
+  // Ours rather than theirs: the users never need to look at it.
+  'id',
+  // On the end, after the column that is ours, because that is where a new one
+  // goes on a tab whose earlier columns are addressed by number. The ledger's own
+  // `forma de pago` is a different column on a different tab; this is what the
+  // gasto a template proposes starts with, so the card for the rent is chosen
+  // once rather than every month.
+  'forma de pago'
 ];
 /** The column `último` lives in. Named because two writes have to step around
  *  it: it is the tab's own record of what has been dealt with. */
 var FIXED_COL_LAST = 8;
 var FIXED_COL_CATEGORY = 9;
 var FIXED_COL_ID = 10;
+var FIXED_COL_METHOD = 11;
 
 /** `activo` is opt-out: an empty cell is an active template, because a tab
  *  filled in by hand should not need a word in every row to work. */
@@ -132,6 +138,9 @@ function readFixed_() {
       payer: person === -1 ? null : person,
       months: cadence,
       category: String(row[FIXED_COL_CATEGORY - 1] == null ? '' : row[FIXED_COL_CATEGORY - 1]).trim(),
+      // Undefined on a tab that has not been widened yet — `width` is capped at
+      // what the sheet actually has — and empty is the right answer there.
+      method: String(row[FIXED_COL_METHOD - 1] == null ? '' : row[FIXED_COL_METHOD - 1]).trim(),
       active: fixedIsActive_(row[5]),
       from: formatDate_(row[6]) || '',
       last: formatDate_(row[7]) || ''
@@ -238,11 +247,21 @@ function saveFixed_(payload) {
   // Seven columns, not eight: `último` is left exactly as it was.
   sheet.getRange(row, 1, 1, values.length).setValues([values]);
   var stamped = stampFixedId_(sheet, row, id);
-  // And the category on its own, over on the other side of `último`, which is
-  // why this is a second write rather than a wider one.
+  // And the category and the card on their own, over on the other side of
+  // `último`, which is why these are writes of their own rather than a wider one.
   if (payload.category !== undefined) {
     sheet.getRange(row, FIXED_COL_CATEGORY)
       .setValue(String(payload.category == null ? '' : payload.category).trim());
+  }
+  if (payload.method !== undefined) {
+    // Widened first if the tab predates this column, the way the id stamp does:
+    // a sheet that has never had `setupSpreadsheet` run against it still has to
+    // be writable rather than silently losing what was typed.
+    if (sheet.getMaxColumns() < FIXED_COL_METHOD) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), FIXED_COL_METHOD - sheet.getMaxColumns());
+    }
+    sheet.getRange(row, FIXED_COL_METHOD)
+      .setValue(String(payload.method == null ? '' : payload.method).trim());
   }
 
   return { row: row, id: stamped };

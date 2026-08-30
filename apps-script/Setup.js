@@ -69,6 +69,8 @@ function setupSpreadsheet() {
       .replace('Ledger:', 'Fijos:'));
     report.push(claimColumn_(existingFixed, FIXED_COL_ID, FIXED_HEADERS[9])
       .replace('Ledger:', 'Fijos:'));
+    report.push(claimColumn_(existingFixed, FIXED_COL_METHOD, FIXED_HEADERS[10])
+      .replace('Ledger:', 'Fijos:'));
     report.push(stampFixedIds_(existingFixed));
   } else {
     var fixed = ss.insertSheet(FIXED_SHEET);
@@ -802,6 +804,7 @@ function annotateFixed_(sheet) {
   // a column of uuids looks like something safe to tidy away.
   sheet.getRange(1, 10).setNote(
     'Lo escribe la app para identificar cada fijo. No lo edites ni lo borres.');
+  sheet.getRange(1, 11).setNote('Con qué se paga. El gasto que proponga saldrá ya con esto.');
 }
 
 /**

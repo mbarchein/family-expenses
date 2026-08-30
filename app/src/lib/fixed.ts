@@ -29,6 +29,8 @@ export interface Due {
   /** The template's category, so the expense it produces is filed the same way
    *  every month without anybody choosing again. */
   category: string
+  /** And its card, for the same reason. */
+  method: string
 }
 
 export interface Template {
@@ -48,6 +50,8 @@ export interface Template {
   last: string
   /** What the expense it produces gets filed as. */
   category: string
+  /** And what it is paid with. */
+  method: string
 }
 
 /**
@@ -82,6 +86,7 @@ export function whatIsDue(templates: readonly Template[], today: string): Due[] 
         amount: template.amount,
         payer: template.payer,
         category: template.category,
+        method: template.method,
         due,
       })
     }
