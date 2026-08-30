@@ -519,11 +519,6 @@ function previewCategorise() {
   return categorise_(true);
 }
 
-/** How many concepts to name under each category before summarising the rest.
- *  The log is read in a console pane, and Supermercado alone will have two
- *  hundred of them. */
-var CONCEPTS_PER_CATEGORY = 12;
-
 function categorise_(dryRun) {
   var config = readConfig_();
   var categories = readCategories_();
@@ -618,9 +613,12 @@ function categorise_(dryRun) {
     ''
   ];
 
-  // Each category, biggest first, and under it the concepts it took and why.
-  // Capped per category because one of them will have two hundred distinct
-  // concepts and the log is meant to be read.
+  // Each category, biggest first, and under it every concept it took and why.
+  //
+  // All of them, with nothing summarised away: this list is read while editing
+  // `palabras`, and "… and 17 more" hides exactly the rows somebody is looking
+  // for — the seventeen at the bottom are the odd ones, and the odd ones are the
+  // work. The log pane scrolls.
   Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })
     .forEach(function (name) {
       var concepts = Object.keys(members[name] || {}).sort(function (a, b) {
@@ -628,13 +626,10 @@ function categorise_(dryRun) {
       });
       lines.push('  ' + counts[name] + '  ' + name +
         '  (' + concepts.length + (concepts.length === 1 ? ' concept)' : ' concepts)'));
-      concepts.slice(0, CONCEPTS_PER_CATEGORY).forEach(function (concept) {
+      concepts.forEach(function (concept) {
         var member = members[name][concept];
         lines.push('        ' + member.rows + '  ' + concept + '  ← ' + member.why);
       });
-      if (concepts.length > CONCEPTS_PER_CATEGORY) {
-        lines.push('        … and ' + (concepts.length - CONCEPTS_PER_CATEGORY) + ' more');
-      }
     });
 
   // The concepts left over, commonest first. This list is the work: every line
@@ -643,10 +638,10 @@ function categorise_(dryRun) {
   if (left.length) {
     lines.push('');
     lines.push('Unfiled concepts, commonest first — add a word for these:');
-    left.slice(0, 40).forEach(function (concept) {
+    // Every one of them, for the same reason: the tail is the work.
+    left.forEach(function (concept) {
       lines.push('  ' + unfiled[concept] + '  ' + concept);
     });
-    if (left.length > 40) lines.push('  … and ' + (left.length - 40) + ' more');
   }
   if (dryRun) {
     lines.push('');
