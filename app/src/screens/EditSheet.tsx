@@ -1,18 +1,31 @@
-import { useId, useState, type SyntheticEvent } from 'react'
+import { useEffect, useId, useRef, useState, type SyntheticEvent } from 'react'
 import { Avatar } from '../components/Avatar'
 import { CategoryField } from '../components/CategoryField'
+import { ConceptField } from '../components/ConceptField'
+import { MethodField } from '../components/MethodField'
 import { Segmented } from '../components/Segmented'
 import { T } from '../i18n/strings'
+import { categoryFor } from '../lib/categories'
 import { todayIso } from '../lib/dates'
 import { parseAmount, typedFrom, typedFromAmount } from '../lib/money'
-import type { Category, Entry, Person } from '../api/types'
+import type { Category, Entry, Person, Suggestion } from '../api/types'
 import { useAvatars } from '../store/avatars'
 import type { QueuedEntry } from '../store/queue'
 
-export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }: {
+export function EditSheet({
+  entry, people, categories, concepts, suggestions, entries, onClose, onSave, onVoid,
+}: {
   entry: Entry
   people: [Person, Person]
   categories: readonly Category[]
+  /** The vocabulary the sheet already has, for the concept box's own list. This
+   *  screen had a bare input: the one place in the app that knew a word and did
+   *  not offer it. */
+  concepts: readonly string[]
+  /** The Sugerencias tab, for the cards on the method row. */
+  suggestions: readonly Suggestion[]
+  /** The ledger, for the category guess when the concept is replaced. */
+  entries: readonly Entry[]
   onClose: () => void
   onSave: (entry: QueuedEntry) => Promise<void>
   onVoid: (id: string) => Promise<void>
@@ -41,6 +54,25 @@ export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }
    */
   const negative = entry.amount < 0
   const titleId = useId()
+
+  /**
+   * The category, re-guessed only when the concept is *replaced*.
+   *
+   * The rule the second step follows, and the caveat this screen always had is
+   * still honoured: opening the sheet refiles nothing. The row arrives with a
+   * category — possibly one typed into the spreadsheet by hand — and the ref
+   * starts at the concept it arrived with, so nothing is guessed until somebody
+   * changes the word. After that the derivation is what it is everywhere else: a
+   * category describes a concept, and replacing the concept invalidates it.
+   */
+  const guessedFor = useRef(entry.concept.trim())
+  useEffect(() => {
+    const named = concept.trim()
+    if (guessedFor.current === named) return
+    guessedFor.current = named
+    const guess = categoryFor(named, categories, entries)
+    setCategory(current => (guess === current ? current : guess))
+  }, [concept, categories, entries])
   const { faces } = useAvatars()
 
   /**
@@ -187,12 +219,7 @@ export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }
             stack
           />
 
-          <input
-            value={concept}
-            onChange={event => setConcept(event.target.value)}
-            aria-label={T.add.concept}
-            className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm"
-          />
+          <ConceptField value={concept} concepts={concepts} onChange={setConcept} />
 
           {/* Under the concept, because it is about the concept. Never re-guessed
               here: this row already has a category — possibly one somebody typed
@@ -200,16 +227,18 @@ export function EditSheet({ entry, people, categories, onClose, onSave, onVoid }
               what it was opened to fix is worse than one that shows nothing. */}
           <CategoryField value={category} categories={categories} onChange={setCategory} />
 
-          {/* Its own field, because it is its own column. One box and not pills:
-              the pills belong on the way in, where the fast path is, and this
-              screen has to be able to show a method that is not on the
-              Sugerencias tab — an old row's, or one typed on the other phone. */}
-          <input
+          {/* Its own field, because it is its own column — and the cards as well
+              as the box now. The box has to stay: this screen must be able to
+              show a method that is not on the Sugerencias tab, an old row's or
+              one typed on the other phone. What was wrong was making that a
+              reason to leave out the four cards the app has written down, so
+              correcting a row to «Tarjeta BBVA» meant typing all twelve
+              characters. */}
+          <MethodField
+            suggestions={suggestions}
+            payer={payer}
             value={method}
-            onChange={event => setMethod(event.target.value)}
-            aria-label={T.add.methodRow}
-            placeholder={T.add.methodRow}
-            className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm"
+            onChange={setMethod}
           />
 
           <input

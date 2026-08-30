@@ -105,6 +105,9 @@ export const T = {
     /** The free-text half of that row. The pills cover what is written down in
      *  the Sugerencias tab; this is for everything nobody thought of. */
     notePlaceholder: 'Escribe una observación',
+    /** The same, for the card: the two editing screens show the pills *and* a
+     *  box, because a row can hold a method the tab has never heard of. */
+    methodPlaceholder: 'Con qué se paga',
     needAmount: 'Pon un importe',
     needConcept: 'Pon un concepto',
   },

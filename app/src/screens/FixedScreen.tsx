@@ -1,15 +1,18 @@
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { CategoryField } from '../components/CategoryField'
+import { ConceptField } from '../components/ConceptField'
 import { Icon } from '../components/Icon'
+import { MethodField } from '../components/MethodField'
 import { Segmented } from '../components/Segmented'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
-import { iconOf } from '../lib/categories'
+import { categoryFor, iconOf } from '../lib/categories'
+import { knownConcepts } from '../lib/concepts'
 import { dueDay } from '../lib/fixed'
 import { todayIso } from '../lib/dates'
 import { formatEur, parseAmount, typedFromAmount } from '../lib/money'
-import type { Category, Fixed, Person } from '../api/types'
+import type { Category, Entry, Fixed, Person, Suggestion } from '../api/types'
 import { useAvatars } from '../store/avatars'
 import type { Ledger } from '../store/ledger'
 
@@ -43,8 +46,14 @@ export function FixedScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: 
   // Above the early return, where every hook has to be. What the concept box
   // offers: the same vocabulary the keypad has, which for a recurring bill is
   // almost always where its name already is.
+  // The same list the edit sheet offers: the Sugerencias tab, then the backend's
+  // ranking, then what is on this phone. It was only the middle one here, so a
+  // bill apuntado once by hand could not be picked when writing its template.
   const concepts = useMemo(
-    () => (ledger.data?.frequent ?? []).map(chip => chip.concept), [ledger.data?.frequent])
+    () => knownConcepts(
+      ledger.data?.frequent ?? [], ledger.entries, ledger.data?.suggestions ?? []),
+    [ledger.data?.frequent, ledger.entries, ledger.data?.suggestions],
+  )
 
   if (!people) return null
   const rows = [...ledger.fixed].sort((a, b) => a.day - b.day || a.concept.localeCompare(b.concept))
@@ -118,6 +127,8 @@ export function FixedScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: 
           people={people}
           categories={categories}
           concepts={concepts}
+          suggestions={ledger.data?.suggestions ?? []}
+          entries={ledger.entries}
           onClose={onCloseEditor}
           onSave={async next => { await ledger.saveFixed(next); onCloseEditor() }}
         />
@@ -137,16 +148,23 @@ export function FixedScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: 
 function blank(): Fixed {
   return {
     id: crypto.randomUUID(), row: 0, concept: '', amount: null, day: 1, payer: null,
-    months: 1, active: true, from: '', last: '', category: '',
+    months: 1, active: true, from: '', last: '', category: '', method: '',
   }
 }
 
 const CADENCES = [1, 2, 3, 4, 6, 12]
 
-function Editor({ fixed, people, categories, concepts, onClose, onSave }: {
+function Editor({
+  fixed, people, categories, concepts, suggestions, entries, onClose, onSave,
+}: {
   fixed: Fixed
   people: readonly [Person, Person]
   categories: readonly Category[]
+  /** The Sugerencias tab, for the cards on the method row. */
+  suggestions: readonly Suggestion[]
+  /** The ledger, for the category guess: what this concept was filed as last
+   *  time beats what its letters look like. */
+  entries: readonly Entry[]
   /** For the concept box's own list. A recurring bill's name is nearly always
    *  one the ledger already knows. */
   concepts: readonly string[]
@@ -154,9 +172,29 @@ function Editor({ fixed, people, categories, concepts, onClose, onSave }: {
   onSave: (fixed: Omit<Fixed, 'last'>) => Promise<void>
 }) {
   const { faces } = useAvatars()
-  const conceptsId = useId()
   const [draft, setDraft] = useState(fixed)
   const [typed, setTyped] = useState(draft.amount === null ? '' : typedFromAmount(draft.amount))
+
+  /**
+   * The category, re-guessed whenever the concept changes — the second step's
+   * rule, on the screen that writes the template the second step will inherit
+   * from.
+   *
+   * Started at the concept this editor opened with, so an existing template's
+   * category is never re-guessed on mount: it may have been picked by hand, or
+   * typed into the tab, and an editor that quietly refiles what it was opened to
+   * change is worse than one that guesses nothing. After that, a new concept
+   * means a new guess, because the category is derived from the concept and a
+   * hand-picked one only survives until the thing it describes is replaced.
+   */
+  const guessedFor = useRef(fixed.concept.trim())
+  useEffect(() => {
+    const concept = draft.concept.trim()
+    if (guessedFor.current === concept) return
+    guessedFor.current = concept
+    const guess = categoryFor(concept, categories, entries)
+    setDraft(current => (guess === current.category ? current : { ...current, category: guess }))
+  }, [draft.concept, categories, entries])
   const [saving, setSaving] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
@@ -198,33 +236,35 @@ function Editor({ fixed, people, categories, concepts, onClose, onSave }: {
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
         <Field label={T.add.concept}>
-          {/* A native `datalist` rather than the grid of tiles the keypad uses.
-              This screen is opened once per bill and never in a queue, so what
-              it needs is not a fast path but the spelling the ledger already
-              has — typing `alq` and picking `alquiler` is what keeps a template
-              from becoming a 721st distinct concept. */}
-          <input
+          <ConceptField
             value={draft.concept}
-            onChange={event => setDraft({ ...draft, concept: event.target.value })}
-            aria-label={T.add.concept}
-            list={conceptsId}
-            autoComplete="off"
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-base text-ink
-                       focus-visible:outline focus-visible:outline-2"
+            concepts={concepts}
+            onChange={concept => setDraft({ ...draft, concept })}
           />
-          <datalist id={conceptsId}>
-            {concepts.map(concept => <option key={concept} value={concept} />)}
-          </datalist>
         </Field>
 
         <Field label={T.category.label}>
           {/* What the expense this produces gets filed as, so a bill that
               arrives every month is filed the same way every month without
-              anybody choosing again. */}
+              anybody choosing again. Guessed from the concept as it is typed —
+              see the effect above — and overridable here, like everywhere else
+              this pair appears. */}
           <CategoryField
             value={draft.category}
             categories={categories}
             onChange={category => setDraft({ ...draft, category })}
+          />
+        </Field>
+
+        <Field label={T.add.methodRow}>
+          {/* The card this bill comes off. It is the same tap saved as the
+              category: the rent is paid the same way every month, and the gasto
+              this template proposes now arrives with it already chosen. */}
+          <MethodField
+            suggestions={suggestions}
+            payer={draft.payer}
+            value={draft.method}
+            onChange={method => setDraft({ ...draft, method })}
           />
         </Field>
 

@@ -171,6 +171,43 @@ test('a filter brings its own total, with no months in it', async ({ page }) => 
   await expect(total).toContainText(/del .* al /)
 })
 
+test('the edit sheet offers what the app knows: concepts, a category and the cards',
+  async ({ page }) => {
+  // It had a bare box for the concept and another for the method — the one place
+  // in the app that knew a word and made you type it anyway.
+  const calls = await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+  await page.getByRole('button', { name: /gasolina/ }).first().click()
+
+  const sheet = page.getByRole('dialog', { name: 'Editar gasto' })
+  // The Sugerencias tab first, then the backend's ranking, then this phone's own
+  // rows — the same list the fijos editor offers.
+  const options = await page.locator('datalist option').evaluateAll(
+    nodes => nodes.map(node => (node as HTMLOptionElement).value))
+  expect(options).toContain('farmacia')
+  expect(options).toContain('super')
+
+  // Replacing the concept re-guesses the category, the way the second step does:
+  // a category describes a concept, so a new concept invalidates it. Opening the
+  // sheet guesses nothing, which is the caveat this screen always had.
+  await expect(sheet.getByRole('button', { name: 'Elegir categoría' }))
+    .toContainText('Sin categoría')
+  await sheet.getByRole('combobox', { name: 'Concepto' }).fill('luz')
+  await expect(sheet.getByRole('button', { name: 'Elegir categoría' })).toContainText('Luz')
+
+  // And the cards, filtered by who pays: this row is Mario's, so his card is on
+  // offer and Viqui's is not.
+  await expect(sheet.getByRole('button', { name: 'Tarjeta Viqui' })).toHaveCount(0)
+  await sheet.getByRole('button', { name: 'Tarjeta BBVA' }).click()
+  await expect(sheet.getByRole('textbox', { name: 'Medio de pago' }))
+    .toHaveValue('Tarjeta BBVA')
+
+  await sheet.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect.poll(() => calls.find(call => call.action === 'update')?.payload)
+    .toMatchObject({ concept: 'luz', category: 'Luz', method: 'Tarjeta BBVA' })
+})
+
 test('a year the app cannot see all of says so', async ({ page }) => {
   // The app loads the last few hundred rows, not the whole sheet. On a busy
   // ledger the year total is a floor, and a floor wearing the look of a total is

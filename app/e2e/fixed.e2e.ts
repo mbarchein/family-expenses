@@ -401,6 +401,47 @@ test('the editor takes a category and offers the concepts the ledger knows',
     .toMatchObject({ concept: 'gasolina', category: 'Combustible' })
 })
 
+test('a template takes a card from the chips, and hands it to the gasto it proposes',
+  async ({ page }) => {
+  // The same tap saved as the category: the rent comes off the same account every
+  // month, and choosing that again each time was work the template can do.
+  const calls = await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Fijos', exact: true }).click()
+  await page.getByRole('button', { name: 'Nuevo fijo' }).click()
+
+  await page.getByRole('combobox', { name: 'Concepto' }).fill('gasolina')
+  // Guessed from the concept as it is typed, like the second step — the editor
+  // used to leave this on "sin categoría" until somebody opened the picker.
+  await expect(page.getByRole('button', { name: 'Elegir categoría' }))
+    .toContainText('Combustible')
+
+  // A new template says "whoever has the phone", so only the cards that belong
+  // to neither of them are offered.
+  await expect(page.getByRole('button', { name: 'Tarjeta BBVA' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Efectivo' }).click()
+  await page.getByRole('textbox', { name: 'Importe fijo' }).fill('60')
+  await page.getByRole('button', { name: 'Guardar fijo' }).click()
+
+  await expect.poll(() => calls.find(call => call.action === 'saveFixed')?.payload)
+    .toMatchObject({ concept: 'gasolina', category: 'Combustible', method: 'Efectivo' })
+})
+
+test('the gasto a template proposes arrives with the card the template holds',
+  async ({ page }) => {
+  const calls = await stubApi(page, bootstrap({
+    fixed: [fixed({ concept: 'alquiler', amount: 700, day: 1, method: 'Tarjeta Viqui' })],
+  }))
+  await signIn(page)
+
+  await page.getByRole('button', { name: /fijo vencido/ }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Siguiente' }).click()
+  await page.getByRole('button', { name: 'Guardar' }).click()
+
+  await expect.poll(() => calls.find(call => call.action === 'append')?.payload)
+    .toMatchObject({ concept: 'alquiler', method: 'Tarjeta Viqui' })
+})
+
 test('a template wears the icon of its category in the list', async ({ page }) => {
   await stubApi(page, bootstrap({
     fixed: [

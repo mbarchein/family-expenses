@@ -8,6 +8,7 @@ import { ScreenHeader } from '../components/ScreenHeader'
 import { T } from '../i18n/strings'
 import { formatDayHeading, formatShortDate, todayIso } from '../lib/dates'
 import { iconOf } from '../lib/categories'
+import { knownConcepts } from '../lib/concepts'
 import { fold } from '../lib/icons'
 import { formatEur } from '../lib/money'
 import { earliestDay, matchedTotal, summarise, yearIsPartial } from '../lib/totals'
@@ -56,6 +57,15 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
   // rather than about the household.
   const matched = useMemo(
     () => (filtered ? matchedTotal(shown) : null), [filtered, shown])
+
+  // The vocabulary the edit sheet offers under its concept box. Built from the
+  // whole ledger rather than from what the filter leaves standing: correcting a
+  // row is not a search.
+  const concepts = useMemo(
+    () => knownConcepts(
+      ledger.data?.frequent ?? [], ledger.entries, ledger.data?.suggestions ?? []),
+    [ledger.data?.frequent, ledger.entries, ledger.data?.suggestions],
+  )
 
   // Coverage is a property of the window the app loaded, not of the filter, so
   // it is measured over everything rather than over what is on screen.
@@ -197,6 +207,9 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
           entry={open}
           people={people}
           categories={categories}
+          concepts={concepts}
+          suggestions={ledger.data?.suggestions ?? []}
+          entries={ledger.entries}
           onClose={onCloseEditor}
           onSave={async entry => { await ledger.editEntry(entry); onCloseEditor() }}
           onVoid={async id => { await ledger.voidEntry(id); onCloseEditor() }}
