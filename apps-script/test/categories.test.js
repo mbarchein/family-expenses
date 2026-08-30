@@ -358,12 +358,39 @@ test('a voided row is filed under the concept it is a tombstone of', () => {
   assert.deepEqual(filed(sheets), ['Panadería'])
 })
 
+test('the long report goes to a tab, and the log keeps the shape of it', () => {
+  // Apps Script answered the uncapped report with «Logging output too large.
+  // Truncating output.» — an ellipsis one layer down, and one we cannot delete.
+  // So the whole thing goes to a tab of ours and the log keeps the totals.
+  const sheets = filedWorld([['pan'], ['pan'], ['supermercado Salobreña']])
+  const answer = previewCategorise()
+
+  const report = sheets['Informe']
+  assert.ok(report, 'the tab was created')
+  const written = report.values.map(row => row[0])
+  assert.match(written[0], /^previewCategorise — \d{4}-\d{2}-\d{2}/)
+  // Every line of the report, including the ones under each category.
+  assert.ok(written.some(line => /2\s+pan\s+←\s+«pan»/.test(line)))
+  // And the answer points at it rather than pretending the log holds it.
+  assert.match(answer, /The whole list is on the «Informe» tab/)
+})
+
+test('the report tab is overwritten rather than added to', () => {
+  // What is on it is always the last thing that was asked. Two runs, one report.
+  const sheets = filedWorld([['pan'], ['supermercado Salobreña']])
+  previewCategorise()
+  const first = sheets['Informe'].values.length
+  previewCategorise()
+
+  assert.equal(sheets['Informe'].values.length, first)
+})
+
 test('the preview writes nothing at all', () => {
   const sheets = filedWorld([['pan'], ['supermercado']])
   const answer = previewCategorise()
 
   assert.match(answer, /WOULD FILE:\s+2 of 2 rows/)
-  assert.match(answer, /Nothing written/)
+  assert.match(answer, /Nothing written to the ledger/)
   assert.deepEqual(sheets.gastos.writes, [])
 })
 

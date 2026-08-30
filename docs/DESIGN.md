@@ -149,6 +149,15 @@ to one person too many is a smaller failure than a row that vanishes.
 The `medio` rows are what fills column `observaciones` — see below. They are
 scoped by person because a card belongs to whoever holds it.
 
+**`Informe`** — where the long one-off reports are written, and the only tab the
+app treats as scratch: it is overwritten on every run and can be deleted at any
+time. It exists because `previewCategorise` over this ledger is thousands of
+lines and Apps Script answers that with «Logging output too large. Truncating
+output.», cutting the report off exactly where the interesting part starts. A tab
+has no such limit, and it scrolls, searches and sorts — which a log pane does
+not. The log keeps the totals so the shape of the answer is on screen when the
+run ends.
+
 ### What the app will not add
 
 No categories, no split percentage, no status column. With everything split down

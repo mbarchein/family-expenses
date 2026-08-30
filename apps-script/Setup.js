@@ -605,27 +605,33 @@ function categorise_(dryRun) {
     SpreadsheetApp.flush();
   }
 
-  var lines = [
+  var head = [
     (dryRun ? 'WOULD FILE' : 'FILED') + ':          ' + filled + ' of ' + (last - 1) + ' rows',
     '  from a concept already filed: ' + byReason.reused,
     '  from the words on the tab:    ' + byReason.guessed,
     'Still without a category:  ' + unfiledRows + ' rows',
     ''
   ];
+  var lines = head.slice();
 
   // Each category, biggest first, and under it every concept it took and why.
   //
   // All of them, with nothing summarised away: this list is read while editing
   // `palabras`, and "… and 17 more" hides exactly the rows somebody is looking
   // for — the seventeen at the bottom are the odd ones, and the odd ones are the
-  // work. The log pane scrolls.
+  // work. Which is why it goes to a tab: see `writeReport_`.
+  //
+  // The log keeps the totals per category and not the concepts under them, so
+  // that what is on screen when the run ends is the shape of the answer.
   Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })
     .forEach(function (name) {
       var concepts = Object.keys(members[name] || {}).sort(function (a, b) {
         return members[name][b].rows - members[name][a].rows || (a < b ? -1 : 1);
       });
-      lines.push('  ' + counts[name] + '  ' + name +
-        '  (' + concepts.length + (concepts.length === 1 ? ' concept)' : ' concepts)'));
+      var heading = '  ' + counts[name] + '  ' + name +
+        '  (' + concepts.length + (concepts.length === 1 ? ' concept)' : ' concepts)');
+      head.push(heading);
+      lines.push(heading);
       concepts.forEach(function (concept) {
         var member = members[name][concept];
         lines.push('        ' + member.rows + '  ' + concept + '  ← ' + member.why);
@@ -645,9 +651,55 @@ function categorise_(dryRun) {
   }
   if (dryRun) {
     lines.push('');
-    lines.push('Nothing written. Run categoriseRows() to do it.');
+    lines.push('Nothing written to the ledger. Run categoriseRows() to do it.');
   }
-  return report_(lines);
+
+  // The whole thing to a tab, a summary to the log. Apps Script answered the
+  // uncapped report with «Logging output too large. Truncating output.», which is
+  // the same ellipsis one layer down — and this time not one we could delete.
+  var pointer = writeReport_(dryRun ? 'previewCategorise' : 'categoriseRows', lines);
+  head.push('');
+  head.push(pointer);
+  console.log(head.join('\n'));
+  return lines.concat(['', pointer]).join('\n');
+}
+
+/** The tab the long reports are written to. Ours, not theirs: it holds nothing
+ *  but the last run's output and can be deleted at any time. */
+var REPORT_SHEET = 'Informe';
+
+/**
+ * Puts a report on a tab, because the log cannot hold one.
+ *
+ * `previewCategorise` over this household's ledger is two thousand lines, and
+ * Apps Script's answer to that is «Logging output too large. Truncating output.»
+ * — the report is cut off exactly where the interesting part starts, and no
+ * amount of not-summarising on our side changes it. A tab has no such limit, and
+ * it is a better place to read a long list anyway: it scrolls, it is searchable,
+ * and it can be sorted.
+ *
+ * Overwritten on every run rather than appended to, so what is on it is always
+ * the last thing that was asked. Written as text — `@` — because a line of this
+ * report can begin with `=`, and Sheets would take that for a formula.
+ */
+function writeReport_(title, lines) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(REPORT_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(REPORT_SHEET);
+    sheet.setColumnWidth(1, 720);
+  }
+
+  var used = sheet.getLastRow();
+  if (used) sheet.getRange(1, 1, used, 1).clearContent();
+
+  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  var body = [[title + ' — ' + stamp]];
+  lines.forEach(function (line) { body.push([line]); });
+  sheet.getRange(1, 1, body.length, 1).setNumberFormat('@').setValues(body);
+
+  return 'The whole list is on the «' + REPORT_SHEET + '» tab — ' +
+    lines.length + ' lines, overwritten on every run.';
 }
 
 /**
