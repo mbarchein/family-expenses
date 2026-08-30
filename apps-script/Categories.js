@@ -100,8 +100,20 @@ function splitWords_(raw) {
 var SHORT_WORD = 4;
 
 function guessCategory_(concept, categories) {
+  return guessCategoryWhy_(concept, categories).name;
+}
+
+/**
+ * The same guess, and the word that made it.
+ *
+ * Split out for the categorising report, which is read while editing `palabras`:
+ * "these forty rows went to Supermercado" is worth knowing, and "they went there
+ * because of the word `super`" is what you act on. The two answers come from one
+ * pass because a second one could disagree with the first.
+ */
+function guessCategoryWhy_(concept, categories) {
   var text = fold_(concept).replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ').trim();
-  if (!text) return '';
+  if (!text) return { name: '', word: '' };
   var parts = text.split(' ');
 
   // The exact words first, across every category, and only then the rest.
@@ -118,11 +130,13 @@ function guessCategory_(concept, categories) {
       var words = categories[i].words;
       for (var j = 0; j < words.length; j++) {
         if ((words[j].charAt(0) === '=') !== (pass === 0)) continue;
-        if (wordMatches_(text, parts, words[j])) return categories[i].name;
+        if (wordMatches_(text, parts, words[j])) {
+          return { name: categories[i].name, word: words[j] };
+        }
       }
     }
   }
-  return '';
+  return { name: '', word: '' };
 }
 
 /**

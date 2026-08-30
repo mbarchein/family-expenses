@@ -290,7 +290,10 @@ On the **real** spreadsheet:
    - `backfillIds` — gives the history ids, which is what makes it editable from a
      phone.
    - `previewCategorise`, then `categoriseRows` — fills column H from the words in
-     `Categorías`.
+     `Categorías`. The preview names, under each category, the concepts it would
+     put there and the word that claimed each one, so a concept in the wrong place
+     is one word to move rather than a mystery. Read it before the pass that
+     writes: a wrong category is printed on the row and then believed.
    - `previewMethods`, then `moveMethods` — takes a payment method out of
      `observaciones` and puts it in column I.
 8. Update `apps_script_exec_url`, `apps_script_id` and

@@ -519,6 +519,11 @@ function previewCategorise() {
   return categorise_(true);
 }
 
+/** How many concepts to name under each category before summarising the rest.
+ *  The log is read in a console pane, and Supermercado alone will have two
+ *  hundred of them. */
+var CONCEPTS_PER_CATEGORY = 12;
+
 function categorise_(dryRun) {
   var config = readConfig_();
   var categories = readCategories_();
@@ -557,6 +562,12 @@ function categorise_(dryRun) {
   var filled = 0;
   var byReason = { reused: 0, guessed: 0 };
   var counts = {};
+  // Which concepts went into each category, and what put them there. The counts
+  // above say a hundred rows landed in Supermercado; this says which words they
+  // were and which entry on `palabras` claimed them, which is the half you can
+  // act on — a concept in the wrong category is one word to move, and you cannot
+  // move it without knowing which word it was.
+  var members = {};
   var unfiled = {};
   var unfiledRows = 0;
 
@@ -569,10 +580,15 @@ function categorise_(dryRun) {
 
     var key = conceptKey_(concept);
     var found = known[key] || '';
+    var why = found ? 'already filed that way' : '';
     if (found) byReason.reused++;
     else {
-      found = guessCategory_(concept, categories.items);
-      if (found) byReason.guessed++;
+      var guess = guessCategoryWhy_(concept, categories.items);
+      found = guess.name;
+      if (found) {
+        byReason.guessed++;
+        why = '«' + guess.word + '»';
+      }
     }
 
     if (!found) {
@@ -583,6 +599,9 @@ function categorise_(dryRun) {
     }
     filled++;
     counts[found] = (counts[found] || 0) + 1;
+    if (!members[found]) members[found] = {};
+    if (!members[found][concept]) members[found][concept] = { rows: 0, why: why };
+    members[found][concept].rows++;
     values.push([found]);
   });
 
@@ -599,8 +618,24 @@ function categorise_(dryRun) {
     ''
   ];
 
+  // Each category, biggest first, and under it the concepts it took and why.
+  // Capped per category because one of them will have two hundred distinct
+  // concepts and the log is meant to be read.
   Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })
-    .forEach(function (name) { lines.push('  ' + counts[name] + '  ' + name); });
+    .forEach(function (name) {
+      var concepts = Object.keys(members[name] || {}).sort(function (a, b) {
+        return members[name][b].rows - members[name][a].rows || (a < b ? -1 : 1);
+      });
+      lines.push('  ' + counts[name] + '  ' + name +
+        '  (' + concepts.length + (concepts.length === 1 ? ' concept)' : ' concepts)'));
+      concepts.slice(0, CONCEPTS_PER_CATEGORY).forEach(function (concept) {
+        var member = members[name][concept];
+        lines.push('        ' + member.rows + '  ' + concept + '  ← ' + member.why);
+      });
+      if (concepts.length > CONCEPTS_PER_CATEGORY) {
+        lines.push('        … and ' + (concepts.length - CONCEPTS_PER_CATEGORY) + ' more');
+      }
+    });
 
   // The concepts left over, commonest first. This list is the work: every line
   // is a word to add to `palabras`, or a category that does not exist yet.

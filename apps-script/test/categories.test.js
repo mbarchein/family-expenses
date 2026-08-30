@@ -288,6 +288,30 @@ test('a concept that looks like nothing is left empty and reported', () => {
   assert.match(answer, /2\s+lo del jueves/)
 })
 
+test('every category names the concepts it took and the word that claimed them',
+  () => {
+  filedWorld([
+    ['supermercado Salobreña'],
+    ['supermercado Salobreña'],
+    ['super de la esquina'],
+    ['pan'],
+    // Filed by hand, so the row below it is reused rather than guessed — and the
+    // report has to say which of the two happened.
+    ['Cena en un bar', 'Comer fuera'],
+    ['cena en un bar'],
+  ])
+  const answer = previewCategorise()
+
+  // The category, with how many distinct concepts landed in it.
+  assert.match(answer, /3\s+Supermercado\s+\(2 concepts\)/)
+  // Each concept, its rows, and the word on the tab that claimed it.
+  assert.match(answer, /2\s+supermercado Salobreña\s+←\s+«supermercado»/)
+  assert.match(answer, /1\s+super de la esquina\s+←\s+«super»/)
+  assert.match(answer, /1\s+pan\s+←\s+«pan»/)
+  // And the other reason a row gets a category, said in its own words.
+  assert.match(answer, /1\s+cena en un bar\s+←\s+already filed that way/)
+})
+
 test('a voided row is filed under the concept it is a tombstone of', () => {
   const sheets = filedWorld([['[anulado] pan']])
   categoriseRows()
