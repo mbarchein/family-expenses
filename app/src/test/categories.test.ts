@@ -43,6 +43,32 @@ describe('guessCategory', () => {
     expect(guessCategory('panes', CATEGORIES)).toBe('Panadería')
   })
 
+  it('lets the longer word win, whatever order the categories are in', () => {
+    // Reported from the real sheet: `El Corte Ingles` filed under Educación,
+    // because `inglés` sits in the category above Ropa. The same two rows, in the
+    // same order, and the same rule as the backend — the longer word is the more
+    // specific claim about a concept, and row order is not a claim at all.
+    const shop: Category[] = [
+      { name: 'Educación', icon: 'mochila', words: ['colegio', 'ingles', 'cl'] },
+      { name: 'Ropa', icon: 'camiseta', words: ['ropa', 'zara', 'corte ingles'] },
+    ]
+
+    expect(guessCategory('El Corte Ingles', shop)).toBe('Ropa')
+    expect(guessCategory('clases de inglés', shop)).toBe('Educación')
+  })
+
+  it('still lets an exact word beat a longer contained one', () => {
+    // Length orders the second pass, not the first: `=maria` is the cleaner being
+    // paid, and it wins over any word that merely appears inside the concept.
+    const home: Category[] = [
+      { name: 'Regalos', icon: 'regalo', words: ['regalo', 'cumpleaños'] },
+      { name: 'Hogar', icon: 'casa', words: ['=maria'] },
+    ]
+
+    expect(guessCategory('maría', home)).toBe('Hogar')
+    expect(guessCategory('regalo maría', home)).toBe('Regalos')
+  })
+
   it('leaves a concept it cannot place unfiled', () => {
     // A wrong category is printed on the row and totalled under a heading. An
     // empty one is a question still open.

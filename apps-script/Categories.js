@@ -116,27 +116,42 @@ function guessCategoryWhy_(concept, categories) {
   if (!text) return { name: '', word: '' };
   var parts = text.split(' ');
 
-  // The exact words first, across every category, and only then the rest.
+  // The exact words first, across every category, and then the longest of the
+  // ordinary ones — in both cases because **the more specific claim wins**, and
+  // it has to win regardless of which row is higher up the tab.
   //
-  // "The whole concept is this" is a more specific claim than "the concept
-  // contains this", so it wins — and it has to win regardless of which row is
-  // higher up the tab. Inside one category the sort already put the exact ones
-  // first; across categories nothing did, and that gap is the same one that keeps
-  // biting: `inglés` in Educación would take `Corte inglés`, a department store,
-  // purely because Educación sits above Ropa. `=corte inglés` in Ropa now settles
-  // it, whatever the order.
-  for (var pass = 0; pass < 2; pass++) {
-    for (var i = 0; i < categories.length; i++) {
-      var words = categories[i].words;
-      for (var j = 0; j < words.length; j++) {
-        if ((words[j].charAt(0) === '=') !== (pass === 0)) continue;
-        if (wordMatches_(text, parts, words[j])) {
-          return { name: categories[i].name, word: words[j] };
-        }
+  // "The whole concept is this" is the most specific claim there is, so `=algo`
+  // goes first. Then length, which is the same idea one step down: `corte ingles`
+  // is a more specific claim about a concept than `ingles` is. Tab order used to
+  // decide that, and it decided it wrong every time on this household's sheet —
+  // `inglés` under Educación took `El Corte Inglés`, a department store, purely
+  // because Educación sits above Ropa. Nobody chose that order to mean anything.
+  //
+  // A tie goes to the earlier row, which is the old behaviour and is fine: two
+  // words of the same length are two claims of the same strength, and something
+  // has to answer.
+  for (var i = 0; i < categories.length; i++) {
+    var exact = categories[i].words;
+    for (var j = 0; j < exact.length; j++) {
+      if (exact[j].charAt(0) !== '=') continue;
+      if (wordMatches_(text, parts, exact[j])) {
+        return { name: categories[i].name, word: exact[j] };
       }
     }
   }
-  return { name: '', word: '' };
+
+  var best = { name: '', word: '' };
+  for (var k = 0; k < categories.length; k++) {
+    var words = categories[k].words;
+    for (var w = 0; w < words.length; w++) {
+      if (words[w].charAt(0) === '=') continue;
+      if (words[w].length <= best.word.length) continue;
+      if (wordMatches_(text, parts, words[w])) {
+        best = { name: categories[k].name, word: words[w] };
+      }
+    }
+  }
+  return best;
 }
 
 /**
@@ -291,18 +306,25 @@ var CATEGORY_SEED = [
     'impuesto, tributo, basura, multa, ibi, recibo, factura'],
   ['Banco', 'banco', 'banco, comisión, hucha'],
   // Their word, said five times over: excursions, the violin, the English, the
-  // tutors. `inglés` is a plain word here and `Corte inglés` — a department store
-  // — is kept out of it by `=corte inglés` under Ropa, which wins because an exact
-  // word beats a contained one whatever the row order. See `guessCategory_`.
+  // tutors. `inglés` is a plain word here and `El Corte Inglés` — a department
+  // store — is kept out of it by `corte inglés` under Ropa, which wins because it
+  // is the longer claim whatever the row order. See `guessCategory_`.
   ['Educación', 'mochila',
     'escolar, colegio, escuela, guardería, instituto, ampa, papelería, orontes, '
     + 'oeg, mariela, inglés, excursión, violín, comesaña, cl'],
   ['Música', 'nota', 'orquesta, conservatorio, música, solfeo'],
   ['Libros', 'libro', 'librería, libro, curso, picasso, flash'],
-    // The two exact ones are the department store, their own typo of it included.
-  // Without them `inglés` under Educación would take both.
+  // The department store, their own typo of it included, and both as ordinary
+  // words rather than exact ones.
+  //
+  // They were `=corte inglés` and `=corte ingés` while the only way to beat
+  // `inglés` under Educación was to claim the whole concept — which worked for a
+  // row saying `Corte inglés` and not for the one on this household's sheet,
+  // `El Corte Ingles`. The article was enough to lose it, and it went to
+  // Educación. Length decides now, so the plain words win here and go on winning
+  // however the concept is written around them.
   ['Ropa', 'camiseta',
-    'ropa, zapatos, pantalón, camisa, zara, =corte inglés, =corte ingés'],
+    'ropa, zapatos, pantalón, camisa, zara, corte inglés, corte ingés'],
   ['Regalos', 'regalo', 'regalo, cumple, cumpleaños, flores'],
   ['Ocio', 'entrada', 'cine, teatro, concierto, ocio, lotería, entrada, ficzone'],
   ['Deporte', 'pesa', 'gimnasio, deporte, pádel, bádminton'],

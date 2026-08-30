@@ -115,6 +115,46 @@ test('a concept nobody has filed is guessed from the words', () => {
   assert.equal(guessCategory_('gasolinera Repsol', items), 'Combustible')
 })
 
+test('the longer word wins, whatever order the categories are in', () => {
+  // Reported from the real sheet: `El Corte Ingles` was filed under Educación.
+  // These are that household's two rows, in that order — Educación above Ropa —
+  // and `inglés` in the one on top took a department store because it happened to
+  // be there first. `=corte inglés` was the old answer and it only covers a row
+  // that says exactly that: the article was enough to lose it.
+  //
+  // Length is the answer instead: `corte ingles` is a more specific claim about a
+  // concept than `ingles` is, and it stays true wherever the rows sit.
+  world([
+    ['Educación', 'mochila',
+      'guarderia, instituto, escolar, colegio, escuela, ampa, =ingles irene, '
+      + 'papeleria, orontes, mariela, oeg, inglés, excursión, violín, comesaña, cl'],
+    ['Ropa', 'camiseta',
+      'zapato, ropa, pantalon, camisa, zara, corte inglés, corte ingés, decatlon'],
+  ])
+  const items = readCategories_().items
+
+  assert.equal(guessCategory_('El Corte Ingles', items), 'Ropa')
+  assert.equal(guessCategory_('corte ingles', items), 'Ropa')
+  // Their own typo of it, which is on the tab because it is on the statements.
+  assert.equal(guessCategory_('EL CORTE INGÉS', items), 'Ropa')
+  // And the word still means Educación everywhere it is the only claim.
+  assert.equal(guessCategory_('clases de inglés', items), 'Educación')
+})
+
+test('an exact word still beats a longer contained one', () => {
+  // The order of the two passes, which length does not change: `=maria` is the
+  // cleaner being paid, and it has to win over any word that merely appears
+  // inside the same concept.
+  world([
+    ['Regalos', 'regalo', 'regalo, cumpleaños'],
+    ['Hogar', 'casa', '=maria'],
+  ])
+  const items = readCategories_().items
+
+  assert.equal(guessCategory_('maría', items), 'Hogar')
+  assert.equal(guessCategory_('regalo maría', items), 'Regalos')
+})
+
 test('a short word has to be a word, not letters inside one', () => {
   // The four wrong icons this rule was written for: `gastos varios` was a gas
   // flame, `pantalones` a loaf of bread. Four characters is where the list stops
@@ -384,6 +424,28 @@ test('a category the tab does not have is added', () => {
   const names = sheets['Categorías'].values.slice(1).map(row => row[0])
   assert.ok(names.includes('Música'), 'the new category arrived')
   assert.ok(names.includes('Restaurantes'))
+})
+
+test('a tab still holding the exact Corte Inglés gets the plain words too', () => {
+  // The upgrade path for the sheet this was reported from. Its Ropa row says
+  // `=corte inglés`, which only ever matched a concept that was exactly that —
+  // and the real rows say `El Corte Ingles`. The seed's words are plain now, so
+  // this pass appends them, and length puts the department store where it belongs
+  // without anybody editing the tab by hand. The exact ones are left alone, as
+  // this pass leaves everything alone: they cost nothing beside the plain ones.
+  const sheets = world([
+    ['Educación', 'mochila', 'colegio, inglés, cl'],
+    ['Ropa', 'camiseta', 'ropa, zara, =corte inglés, =corte ingés'],
+  ])
+  updateCategories()
+
+  const row = sheets['Categorías'].values.slice(1).find(line => line[0] === 'Ropa')
+  assert.match(row[2], /=corte inglés/)
+  assert.match(row[2], /(^|, )corte inglés/)
+  assert.match(row[2], /(^|, )corte ingés/)
+
+  load()
+  assert.equal(guessCategory_('El Corte Ingles', readCategories_().items), 'Ropa')
 })
 
 test('missing words are appended and existing ones are left alone', () => {

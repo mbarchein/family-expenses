@@ -48,20 +48,26 @@ export function guessCategory(concept: string, categories: readonly Category[]):
   const text = fold(concept).replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ').trim()
   if (!text) return ''
 
-  // The exact words first, across every category, and only then the rest. "The
-  // whole concept is this" is a more specific claim than "the concept contains
-  // this", so it wins wherever its row happens to sit on the tab — `inglés` under
-  // Educación would otherwise take `Corte inglés`, a department store, purely
-  // because one row is above another. Same two passes as the backend.
-  for (const exact of [true, false]) {
-    for (const category of categories) {
-      for (const word of category.words) {
-        if (word.startsWith('=') !== exact) continue
-        if (matchesWord(text, word)) return category.name
-      }
+  // The exact words first, then the longest ordinary one — in both cases because
+  // the more specific claim wins, and it has to win wherever its row happens to
+  // sit on the tab. `inglés` under Educación would otherwise take `El Corte
+  // Inglés`, a department store, purely because one row is above another. Same
+  // two passes as the backend, and they have to stay the same: that one files two
+  // thousand old rows and this one files the next.
+  for (const category of categories) {
+    for (const word of category.words) {
+      if (word.startsWith('=') && matchesWord(text, word)) return category.name
     }
   }
-  return ''
+
+  let best = { name: '', word: '' }
+  for (const category of categories) {
+    for (const word of category.words) {
+      if (word.startsWith('=') || word.length <= best.word.length) continue
+      if (matchesWord(text, word)) best = { name: category.name, word }
+    }
+  }
+  return best.name
 }
 
 /**
