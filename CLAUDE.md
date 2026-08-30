@@ -147,6 +147,25 @@ against the copy of the spreadsheet, never the live ledger.
   and the screen says so. The balance is the one number in this app that is not
   allowed to be approximately right.
 
+## The deploy is part of the change
+
+A commit that is pushed and not deployed is not shipped: `verify` runs on every
+push and `deploy` only runs on a `verify` that went green, so a red check leaves
+the two phones on the previous bundle — silently, since a PWA that never gets a
+new service worker has nothing to say about it.
+
+So the job is not over at `git push`. **Check that `verify` passed and that
+`deploy` actually ran**, and when either failed, fix it or re-run it without being
+asked: diagnose the failing job, push the fix, and check again. A deploy that was
+skipped because `verify` failed is a failed deploy — "skipped" is what that looks
+like from the deploy workflow's side. Only stop and say so when the fix is outside
+what was asked for, or when the failure is genuinely not this change's.
+
+And the way to keep from causing that: **run the whole suite before pushing, not
+the files you think you touched.** The one that got through was a locator in
+`e2e/edit.e2e.ts` — a concept box became a `combobox` the moment it grew a
+`datalist`, in a file that looked unrelated to the screen being changed.
+
 ## Do not bump TypeScript to 7
 
 TypeScript is deliberately held at 6.x while everything else tracks the latest
