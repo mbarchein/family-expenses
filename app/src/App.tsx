@@ -7,7 +7,9 @@ import { BalanceScreen } from './screens/BalanceScreen'
 import { ListScreen } from './screens/ListScreen'
 import { FixedScreen } from './screens/FixedScreen'
 import { PlacesScreen } from './screens/PlacesScreen'
-import { renderSignInButton, setInteractionHandler, setSignedInHandler } from './auth/google'
+import {
+  cachedEmail, renderSignInButton, setInteractionHandler, setSignedInHandler,
+} from './auth/google'
 import { knownConcepts } from './lib/concepts'
 import { PRIVACY, TERMS } from './i18n/legal'
 import { useProgress, type Fact } from './lib/progress'
@@ -326,16 +328,38 @@ function Details({ facts }: { facts: readonly Fact[] }) {
  *  a container it renders into rather than a button of ours. */
 function SignIn() {
   const slot = useRef<HTMLDivElement>(null)
-  const { fault } = useProgress()
+  const { fault, facts } = useProgress()
+  // Whoever this device signed in with last, which is also what `login_hint`
+  // sends. Null on a phone that never has, and the invitation says the other
+  // thing then.
+  const known = cachedEmail()
   useEffect(() => { if (slot.current) renderSignInButton(slot.current) }, [])
   return (
     <div className="grid h-full place-items-center gap-4 p-8">
       <div className="flex flex-col items-center gap-4">
         <p className="text-lg font-semibold">{T.appName}</p>
+        {/* What to do, rather than what went wrong.
+            
+            This screen used to explain itself with «Último error: One Tap se ha
+            saltado» — Google's own word for a silent prompt that came up and was
+            not used, which is the ordinary reason the button is here. In red,
+            under «Último error», it reads as something broken. The technical
+            line is still below for the failures that really are ones. */}
+        <div className="flex flex-col items-center gap-1 text-center">
+          <p className="text-sm font-semibold">{known ? T.auth.again : T.auth.first}</p>
+          {known && (
+            <p className="max-w-xs text-xs text-ink-2">{T.auth.againHint(known)}</p>
+          )}
+        </div>
         <div ref={slot} />
         {/* Without this, a blocked or slow accounts.google.com shows an empty
             space where the button should be and says nothing at all. */}
         <Fault text={fault} />
+        {/* Folded away, and this is the screen that most needs it: what the
+            silent sign-in answered lives in here now rather than in red above,
+            and "why does it keep asking me" is a question about which server,
+            which build and which session. */}
+        <Details facts={facts} />
         {/* Reachable from inside the app as well as from Google's consent
             screen: whoever reviews those two links tends to look for them
             here too, and they are the only pages a visitor can read without

@@ -63,6 +63,36 @@ test('a rejected token is thrown away, not retried for ever', async ({ page }) =
   expect(await page.evaluate(() => localStorage.getItem('a-medias:token'))).toBeNull()
 })
 
+test('the sign-in screen invites instead of reporting an error', async ({ page }) => {
+  // Reported as a question: «a veces sale "Último error: One Tap se ha saltado",
+  // ¿qué es eso?». It is Google's own word for a silent prompt that came up and
+  // was not used — the ordinary reason this screen exists — and printed under
+  // «Último error» it reads as something broken.
+  await stubApi(page)
+  await signIn(page)
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+  // The token is refused on the next open, which is what an expired hour looks
+  // like from the backend and the case that shows this screen to somebody the
+  // app already knows.
+  await page.route('**/macros/s/**', route =>
+    route.fulfill({ json: { ok: false, error: { code: 'UNAUTHENTICATED', message: 'no' } } }))
+  await page.reload()
+
+  await expect(page.getByText('Tu sesión de Google ha caducado')).toBeVisible()
+  // By name, because with several Google accounts on a phone «which one» is the
+  // question — it is the same address `login_hint` sends.
+  await expect(page.getByText(/Vuelve a entrar como mario@example\.invalid/)).toBeVisible()
+  // And nothing in red: neither the refused token nor the silent prompt is a
+  // failure, and both are said in Spanish above.
+  await expect(page.getByText(/Último error/)).toHaveCount(0)
+
+  // It is still written down, one tap away, for a token being refused when it
+  // should be good.
+  await page.getByText('Detalles').click()
+  await expect(page.getByText(/UNAUTHENTICATED/)).toBeVisible()
+})
+
 test('signing in again puts the download on screen, not the button', async ({ page }) => {
   // Reported: after signing in, «Entrar con Google» stayed on screen while the
   // sheet came down, which reads as a sign-in that silently failed — and the

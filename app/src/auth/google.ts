@@ -214,14 +214,24 @@ function requestToken(): Promise<string> {
       resolve(token)
     }
 
-    /** No credential is coming. Hand the screen its sign-in button, and say why
-     *  where the splash can show it. */
-    const giveUp = (why: string) => {
+    /**
+     * No credential is coming. Hand the screen its sign-in button and write down
+     * why — in red where something is broken, and as a fact where nothing is.
+     *
+     * That second case is most of them. «One Tap se ha saltado» is Google's word
+     * for a silent prompt that came up and was not used, and being asked to tap
+     * a button afterwards is the design rather than a failure — printed as
+     * «Último error» it reads as something broken, and it was reported as one.
+     * It still goes in the details panel, because a phone that never signs in
+     * silently is worth being able to look into.
+     */
+    const giveUp = (why: string, broken = true) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
       if (deliver === handOver) deliver = null
-      fault(why)
+      if (broken) fault(why)
+      else state(T.splash.facts.oneTap, why)
       onNeedsInteraction?.()
       reject(new Error('interaction required'))
     }
@@ -255,15 +265,21 @@ function requestToken(): Promise<string> {
  * still handled because the browsers that lack FedCM still report them; the
  * deadline in the caller covers the ones that do not.
  */
-function prompt(giveUp: (why: string) => void) {
+function prompt(giveUp: (why: string, broken?: boolean) => void) {
   google.accounts.id.prompt((notification: PromptNotification) => {
-    if (notification.isNotDisplayed?.()) return giveUp('One Tap no se ha podido mostrar')
-    if (notification.isSkippedMoment?.()) return giveUp('One Tap se ha saltado')
+    // None of these three is a failure: no Google session, One Tap suppressed
+    // after being closed a couple of times, or a prompt somebody dismissed. All
+    // three mean the same thing — ask, with the button — so they are recorded
+    // quietly and the screen invites instead of apologising.
+    if (notification.isNotDisplayed?.()) {
+      return giveUp('One Tap no se ha podido mostrar', false)
+    }
+    if (notification.isSkippedMoment?.()) return giveUp('One Tap se ha saltado', false)
     // Dismissal is also fired straight after a credential is handed over, with
     // that reason, so it cannot be treated as a failure on its own.
     const reason = notification.getDismissedReason?.()
     if (notification.isDismissedMoment?.() && reason !== 'credential_returned') {
-      giveUp(`Google ha cerrado la ventana (${reason ?? 'sin motivo'})`)
+      giveUp(`Google ha cerrado la ventana (${reason ?? 'sin motivo'})`, false)
     }
   })
 }

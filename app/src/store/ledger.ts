@@ -343,11 +343,21 @@ function handle(err: unknown, setStatus: (s: Status) => void, setError: (m: stri
   // only half worth reading.
   const handover = !(err instanceof ApiError) && String(err).includes('interaction required')
 
+  // A refused credential is not a fault either, for the same reason the One Tap
+  // answers are not: it is what an expired hour looks like from the backend, the
+  // screen it leads to invites you to sign in again in as many words, and
+  // `UNAUTHENTICATED: no` printed in red under that invitation is the same
+  // message twice — once in Spanish and once as something broken. It goes in the
+  // details panel, where a token being refused *while it should be good* is
+  // still there to be found.
+  const refused = err instanceof ApiError && err.code === 'UNAUTHENTICATED' ? err : null
+
   // Written down whatever happens next, including for the failures the app
   // copes with silently — the queue will retry, there is a cached ledger on
   // screen. Those are invisible from outside and are usually the clue to
   // whatever the user is actually complaining about.
-  if (err instanceof ApiError) fault(`${err.code}: ${err.message}`)
+  if (refused) state(T.splash.facts.oneTap, `${refused.code}: ${refused.message}`)
+  else if (err instanceof ApiError) fault(`${err.code}: ${err.message}`)
   else if (!handover) fault(String(err))
 
   /**

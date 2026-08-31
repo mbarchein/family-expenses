@@ -698,6 +698,24 @@ backend the very credential it just refused — the sharing list can change unde
 token that is still within its hour, and that is a `UNAUTHENTICATED` the app has
 to take as final.
 
+**The sign-in screen invites rather than apologises.** It used to explain itself
+with «Último error: One Tap se ha saltado» — Google's own word for a silent prompt
+that came up and was not used, which is the ordinary reason that screen exists at
+all. In red, under «Último error», it reads as something broken, and it was asked
+about as one. Now the screen says «Tu sesión de Google ha caducado» and, when this
+device has signed in before, names the address to come back as — the same one
+`login_hint` sends, because with several Google accounts on a phone «which one» is
+the question.
+
+The three One Tap answers and a `UNAUTHENTICATED` from the backend are recorded as
+facts rather than faults: every one of them is a normal reason to ask, the
+invitation says so in Spanish, and printing the code in red underneath is the same
+message twice. They are one tap away in the details panel, which that screen now
+carries — a token refused *when it should be good* is exactly what somebody would
+go looking for. Red is left for the failures that really are ones: Google not
+answering inside the deadline, a script that will not load, a backend that cannot
+be reached.
+
 **A credential in hand and a request on the wire is a download, not a login.**
 After that `UNAUTHENTICATED` the status stays `needsAuth` while the fresh
 credential is used to fetch the sheet — `refresh` only drops to the splash before

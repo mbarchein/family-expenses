@@ -48,6 +48,10 @@ export const T = {
       build: 'Versión',
       worker: 'Service worker',
       rows: 'Filas cargadas',
+      /** What the silent sign-in answered. A fact rather than a fault: every
+       *  answer it has is a normal reason to show the button, and only the ones
+       *  that mean something is actually broken go in red. */
+      oneTap: 'Entrada automática',
     },
   },
 
@@ -497,6 +501,25 @@ export const T = {
   },
 
   auth: {
+    /**
+     * The invitation over the button, and the reason this screen stopped
+     * shouting.
+     *
+     * It used to say «Último error: One Tap se ha saltado» in red, which is
+     * Google's own word for "the silent prompt came up and nobody used it" — a
+     * normal outcome, and the ordinary reason the button is on screen at all.
+     * Printed as the last error it reads as something broken, and it was asked
+     * about as one.
+     *
+     * So the screen says what to do instead, and it says it to whoever it
+     * recognises: the address is the one this device signed in with last, kept
+     * for `login_hint` and worth showing for the same reason it is sent — with
+     * several Google accounts on a phone, which one is the question.
+     */
+    again: 'Tu sesión de Google ha caducado',
+    againHint: (email: string) => `Vuelve a entrar como ${email} para seguir.`,
+    againPlain: 'Entra otra vez para seguir.',
+    first: 'Entra con Google para ver vuestra hoja.',
     signIn: 'Entrar con Google',
     signingIn: 'Entrando…',
     forbidden: 'Esa cuenta no puede editar la hoja. Compártela con ella para darle acceso.',
