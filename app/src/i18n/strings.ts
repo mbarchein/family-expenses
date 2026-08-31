@@ -471,6 +471,19 @@ export const T = {
      *  instead, with both ends of it, so the bar is a total of something. */
     contributed: 'Quién ha puesto cuánto',
     contributedRange: (from: string, to: string) => `Del ${from} al ${to}`,
+    /**
+     * Who each half of the bar belongs to, said rather than only coloured.
+     *
+     * The bar was two percentages and two amounts in two colours, and the colour
+     * was the only thing joining each pair — which is a chart with a key nobody
+     * printed, and it was read as the two being the wrong way round. These are
+     * what a screen reader gets, and what the browser test pins the pairing on.
+     */
+    putIn: (name: string, amount: string) => `${name} ha puesto ${amount}`,
+    /** The same for the proposal, which is about the next transfer rather than
+     *  about what has happened. */
+    putsIn: (name: string, amount: string) => `${name} mete ${amount}`,
+    putInShare: (name: string, percent: number) => `${name}, ${percent}%`,
     contributedEmpty: 'Todavía no hay gastos que repartir',
   },
 

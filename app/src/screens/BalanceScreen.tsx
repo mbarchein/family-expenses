@@ -71,6 +71,10 @@ export function BalanceScreen({ ledger, onBack }: { ledger: Ledger; onBack: () =
             <div className="flex gap-1.5">
               {people.map((person, index) => (
                 <div key={person.name} className="flex-1 rounded-lg border px-2 py-2.5 text-center"
+                     role="group"
+                     // The pair in one phrase, like the bar below: a name over an
+                     // amount is joined by position and by nothing else.
+                     aria-label={T.balance.putsIn(person.name, formatEur(split.shares[index]))}
                      style={{ borderColor: `var(--person-${index + 1})`, color: `var(--person-${index + 1})` }}>
                   <span className="block text-[11px] font-semibold">{person.name}</span>
                   <span className="block font-mono text-sm font-bold tabular">
@@ -113,18 +117,50 @@ export function BalanceScreen({ ledger, onBack }: { ledger: Ledger; onBack: () =
           </p>
         </div>
         <div className="flex h-7 overflow-hidden rounded-md text-[11px] font-bold text-white">
+          {/* Named as well as coloured: read out, this was "75%, 25%" with
+              nothing saying whose. */}
           <span className="grid place-items-center font-mono"
+                aria-label={T.balance.putInShare(people[0].name, share)}
                 style={{ flex: Math.max(share, 1), background: 'var(--person-1)' }}>
             {share}%
           </span>
           <span className="grid place-items-center font-mono"
+                aria-label={T.balance.putInShare(people[1].name, 100 - share)}
                 style={{ flex: Math.max(100 - share, 1), background: 'var(--person-2)' }}>
             {100 - share}%
           </span>
         </div>
-        <div className="flex justify-between font-mono text-[11px] tabular">
-          <span style={{ color: 'var(--person-1)' }}>{formatEur(contributions[0])}</span>
-          <span style={{ color: 'var(--person-2)' }}>{formatEur(contributions[1])}</span>
+        {/* Each side says whose it is.
+            
+            It was two coloured numbers and two coloured percentages, and the
+            colour was the only thing saying which was which — learnable, and
+            reported as the two being the wrong way round, which is exactly what
+            somebody says about a chart that needs a key nobody printed. The name
+            and the face go with the amount now, and the pair reads on its own.
+            
+            Mirrored on the right, so each face sits at its own outer edge and
+            each name beside the bar segment it belongs to. */}
+        <div className="flex justify-between gap-2 text-[11px]">
+          {people.map((person, index) => (
+            <span
+              key={person.name}
+              role="group"
+              // The pair, said in one phrase: the name and the amount are two
+              // elements beside each other on screen and nothing but position
+              // joins them for anybody who cannot see it.
+              aria-label={T.balance.putIn(person.name, formatEur(contributions[index]))}
+              className={'flex min-w-0 items-center gap-1.5'
+                + (index === 1 ? ' flex-row-reverse' : '')}
+              style={{ color: `var(--person-${index + 1})` }}
+            >
+              <Avatar name={faces[index]} className="h-4 w-4 shrink-0"
+                      style={{ color: `var(--person-${index + 1})` }} />
+              <span className="truncate font-semibold">{person.name}</span>
+              <span className="tabular shrink-0 font-mono">
+                {formatEur(contributions[index])}
+              </span>
+            </span>
+          ))}
         </div>
       </section>
     </div>
