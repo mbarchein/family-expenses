@@ -25,6 +25,18 @@ export interface ShownEntry extends Entry {
 
 export interface Ledger {
   status: Status
+  /**
+   * Whether a bootstrap is on the wire right now.
+   *
+   * Separate from `status` because the two answer different questions and the
+   * gap between them was a reported bug: after a 401 the status is `needsAuth`
+   * and the sign-in screen is up, and tapping the button starts a request that
+   * changes no status at all — `refresh` only drops to 'loading' before the first
+   * paint, and by then the cache has painted. So the button stayed on screen for
+   * the whole download of a two-thousand-row sheet, which reads as a sign-in that
+   * did not work.
+   */
+  busy: boolean
   error: string | null
   data: Bootstrap | null
   entries: ShownEntry[]
@@ -54,6 +66,7 @@ const CACHE_KEY = 'bootstrap'
 
 export function useLedger(): Ledger {
   const [status, setStatus] = useState<Status>('loading')
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<Bootstrap | null>(null)
   const [local, setLocal] = useState<Map<string, QueuedEntry>>(new Map())
@@ -98,6 +111,7 @@ export function useLedger(): Ledger {
     // "la app no carga después de identificarme", and the one that looks least
     // like a bug and most like a phone being slow.
     if (!painted.current) setStatus('loading')
+    setBusy(true)
     try {
       report('queue')
       await flush()
@@ -114,6 +128,7 @@ export function useLedger(): Ledger {
     } catch (err) {
       handle(err, setStatus, setError, painted.current)
     } finally {
+      setBusy(false)
       await replayQueue()
     }
   }, [replayQueue])
@@ -252,7 +267,7 @@ export function useLedger(): Ledger {
   }, [refresh])
 
   return {
-    status, error, data, pending, attempts,
+    status, busy, error, data, pending, attempts,
     entries: merge(data?.entries ?? [], local, voided),
     addEntry: entry => mutate('append', entry),
     editEntry: entry => mutate('update', entry),

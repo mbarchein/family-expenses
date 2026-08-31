@@ -60,21 +60,42 @@ export default function App() {
    * the status on 'loading' is a hang rather than an exception, so the error
    * boundary never sees it; this is the only thing that can.
    */
+  /**
+   * Whether the way in is still being waited on, whichever shape it takes.
+   *
+   * `needsTap` is not allowed to outlive a successful load. It used to be a
+   * one-way latch — set when One Tap could not show itself, never cleared — so
+   * an app that had signed in perfectly well behind the scenes still showed the
+   * sign-in screen, and the only button on it reopened the account chooser.
+   */
+  const authBlocked = ledger.status === 'needsAuth' || (needsTap && ledger.status !== 'ready')
+  /**
+   * Waiting, and therefore the splash rather than the button.
+   *
+   * The second half of this is the reported bug. After a 401 the status stays
+   * `needsAuth` while a fresh credential is used to fetch the sheet: `refresh`
+   * only drops to 'loading' before the first paint, and the cache had already
+   * painted. So «Entrar con Google» sat there for the whole download of a
+   * two-thousand-row sheet, which reads as a sign-in that silently failed — and
+   * the obvious thing to do about it is tap the button again.
+   *
+   * With a credential in hand and a request on the wire, what is happening is a
+   * download, and the splash is the screen that says which step it is on, how
+   * long it has been going and what last failed.
+   */
+  const waiting = ledger.status === 'loading' || (authBlocked && ledger.busy)
+
   useEffect(() => {
-    if (ledger.status !== 'loading') return
+    if (!waiting) return
     const timer = setTimeout(() => setStuck(true), PATIENCE_MS)
     return () => clearTimeout(timer)
-  }, [ledger.status])
+  }, [waiting])
 
   // Stuck or not, the splash is the same screen: it already says what it is
   // waiting for and what went wrong, and being stuck only adds the way out.
-  if (ledger.status === 'loading') return <Splash stuck={stuck} />
+  if (waiting) return <Splash stuck={stuck} />
   if (ledger.status === 'forbidden') return <Message text={T.auth.forbidden} />
-  // `needsTap` is not allowed to outlive a successful load. It used to be a
-  // one-way latch — set when One Tap could not show itself, never cleared — so
-  // an app that had signed in perfectly well behind the scenes still showed the
-  // sign-in screen, and the only button on it reopened the account chooser.
-  if (ledger.status === 'needsAuth' || (needsTap && ledger.status !== 'ready')) return <SignIn />
+  if (authBlocked) return <SignIn />
   // With a retry, because the commonest error here is a request that failed on
   // a phone in a lift, and a screen that only states that is a dead end.
   if (ledger.status === 'error') {
@@ -177,7 +198,13 @@ function Splash({ stuck }: { stuck: boolean }) {
     <div className="grid h-full place-items-center p-8">
       <div className="flex max-w-xs flex-col items-center gap-3 text-center">
         <p className="text-lg font-semibold">{T.appName}</p>
-        <p className="text-sm text-ink-2" role="status" aria-live="polite">
+        {/* The ring, because a line of text says the same thing whether or not
+            anything is still happening — the same reason the strip over the tab
+            bar has one. It is what makes this screen read as "working" rather
+            than as "stopped here". */}
+        <p className="flex items-center gap-2 text-sm text-ink-2"
+           role="status" aria-live="polite">
+          {step !== 'ready' && <Spinner className="h-4 w-4" />}
           {T.splash[step]}
           {/* Not from the first second: a counter on a load that takes 300ms is
               a flicker, and on one that takes twenty it is the whole story. */}

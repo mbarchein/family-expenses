@@ -63,6 +63,46 @@ test('a rejected token is thrown away, not retried for ever', async ({ page }) =
   expect(await page.evaluate(() => localStorage.getItem('a-medias:token'))).toBeNull()
 })
 
+test('signing in again puts the download on screen, not the button', async ({ page }) => {
+  // Reported: after signing in, «Entrar con Google» stayed on screen while the
+  // sheet came down, which reads as a sign-in that silently failed — and the
+  // obvious thing to do about it is tap the button again.
+  //
+  // The shape of it: a 401 leaves the status on `needsAuth` with the cache
+  // already painted, so the fresh credential starts a request that changes no
+  // status at all. What is happening then is a download, and the screen has to
+  // say so.
+  await stubApi(page)
+  await signIn(page)
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+  // Refused once, so the app asks again with the cache in hand.
+  let refuse = true
+  let held: (() => void) | null = null
+  await page.route('**/macros/s/**', async route => {
+    if (refuse) {
+      refuse = false
+      return route.fulfill({ json: { ok: false, error: { code: 'UNAUTHENTICATED', message: 'no' } } })
+    }
+    // The next one is held open, which is what a two-thousand-row sheet on a
+    // slow connection looks like from here.
+    await new Promise<void>(resolve => { held = resolve })
+    return route.fallback()
+  })
+  await page.reload()
+  await expect(page.getByTestId('google-sign-in')).toBeVisible()
+
+  await page.getByTestId('google-sign-in').click()
+
+  // The button is gone and the step is named, with the seconds it has been
+  // going, rather than the same button sitting there.
+  await expect(page.getByRole('status')).toHaveText(/Cargando la hoja/)
+  await expect(page.getByTestId('google-sign-in')).toHaveCount(0)
+
+  held?.()
+  await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+})
+
 /**
  * The two ways the app could never open at all.
  *
