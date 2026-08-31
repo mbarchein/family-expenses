@@ -88,11 +88,28 @@ export interface Fixed {
   method: string
 }
 
+/**
+ * What each of them has put in over the whole sheet, and since when.
+ *
+ * Optional because a bootstrap cached by a version from before it existed is
+ * read straight off the disk on the next open, and because the app can be newer
+ * than the deployment for a few minutes. Without it the Diferencia screen adds up
+ * the window it was sent and says so — which is what it did before, and what was
+ * reported: a bar covering a year and a half standing next to a difference that
+ * covers ten.
+ */
+export interface Totals {
+  paid: [number, number]
+  /** `YYYY-MM-DD` of the oldest row, or '' on an empty sheet. */
+  since: string
+}
+
 export interface Bootstrap {
   user: { email: string; name: string }
   config: { people: [Person, Person]; meIndex: number }
   balance: number
   entries: Entry[]
+  totals?: Totals
   frequent: { concept: string }[]
   categories: Category[]
   suggestions: Suggestion[]

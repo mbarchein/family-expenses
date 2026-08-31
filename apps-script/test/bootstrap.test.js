@@ -60,6 +60,34 @@ function world(over = {}) {
 
 const USER = { email: 'mario@example.com', name: 'Mario' }
 
+test('the totals cover the whole sheet, not the window the app is sent', () => {
+  // Reported: the Diferencia bar said 48/52 to Mario under a headline saying
+  // Viqui was ahead. Both were right about different things — the bar added up
+  // the year and a half the app receives, the headline is the sheet's own
+  // difference over a ledger that starts in 2016. So the totals come from here,
+  // where the older rows are.
+  const year = new Date().getFullYear()
+  world({
+    ledger: [
+      LEDGER_HEADERS,
+      [new Date(2016, 2, 1), 'super', 1000, '', 1000, '', 'e1'],
+      [new Date(2016, 2, 2), 'luz', '', 400, 600, '', 'e2'],
+      [new Date(year, 7, 1), 'pan', 10, '', 610, '', 'e3'],
+      [new Date(year, 7, 2), 'gasolina', '', 60, 550, '', 'e4'],
+      // Voided: its amounts were cleared, so it counts for nobody without
+      // anything here having to know about it.
+      [new Date(year, 7, 3), '[anulado] devuelto', '', '', 550, '', 'e5'],
+    ],
+  })
+  const answer = handleBootstrap_({ limit: 2 }, USER)
+
+  // The window is the last handful of rows; the totals are all of them.
+  assert.ok(answer.entries.length < 5, 'the window is smaller than the sheet')
+  assert.ok(!answer.entries.some(item => item.id === 'e1'), '2016 is outside the window')
+  assert.deepEqual(answer.totals.paid, [1010, 460])
+  assert.equal(answer.totals.since, '2016-03-01')
+})
+
 test('bootstrap answers the shape the app destructures', () => {
   world()
   const data = handleBootstrap_({}, USER)

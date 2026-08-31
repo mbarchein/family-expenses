@@ -471,6 +471,11 @@ export const T = {
      *  instead, with both ends of it, so the bar is a total of something. */
     contributed: 'Quién ha puesto cuánto',
     contributedRange: (from: string, to: string) => `Del ${from} al ${to}`,
+    /** When the totals could not be had from the sheet and the bar is adding up
+     *  the window instead — an old cached bootstrap, or an app newer than the
+     *  deployment. It says which, rather than passing a part off as the whole. */
+    contributedWindow: (from: string, to: string) =>
+      `Solo lo cargado: del ${from} al ${to}`,
     /**
      * Who each half of the bar belongs to, said rather than only coloured.
      *

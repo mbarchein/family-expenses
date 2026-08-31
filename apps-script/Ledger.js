@@ -70,6 +70,49 @@ function lastDataRow_(sheet) {
   return Math.max(row, 1);
 }
 
+/**
+ * What each of them has put in, over the whole sheet.
+ *
+ * Not derived from the window `readTail_` sends. That window reaches back to
+ * January of last year, which is a year and a half of a ledger that starts in
+ * 2016 — so the bar on the Diferencia screen was adding up a fifth of the
+ * history and standing next to a difference that covers all of it. On this
+ * household's sheet it said 48/52 to Mario under a headline saying Viqui was
+ * 337 € ahead, and a screen contradicting itself is worse than one that says
+ * less.
+ *
+ * Summed here rather than in the app because only this side can see the rows the
+ * app never receives: two column reads, one per person, and the same two columns
+ * the sheet's own `diferencia` formula subtracts. A voided row cleared its
+ * amounts, so it contributes nothing without being asked to.
+ *
+ * Rounded to cents once, at the end. Two thousand additions of floats is exactly
+ * where a total starts ending in a string of nines — the balance cell arrives
+ * like that too, and cents are the authority.
+ */
+function readTotals_(config) {
+  var sheet = ledgerSheet_(config);
+  var last = lastDataRow_(sheet);
+  if (last < 2) return { paid: [0, 0], since: '' };
+
+  var paid = [0, 0];
+  for (var person = 0; person < 2; person++) {
+    var values = sheet.getRange(2, config.people[person].column, last - 1, 1).getValues();
+    var sum = 0;
+    for (var i = 0; i < values.length; i++) {
+      var value = values[i][0];
+      if (value !== '' && value != null) sum += Number(value) || 0;
+    }
+    paid[person] = Math.round(sum * 100) / 100;
+  }
+
+  // The oldest row, so the total can say what stretch it is a total of. The tab
+  // is appended to in date order — `windowStart_` leans on the same thing.
+  var first = sheet.getRange(2, COL_DATE).getValue();
+
+  return { paid: paid, since: first instanceof Date ? formatDate_(first) : '' };
+}
+
 function readTail_(config, limit) {
   var sheet = ledgerSheet_(config);
   var last = lastDataRow_(sheet);

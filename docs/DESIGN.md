@@ -399,8 +399,32 @@ is a test for exactly that.
 ### Diferencia
 
 The running total, large, named for whoever is ahead. Below it the splitter:
-enter how much is going into the joint account and the app proposes each
-person's share to land on zero.
+enter how much is going into the joint account and the app proposes each person's
+share to land on zero — and the one who has put in *less* is asked for more, so
+the difference ends at zero rather than doubling.
+
+Under both, **who has put in how much**, as a bar. Each half carries the name and
+the face beside its amount, and each pair has an accessible name saying both
+halves in one phrase: it was two percentages and two amounts in two colours, which
+is a chart with a key nobody printed, and it was read as the two being the wrong
+way round.
+
+**Both halves add up the same thing**, which is the other half of that report. The
+bar used to sum the window the app is sent — a year and a half of a ledger that
+starts in 2016 — while the number above it is the sheet's own difference over all
+of it. On this household's sheet that read 48/52 to Mario under «Viqui va por
+delante»: a screen contradicting itself, and both halves right about different
+questions. The backend sends `totals` now — the two amount columns summed over
+every row, the same two the `diferencia` formula subtracts — so the bar covers
+what the headline covers and the caption names the sheet's own first row.
+
+That field is optional in the type on purpose: a bootstrap cached by an older
+version is painted before any request goes out, and the app can be newer than the
+deployment for a few minutes. Where it is missing the bar falls back to the window
+and the caption says «solo lo cargado» rather than passing a part off as the whole.
+`sanityCheck` prints the two column sums beside the balance cell and complains
+when they disagree, which is the one remaining way this screen could argue with
+itself: a formula in E that is not `SUMA(C) - SUMA(D)`.
 
 ### Sitios
 
@@ -673,6 +697,18 @@ A rejected token is deleted rather than kept, so a cold start cannot hand the
 backend the very credential it just refused — the sharing list can change under a
 token that is still within its hour, and that is a `UNAUTHENTICATED` the app has
 to take as final.
+
+**A credential in hand and a request on the wire is a download, not a login.**
+After that `UNAUTHENTICATED` the status stays `needsAuth` while the fresh
+credential is used to fetch the sheet — `refresh` only drops to the splash before
+the first paint, and by then the cache has painted — so «Entrar con Google» sat on
+screen for the whole download of a two-thousand-row sheet. Which reads as a
+sign-in that silently failed, and the obvious thing to do about it is tap the
+button again. The store exposes `busy` for exactly that gap: a bootstrap on the
+wire replaces the button with the splash, which is the screen that already says
+which step it is on, how long it has been going and what last failed. It has a
+spinner now too — a line of text says the same thing whether or not anything is
+still happening.
 
 ### Identity and authorization
 

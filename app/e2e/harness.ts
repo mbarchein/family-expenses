@@ -57,6 +57,10 @@ export function bootstrap(overrides: Partial<Bootstrap> = {}): Bootstrap {
       meIndex: MARIO,
     },
     balance: 1435.94,
+    // What the two of them have put in over the whole sheet, which is more than
+    // the window above: `readTotals_` reads the columns the app never receives,
+    // and the Diferencia bar is drawn from these rather than from the entries.
+    totals: { paid: [1326.72, 160], since: LAST_YEAR },
     entries: [
       entry({ row: 2298, id: 'one', date: TODAY, concept: 'super', amount: 326.72, payer: VIQUI }),
       entry({ row: 2297, id: 'two', date: TODAY, concept: 'gasolina', amount: 60, payer: MARIO }),

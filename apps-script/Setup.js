@@ -251,6 +251,25 @@ function sanityCheck() {
       ' the balance is read from that cell alone. Run dumpLedgerShape(). ***');
   }
 
+  // The two columns added up against the cell the app shows. They are the same
+  // arithmetic — `SUMA(C) - SUMA(D)` — so a disagreement means the formula in E
+  // is not that, or somebody typed a value over it. Worth knowing here: the app
+  // draws its bar from these two sums and its headline from that cell, and a
+  // sheet where they differ is a screen contradicting itself.
+  var totals = readTotals_(config);
+  var difference = Math.round((totals.paid[0] - totals.paid[1]) * 100) / 100;
+  var shown = Math.round(Number(sheet.getRange(last, COL_BALANCE).getValue()) * 100) / 100;
+  lines.push('Paid in total:    ' + config.people[0].name + ' ' + euros_(totals.paid[0]) +
+    '  ·  ' + config.people[1].name + ' ' + euros_(totals.paid[1]) +
+    '  (since ' + (totals.since || '?') + ')');
+  lines.push('Columns say:      ' + euros_(difference) + '   Cell E says: ' + euros_(shown));
+  if (Math.abs(difference - shown) > 0.01) {
+    lines.push('*** Those two disagree. The balance cell is not' +
+      ' SUMA(' + columnIndexToLetter_(config.people[0].column) + ') -' +
+      ' SUMA(' + columnIndexToLetter_(config.people[1].column) + '),' +
+      ' or something was typed over it. ***');
+  }
+
   var suggestions = readSuggestions_();
   var counts = { concept: 0, note: 0, method: 0 };
   suggestions.items.forEach(function (item) { counts[item.kind]++; });

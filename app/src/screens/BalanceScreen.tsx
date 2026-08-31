@@ -23,17 +23,36 @@ export function BalanceScreen({ ledger, onBack }: { ledger: Ledger; onBack: () =
   const [typed, setTyped] = useState('')
 
   const split = useMemo(() => splitTransfer(parseAmount(typed), balance), [typed, balance])
-  const contributions = useMemo(() => {
+  /**
+   * What each of them has put in — over the whole sheet where the backend says
+   * so, and over the window it sent where it does not.
+   *
+   * The window is a year and a half of a ledger that starts in 2016, and this bar
+   * used to add up that window while the number above it covered everything. On
+   * this household's sheet that read 48/52 to Mario under «Viqui va por delante»,
+   * which is a screen contradicting itself. The backend sums the same two columns
+   * the sheet's own difference subtracts, so the two halves now answer the same
+   * question — see `readTotals_`.
+   *
+   * The fallback is not dead code: a bootstrap cached by an older version is read
+   * off the disk before any request goes out, and the app can be newer than the
+   * deployment for a few minutes after a push. Where it is used, the caption says
+   * what stretch the bar covers instead of claiming everything.
+   */
+  const lifetime = ledger.data?.totals
+  const windowed = useMemo(() => {
     const totals: [number, number] = [0, 0]
     for (const entry of ledger.entries) {
       if (!entry.voided && entry.payer !== null) totals[entry.payer] += entry.amount
     }
     return totals
   }, [ledger.entries])
-  // Both ends of what is being added up. A total whose stretch of time is left
-  // to be guessed at from the rows above it is a total of nothing in particular.
-  const from = useMemo(() => earliestDay(ledger.entries), [ledger.entries])
+  const contributions = lifetime?.paid ?? windowed
+  // What stretch is being added up. A total whose dates are left to be guessed at
+  // from the rows above it is a total of nothing in particular.
+  const loadedFrom = useMemo(() => earliestDay(ledger.entries), [ledger.entries])
   const to = useMemo(() => latestDay(ledger.entries), [ledger.entries])
+  const from = lifetime ? (lifetime.since || loadedFrom) : loadedFrom
 
   if (!people) return null
 
@@ -112,7 +131,9 @@ export function BalanceScreen({ ledger, onBack }: { ledger: Ledger; onBack: () =
           </h2>
           <p className="text-[11px] text-ink-3">
             {from && to
-              ? T.balance.contributedRange(formatShortDate(from), formatShortDate(to))
+              ? (lifetime
+                  ? T.balance.contributedRange(formatShortDate(from), formatShortDate(to))
+                  : T.balance.contributedWindow(formatShortDate(from), formatShortDate(to)))
               : T.balance.contributedEmpty}
           </p>
         </div>

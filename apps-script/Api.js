@@ -131,6 +131,10 @@ function handleBootstrap_(payload, user) {
     config: publicConfig_(config, user),
     balance: tail.balance,
     entries: tail.entries,
+    // What each of them has put in over the *whole* sheet, which the app cannot
+    // work out from the window above — and which stood next to the balance
+    // contradicting it. See `readTotals_`.
+    totals: readTotals_(config),
     // Every concept on the sheet, not only the ones inside the window above:
     // the app filters this as somebody types, so anything missing here cannot be
     // found by typing it.

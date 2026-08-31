@@ -16,6 +16,10 @@ import { MARIO, TODAY, VIQUI, bootstrap, entry, signIn, stubApi, stubGoogle } fr
  *  what the sheet's own `SUMA(C) - SUMA(D)` says about those two rows. */
 const LEDGER = bootstrap({
   balance: 200,
+  // The lifetime sums the backend now sends, which is what the bar is drawn
+  // from. Equal to the two rows below here on purpose: this test is about which
+  // name each number belongs to, and the window/lifetime difference has its own.
+  totals: { paid: [300, 100], since: TODAY },
   entries: [
     entry({ row: 10, id: 'a', date: TODAY, concept: 'super', amount: 300, payer: VIQUI }),
     entry({ row: 11, id: 'b', date: TODAY, concept: 'luz', amount: 100, payer: MARIO }),
@@ -42,6 +46,36 @@ test('the bar pairs each name with its own share and its own amount',
   await expect(page.getByRole('group', { name: 'Mario ha puesto 100,00 €' })).toBeVisible()
   await expect(page.getByLabel('Viqui, 75%')).toHaveText('75%')
   await expect(page.getByLabel('Mario, 25%')).toHaveText('25%')
+})
+
+test('the bar adds up the whole sheet, not the window the app was sent',
+  async ({ page }) => {
+  // Reported from the real ledger: the bar said 48/52 to Mario while the headline
+  // said Viqui was 337 € ahead. Both were right about different things — the bar
+  // was adding up the year and a half the app receives, and the difference covers
+  // a sheet that starts in 2016. Now they answer the same question.
+  await stubApi(page, bootstrap({
+    balance: 337.49,
+    // What the columns say over the whole sheet: Viqui ahead by 337,49.
+    totals: { paid: [34_474.77, 34_137.28], since: '2016-03-01' },
+    // And the window, where Mario has put in more — which is true and is not
+    // what this bar is about.
+    entries: [
+      entry({ row: 10, id: 'a', date: TODAY, concept: 'super', amount: 100, payer: VIQUI }),
+      entry({ row: 11, id: 'b', date: TODAY, concept: 'luz', amount: 900, payer: MARIO }),
+    ],
+  }))
+  await signIn(page)
+  await page.getByRole('button', { name: 'Diferencia' }).click()
+
+  await expect(page.getByRole('group', { name: 'Viqui ha puesto 34.474,77 €' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Mario ha puesto 34.137,28 €' })).toBeVisible()
+  // 50/50 to the nearest point, and the side that is ahead is the side the
+  // headline names — which is the contradiction that started this.
+  await expect(page.getByLabel('Viqui, 50%')).toBeVisible()
+  await expect(page.getByText('Viqui va por delante')).toBeVisible()
+  // And it says what stretch it covers, which is the sheet's own first row.
+  await expect(page.getByText(/Del 1 mar 2016 al/)).toBeVisible()
 })
 
 test('the transfer proposal asks more of whoever has put in less', async ({ page }) => {
