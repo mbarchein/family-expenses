@@ -43,6 +43,9 @@ export function FixedScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: 
   onCloseEditor: () => void
 }) {
   const people = ledger.data?.config.people
+  // The faces, for the payer on each row — the same ones the keypad and the edit
+  // sheet draw, so a person looks like the same person everywhere.
+  const { faces } = useAvatars()
   // Above the early return, where every hook has to be. What the concept box
   // offers: the same vocabulary the keypad has, which for a recurring bill is
   // almost always where its name already is.
@@ -92,15 +95,39 @@ export function FixedScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: 
             >
               {/* The same slot the expense rows have, from the template's own
                   category — and falling back to guessing from the concept for
-                  the ones filled in before the column existed. */}
+                  the ones filled in before the column existed. In whoever pays'
+                  colour, which is the other thing those rows do: on a list of
+                  fifteen bills, "whose is this one" was a word at the end of a
+                  grey line. */}
               <FixedIcon fixed={item} categories={categories} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{item.concept}</span>
-                <span className="block text-[11px] text-ink-3">
-                  {T.fixed.every(item.months)} · {T.fixed.dayLabel.toLowerCase()} {item.day}
-                  {' · '}
-                  {item.payer === null ? T.fixed.payerAny : people[item.payer].name}
-                  {!item.active && ` · ${T.fixed.inactive}`}
+                <span className="flex items-center gap-1 text-[11px] text-ink-3">
+                  <span className="truncate">
+                    {T.fixed.every(item.months)} · {T.fixed.onDay(item.day)}{' · '}
+                  </span>
+                  {/* The face and the name, in that person's colour — the pair
+                      the keypad, the edit sheet and the Diferencia bar all use,
+                      because two names in a household are told apart by the shape
+                      before they are read. Nothing to draw for a fijo that says
+                      "whoever has the phone": there is no face for both of them,
+                      and inventing one would be a claim about who pays. */}
+                  {item.payer === null
+                    ? <span className="shrink-0">{T.fixed.payerAny}</span>
+                    : (
+                      <span className="flex shrink-0 items-center gap-1 font-semibold"
+                            style={{ color: `var(--person-${item.payer + 1})` }}>
+                        <Avatar name={faces[item.payer]} className="h-3.5 w-3.5 shrink-0"
+                                style={{ color: `var(--person-${item.payer + 1})` }} />
+                        {people[item.payer].name}
+                      </span>
+                    )}
+                  {/* Its own chunk rather than inside the text that truncates:
+                      the row is already dimmed, and «Desa…» is worse than
+                      nothing. */}
+                  {!item.active && (
+                    <span className="shrink-0">{' · '}{T.fixed.inactive}</span>
+                  )}
                 </span>
               </span>
               <span className="tabular shrink-0 font-mono text-sm">
@@ -397,8 +424,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
  */
 function FixedIcon({ fixed, categories }: { fixed: Fixed; categories: readonly Category[] }) {
   const icon = iconOf(fixed, categories)
+  // Whoever pays, the way the expense rows colour theirs. A template that says
+  // "whoever has the phone" belongs to neither, so it keeps the grey it had —
+  // there is no colour for both of them, and picking one would be a claim.
+  const colour = fixed.payer === null
+    ? 'var(--ink-2)'
+    : `var(--person-${fixed.payer + 1})`
+
   return (
-    <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center text-ink-2">
+    <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center"
+          style={{ color: colour }}>
       {icon
         ? <Icon name={icon} className="h-6 w-6" />
         : <span className="h-2 w-2 rounded-full bg-current opacity-40" />}

@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
-import { TODAY, bootstrap, firstOfThisMonth, fixed, signIn, stubApi, stubGoogle } from './harness'
+import {
+  TODAY, VIQUI, bootstrap, firstOfThisMonth, fixed, signIn, stubApi, stubGoogle,
+} from './harness'
 
 /**
  * Recurring expenses: they propose, they do not post.
@@ -442,6 +444,35 @@ test('the gasto a template proposes arrives with the card the template holds',
     .toMatchObject({ concept: 'alquiler', method: 'Tarjeta Viqui' })
 })
 
+test('the list says whose each bill is, with a face and a colour',
+  async ({ page }) => {
+  // Fifteen bills down a list, and "whose is this one" was a word at the end of
+  // a grey line. The same pair the keypad and the edit sheet use — the face, the
+  // name, and the person's colour on the category icon too.
+  await stubApi(page, bootstrap({
+    fixed: [
+      fixed({ id: 'f1', row: 2, concept: 'alquiler', day: 1, payer: VIQUI, category: 'Luz' }),
+      fixed({ id: 'f2', row: 3, concept: 'gimnasio', day: 5, payer: null, category: '' }),
+    ],
+  }))
+  await signIn(page)
+  await page.getByRole('button', { name: 'Fijos', exact: true }).click()
+
+  // The name is on the row, and the icon beside it carries that person's colour
+  // — `--person-1` for the first of the two, which is what the expense rows do.
+  const rent = page.getByRole('button', { name: /alquiler/ })
+  await expect(rent).toContainText('Viqui')
+  await expect(rent.locator('[data-icon]').locator('..')).toHaveCSS(
+    'color', 'rgb(47, 98, 217)')
+
+  // And a bill that says "whoever has the phone" gets no face and no colour:
+  // there is none for both of them, and picking one would be a claim about who
+  // pays.
+  const gym = page.getByRole('button', { name: /gimnasio/ })
+  await expect(gym).toContainText('Quien lo apunte')
+  await expect(gym.locator('svg')).toHaveCount(1)
+})
+
 test('a template wears the icon of its category in the list', async ({ page }) => {
   await stubApi(page, bootstrap({
     fixed: [
@@ -456,6 +487,11 @@ test('a template wears the icon of its category in the list', async ({ page }) =
   // screen and that matches a loose `Fijos` too.
   await page.getByRole('button', { name: 'Fijos', exact: true }).click()
 
-  await expect(page.getByRole('button', { name: /alquiler/ }).locator('svg')).toHaveCount(1)
-  await expect(page.getByRole('button', { name: /lo del jueves/ }).locator('svg')).toHaveCount(0)
+  // By `data-icon` rather than by counting svgs: the rows carry the payer's face
+  // now, which is a second svg and has nothing to do with the category. Counting
+  // shapes is how this test broke the day the concept tiles grew a star.
+  await expect(page.getByRole('button', { name: /alquiler/ })
+    .locator('[data-icon]')).toHaveCount(1)
+  await expect(page.getByRole('button', { name: /lo del jueves/ })
+    .locator('[data-icon]')).toHaveCount(0)
 })

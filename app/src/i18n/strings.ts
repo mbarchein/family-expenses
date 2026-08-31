@@ -181,6 +181,10 @@ export const T = {
     inactive: 'Desactivado',
     everyLabel: 'Cada cuánto',
     dayLabel: 'Día del mes',
+    /** The same day on the row of the list, where «día del mes 20» was eight
+     *  characters of label around one number — and the row has a face, a name
+     *  and sometimes «Desactivado» to fit after it. */
+    onDay: (day: number) => `día ${day}`,
     amountLabel: 'Importe fijo',
     amountAsk: 'Preguntar cada vez',
     payerAny: 'Quien lo apunte',
