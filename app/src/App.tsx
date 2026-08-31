@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Spinner } from './components/Spinner'
 import { TabBar } from './components/TabBar'
 import { T } from './i18n/strings'
@@ -8,6 +8,7 @@ import { ListScreen } from './screens/ListScreen'
 import { FixedScreen } from './screens/FixedScreen'
 import { PlacesScreen } from './screens/PlacesScreen'
 import { renderSignInButton, setInteractionHandler, setSignedInHandler } from './auth/google'
+import { knownConcepts } from './lib/concepts'
 import { PRIVACY, TERMS } from './i18n/legal'
 import { useProgress, type Fact } from './lib/progress'
 import { useRoute } from './lib/route'
@@ -27,6 +28,20 @@ export default function App() {
   const [stuck, setStuck] = useState(false)
 
   const refresh = ledger.refresh
+  /**
+   * The vocabulary the Sitios screen offers under its concept boxes.
+   *
+   * Computed here because that screen has no ledger of its own — it reads places
+   * off the disk and nothing else — and a place's concept is a ledger concept:
+   * whatever is typed there is written into the sheet every time the door is
+   * recognised, so it is offered from the same list as everywhere else.
+   */
+  const placeConcepts = useMemo(
+    () => knownConcepts(
+      ledger.data?.frequent ?? [], ledger.entries, ledger.data?.suggestions ?? []),
+    [ledger.data?.frequent, ledger.entries, ledger.data?.suggestions],
+  )
+
   useEffect(() => {
     setInteractionHandler(() => setNeedsTap(true))
     // The other half of the sign-in button. Tapping it produces a credential
@@ -91,6 +106,7 @@ export default function App() {
         {route === 'places' && (
           <PlacesScreen
             categories={ledger.data?.categories ?? []}
+            concepts={placeConcepts}
             onBack={back}
             viewing={detail}
             onOpen={openDetail}

@@ -267,6 +267,18 @@ export const T = {
     addFromLast: 'Empieza en el último sitio que guardaste',
     addFromHere: 'Empieza donde está el móvil',
     addAgain: 'Ya tenías ese sitio guardado ahí',
+    /**
+     * Editing what a saved place *is*, on its own detail: its concept and the
+     * category it files gastos under.
+     *
+     * The concept was typed at a till, and it is what gets written into the
+     * ledger every time this door is recognised — so a typo from that moment is
+     * a typo apuntado for ever. Until now the only cure was deleting the place
+     * and starting it again, which threw its `uses` away with it.
+     */
+    editSave: 'Guardar los cambios',
+    editDone: 'Cambios guardados',
+    editAgain: 'Ya tienes otro sitio con ese concepto en esta misma puerta',
     empty: 'Todavía no has guardado ningún sitio',
     emptyHow:
       'Al apuntar un gasto, toca «Guardar este sitio» y la próxima vez que estés ' +

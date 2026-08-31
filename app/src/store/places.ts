@@ -123,6 +123,23 @@ export interface PlacesStore {
    * where it is.
    */
   moveTo: (id: string, fix: Fix) => Promise<void>
+  /**
+   * Renames a place, refiles it, or both.
+   *
+   * A place is a doorway *and* a concept, so changing the concept is changing
+   * half of what it is — and that is exactly why it has to be possible: the
+   * concept was typed at a till, and it is the thing that gets written into the
+   * ledger every time this door is recognised. A typo saved once is a typo
+   * apuntado for ever, and until now the only cure was deleting the place and
+   * starting it again, which threw away its `uses` with it.
+   *
+   * `again` when the new concept is already another place's at this same doorway:
+   * the pair is what makes two places one, so that rename would be a duplicate
+   * rather than a correction. Nothing is written in that case.
+   */
+  editPlace: (
+    id: string, fields: { concept: string; category: string },
+  ) => Promise<'saved' | 'again'>
   forget: (id: string) => Promise<void>
 }
 
@@ -259,6 +276,26 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
     setPlaces(current => current.map(item => (item.id === id ? place : item)))
   }, [])
 
+  const editPlace = useCallback(async (
+    id: string, fields: { concept: string; category: string },
+  ): Promise<'saved' | 'again'> => {
+    const stored = await idb.get<Place>('places', id)
+    if (!isPlace(stored)) return 'saved'
+    const current = readPlace(stored)
+
+    // The pair is the identity, so the collision to look for is the same concept
+    // at this same doorway — and only on another row, since renaming a place to
+    // what it is already called is not a duplicate of anything.
+    const clash = places.some(other => other.id !== id
+      && other.concept === fields.concept && samePlace(current, other))
+    if (clash) return 'again'
+
+    const place: Place = { ...current, concept: fields.concept, category: fields.category }
+    await idb.set('places', id, place)
+    setPlaces(list => list.map(item => (item.id === id ? place : item)))
+    return 'saved'
+  }, [places])
+
   const forget = useCallback(async (id: string) => {
     await idb.del('places', id)
     setPlaces(current => current.filter(place => place.id !== id))
@@ -266,7 +303,7 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
 
   return {
     places, ready, here, nearby, locateNow, knows, rememberAt, addPlace, countUse,
-    moveTo, forget,
+    moveTo, editPlace, forget,
   }
 }
 

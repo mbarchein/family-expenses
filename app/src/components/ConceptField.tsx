@@ -17,12 +17,15 @@ import { T } from '../i18n/strings'
  * the edit sheet had a bare box, so correcting a concept on a row was the one
  * place in the app where the app knew a word and did not offer it.
  */
-export function ConceptField({ value, concepts, onChange, autoFocus }: {
+export function ConceptField({ value, concepts, onChange, placeholder, autoFocus }: {
   value: string
   /** What to offer, in the order it should be offered. Deduplication is the
    *  caller's: it knows which lists it is joining. */
   concepts: readonly string[]
   onChange: (concept: string) => void
+  /** Only where the box can be empty on purpose — the new-place form. The two
+   *  editing screens open on a concept that is already there. */
+  placeholder?: string
   autoFocus?: boolean
 }) {
   const listId = useId()
@@ -33,6 +36,7 @@ export function ConceptField({ value, concepts, onChange, autoFocus }: {
         value={value}
         onChange={event => onChange(event.target.value)}
         aria-label={T.add.concept}
+        placeholder={placeholder}
         list={listId}
         // Off, because the list is the autocomplete: leaving it on stacks the
         // browser's own history of this field on top of the sheet's vocabulary,
@@ -40,7 +44,8 @@ export function ConceptField({ value, concepts, onChange, autoFocus }: {
         autoComplete="off"
         autoFocus={autoFocus}
         className="w-full rounded-lg border border-line bg-surface py-2.5 pl-3 pr-11 text-base
-                   text-ink focus-visible:outline focus-visible:outline-2"
+                   text-ink placeholder:text-ink-3
+                   focus-visible:outline focus-visible:outline-2"
       />
       {value && <ClearButton label={T.add.clearConcept} onClick={() => onChange('')} />}
       <datalist id={listId}>

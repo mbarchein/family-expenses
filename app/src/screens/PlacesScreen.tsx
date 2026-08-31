@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CategoryField } from '../components/CategoryField'
-import { ClearButton } from '../components/ClearButton'
+import { ConceptField } from '../components/ConceptField'
 import { Confirm } from '../components/Confirm'
 import { HereButton } from '../components/HereButton'
 import { PlaceMap } from '../components/PlaceMap'
@@ -29,10 +29,16 @@ const NEW = 'nuevo'
  *
  * Nothing here has ever been uploaded, and the first line of the screen says so.
  */
-export function PlacesScreen({ categories, onBack, viewing, onOpen, onCloseDetail }: {
-  /** The Categorías tab, for the picker on the new-place form. From the ledger,
+export function PlacesScreen({
+  categories, concepts, onBack, viewing, onOpen, onCloseDetail,
+}: {
+  /** The Categorías tab, for the picker on the two forms. From the ledger,
    *  because a place files its gastos under the same names the gastos do. */
   categories: readonly Category[]
+  /** And the vocabulary, for their concept boxes: a place's concept is a ledger
+   *  concept — it is written into the sheet every time this door is recognised —
+   *  so it is offered from the same list as everywhere else. */
+  concepts: readonly string[]
   onBack: () => void
   /** From the address: the id of the place whose map is open, `nuevo` for the
    *  form, or '' for the list. An address is what makes the phone's back button
@@ -42,7 +48,9 @@ export function PlacesScreen({ categories, onBack, viewing, onOpen, onCloseDetai
   onOpen: (detail: string) => void
   onCloseDetail: () => void
 }) {
-  const { places, ready, here, locateNow, addPlace, moveTo, forget } = usePlaces(
+  const {
+    places, ready, here, locateNow, addPlace, moveTo, editPlace, forget,
+  } = usePlaces(
     // The distances on this screen were always worth having; now the new-place
     // form opens on the position too, where it is already allowed. Still never a
     // prompt — that is `HereButton`'s job and nothing else's.
@@ -156,6 +164,7 @@ export function PlacesScreen({ categories, onBack, viewing, onOpen, onCloseDetai
       {adding && (
         <NewPlace
           categories={categories}
+          concepts={concepts}
           // Somewhere to start the map: where the phone is if that was already
           // allowed, and otherwise the last place saved — a coordinate off the
           // disk, so opening this form reads nothing and prompts for nothing.
@@ -173,8 +182,11 @@ export function PlacesScreen({ categories, onBack, viewing, onOpen, onCloseDetai
           place={open}
           others={around(open, places)}
           here={here}
+          categories={categories}
+          concepts={concepts}
           onLocate={locateNow}
           onMove={fix => moveTo(open.id, fix)}
+          onEdit={fields => editPlace(open.id, fields)}
           onForget={async () => { await forget(open.id); onCloseDetail() }}
           onClose={onCloseDetail}
         />
@@ -198,8 +210,11 @@ export function PlacesScreen({ categories, onBack, viewing, onOpen, onCloseDetai
  * is a coordinate off the disk; from either it is dragged. The only control here
  * that touches the device is `HereButton`, which says so.
  */
-function NewPlace({ categories, start, startedHere, onLocate, onSave, onClose }: {
+function NewPlace({
+  categories, concepts, start, startedHere, onLocate, onSave, onClose,
+}: {
   categories: readonly Category[]
+  concepts: readonly string[]
   /** Somewhere for the map to open on, or null on a phone with no permission and
    *  no saved place — there the map waits for the button. */
   start: Fix | null
@@ -282,21 +297,15 @@ function NewPlace({ categories, start, startedHere, onLocate, onSave, onClose }:
 
         <div className="flex flex-col gap-1">
           <p className="text-xs font-semibold text-ink-2">{T.places.addConcept}</p>
-          <div className="relative">
-            <input
-              value={concept}
-              onChange={event => setConcept(event.target.value)}
-              placeholder={T.places.addConceptPlaceholder}
-              aria-label={T.places.addConcept}
-              autoComplete="off"
-              className="w-full rounded-lg border border-line bg-surface py-2.5 pl-3 pr-11
-                         text-base text-ink placeholder:text-ink-3
-                         focus-visible:outline focus-visible:outline-2"
-            />
-            {concept && (
-              <ClearButton label={T.add.clearConcept} onClick={() => setConcept('')} />
-            )}
-          </div>
+          {/* The same box the edit sheet and the fijos editor use, with the same
+              vocabulary behind it: this text becomes a concepto in the hoja, and
+              a place is not a good reason to spell one a second way. */}
+          <ConceptField
+            value={concept}
+            concepts={concepts}
+            placeholder={T.places.addConceptPlaceholder}
+            onChange={setConcept}
+          />
           <p className="text-[11px] text-ink-3">{T.places.addConceptHow}</p>
         </div>
 
@@ -335,8 +344,16 @@ function NewPlace({ categories, start, startedHere, onLocate, onSave, onClose }:
  * in, with the accuracy it had and the fifteen metres inside which another fix
  * counts as the same door.
  *
- * It is also the two things you can do to a place: correct where it is, and
- * delete it.
+ * It is also everything you can do to a place: change what it is, correct where
+ * it is, and delete it.
+ *
+ * **What it is** is the concept and the category, and they are editable here for
+ * the same reason the position is. The concept was typed at a till and is written
+ * into the ledger every time this door is recognised, so a typo from that moment
+ * is a typo apuntado for ever — and the only cure this screen offered was
+ * deleting the place and starting it again, which threw its `uses` away with it.
+ * Guardar appears when something has actually changed, so the button is never a
+ * question about whether anything did.
  *
  * **Correcting is the one that earns its keep.** The fix a place was saved with
  * is whatever the phone had at the till, which indoors is often ±40 m through a
@@ -352,17 +369,26 @@ function NewPlace({ categories, start, startedHere, onLocate, onSave, onClose }:
  * correction, and only there, `HereButton` reads the device — the rule this app
  * follows is that only a control announcing it may prompt.
  */
-function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
+function Detail({
+  place, others, here, categories, concepts, onLocate, onMove, onEdit, onForget, onClose,
+}: {
   place: Place
   /** The other saved places near this one, measured from it. Drawn because they
    *  are the answer to "why does this door offer me two concepts". */
   others: NearPlace[]
   /** Where the phone is now, if it was already known. Not asked for here. */
   here: Fix | null
+  categories: readonly Category[]
+  concepts: readonly string[]
   /** Reads the position, prompting if the permission has not been decided. Only
    *  ever reached from the button that says it will. */
   onLocate: () => Promise<Fix | PositionFailure>
   onMove: (fix: Fix) => Promise<void>
+  /** `again` when another place at this same doorway already has that concept:
+   *  the pair is the identity, so that rename would be a duplicate. */
+  onEdit: (
+    fields: { concept: string; category: string },
+  ) => Promise<'saved' | 'again'>
   onForget: () => Promise<void>
   onClose: () => void
 }) {
@@ -373,7 +399,20 @@ function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
   const [correcting, setCorrecting] = useState(false)
   const [asking, setAsking] = useState(false)
   const [done, setDone] = useState(false)
+  const [concept, setConcept] = useState(place.concept)
+  const [category, setCategory] = useState(place.category)
+  const [edited, setEdited] = useState<'none' | 'saved' | 'again'>('none')
   const metres = here ? Math.round(metresBetween(here, place)) : null
+
+  // Something to save, and something worth saving: an empty concept is not a
+  // rename, it is a place with nothing to offer at that door.
+  const changed = concept.trim() !== place.concept || category !== place.category
+  const savable = changed && Boolean(concept.trim())
+
+  async function saveFields() {
+    if (!savable) return
+    setEdited(await onEdit({ concept: concept.trim(), category }))
+  }
 
   /** Opens the correction on the position the place already has. Reads nothing
    *  and prompts for nothing: the map is drawn from what is on the disk, and
@@ -488,14 +527,51 @@ function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
                 {T.places.savedOn(formatShortDate(toIso(new Date(place.savedAt))))}
                 {' · '}{T.places.uses(place.uses)}
                 {metres !== null && ` · ${T.places.distance(metres)}`}
+                {place.method && ` · ${place.method}`}
               </p>
-              {(place.category || place.method) && (
-                <p className="text-xs text-ink-2">
-                  {[place.category, place.method].filter(Boolean).join(' · ')}
-                </p>
-              )}
               {others.length > 0 && (
                 <p className="text-[11px] text-ink-3">{T.places.mapOthers(others.length)}</p>
+              )}
+
+              {/* What the place *is*, editable in place rather than behind a
+                  mode: two fields, and a Guardar that is only there when there is
+                  something to save. The card stays on the line above, read-only —
+                  it is what was used here last, not a decision. */}
+              <div className="flex flex-col gap-1 pt-1">
+                <p className="text-xs font-semibold text-ink-2">{T.places.addConcept}</p>
+                <ConceptField
+                  value={concept}
+                  concepts={concepts}
+                  onChange={value => { setConcept(value); setEdited('none') }}
+                />
+              </div>
+              <CategoryField
+                value={category}
+                categories={categories}
+                onChange={value => { setCategory(value); setEdited('none') }}
+              />
+
+              {edited === 'again' && (
+                <p role="alert" className="text-xs" style={{ color: 'var(--danger)' }}>
+                  {T.places.editAgain}
+                </p>
+              )}
+              {edited === 'saved' && !changed && (
+                <p role="status" className="text-xs" style={{ color: 'var(--accent)' }}>
+                  {T.places.editDone}
+                </p>
+              )}
+
+              {savable && (
+                <button
+                  type="button"
+                  onClick={() => void saveFields()}
+                  className="rounded-xl py-2.5 text-sm font-bold focus-visible:outline
+                             focus-visible:outline-2"
+                  style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+                >
+                  {T.places.editSave}
+                </button>
               )}
 
               {/* The two things you can do to a saved place, at the bottom where
@@ -504,12 +580,20 @@ function Detail({ place, others, here, onLocate, onMove, onForget, onClose }: {
                   is outside the fifteen-metre tolerance from the day it was
                   written, so it never comes back — and deleting it was the only
                   cure this screen offered. */}
+              {/* Outlined rather than filled, now that Guardar can appear above
+                  it: two solid accent buttons stacked is two primary actions, and
+                  the one that is primary here is whichever the fields are asking
+                  for. */}
               <button
                 type="button"
                 onClick={startFixing}
-                className="mt-2 rounded-xl py-3 text-sm font-bold focus-visible:outline
-                           focus-visible:outline-2"
-                style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+                className="mt-2 rounded-xl border py-2.5 text-sm font-semibold
+                           focus-visible:outline focus-visible:outline-2"
+                style={{
+                  background: 'var(--surface)',
+                  borderColor: 'var(--accent)',
+                  color: 'var(--accent)',
+                }}
               >
                 {T.places.fix}
               </button>

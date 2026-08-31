@@ -487,7 +487,7 @@ test.describe('with the location allowed', () => {
     // map centred on somewhere plausible looks exactly like one centred on you.
     await expect(form.getByText('Empieza donde está el móvil')).toBeVisible()
 
-    await form.getByRole('textbox', { name: 'Concepto' }).fill('farmacia')
+    await form.getByRole('combobox', { name: 'Concepto' }).fill('farmacia')
     await form.getByRole('button', { name: 'Elegir categoría' }).click()
     await page.getByRole('dialog', { name: 'Elegir categoría' })
       .getByRole('button', { name: 'Luz' }).click()
@@ -520,7 +520,7 @@ test.describe('with the location allowed', () => {
     for (const attempt of [1, 2]) {
       await page.getByRole('button', { name: 'Añadir un sitio' }).click()
       const form = page.getByRole('dialog', { name: 'Nuevo sitio' })
-      await form.getByRole('textbox', { name: 'Concepto' }).fill('farmacia')
+      await form.getByRole('combobox', { name: 'Concepto' }).fill('farmacia')
       await form.getByRole('button', { name: 'Guardar el sitio' }).click()
       if (attempt === 2) {
         // The same concept at the same doorway is the same place — the store says
@@ -530,6 +530,77 @@ test.describe('with the location allowed', () => {
       }
     }
 
+    await expect(page.getByRole('listitem').filter({ hasText: 'farmacia' })).toHaveCount(1)
+  })
+
+  test('a saved place can be renamed and refiled from its own detail',
+    async ({ page }) => {
+    // The concept was typed at a till and is written into the hoja every time
+    // this door is recognised, so a typo from that moment is a typo apuntado for
+    // ever. Deleting the place and starting it again was the only cure, and it
+    // threw the use counter away with it.
+    await stubApi(page)
+    await signIn(page)
+    await page.getByRole('button', { name: 'Sitios' }).click()
+    await page.getByRole('button', { name: 'Añadir un sitio' }).click()
+    const form = page.getByRole('dialog', { name: 'Nuevo sitio' })
+    await form.getByRole('combobox', { name: 'Concepto' }).fill('farmcia')
+    await form.getByRole('button', { name: 'Guardar el sitio' }).click()
+
+    await page.getByRole('button', { name: /Ver «farmcia»/ }).click()
+    const sheet = page.getByRole('dialog', { name: 'Sitio guardado' })
+
+    // Nothing to save until something changes, so the button is never a question
+    // about whether anything did.
+    await expect(sheet.getByRole('button', { name: 'Guardar los cambios' }))
+      .toHaveCount(0)
+
+    await sheet.getByRole('combobox', { name: 'Concepto' }).fill('farmacia')
+    await sheet.getByRole('button', { name: 'Elegir categoría' }).click()
+    await page.getByRole('dialog', { name: 'Elegir categoría' })
+      .getByRole('button', { name: 'Luz' }).click()
+    await sheet.getByRole('button', { name: 'Guardar los cambios' }).click()
+    await expect(sheet.getByRole('status')).toHaveText('Cambios guardados')
+
+    // On the list, under its new name and with the category it now files under.
+    await sheet.getByRole('button', { name: 'Cerrar' }).click()
+    const row = page.getByRole('listitem').filter({ hasText: 'farmacia' })
+    await expect(row).toContainText('Luz')
+    await expect(page.getByRole('listitem')).toHaveCount(1)
+
+    // And the doorway hands both over, which is the point of editing them.
+    await page.getByRole('button', { name: 'Añadir', exact: true }).click()
+    await reachDetails(page)
+    await page.getByRole('group', { name: 'Aquí has apuntado' })
+      .getByRole('button', { name: /farmacia/ }).click()
+    await expect(page.getByRole('textbox', { name: 'Concepto' })).toHaveValue('farmacia')
+    await expect(page.getByRole('button', { name: 'Elegir categoría' })).toContainText('Luz')
+  })
+
+  test('a rename onto another place at the same door is refused', async ({ page }) => {
+    // A place is a doorway *and* a concept: the pair is what makes two places
+    // one. Renaming onto a pair that exists would be a duplicate rather than a
+    // correction, so it says so and writes nothing.
+    await stubApi(page)
+    await signIn(page)
+    await page.getByRole('button', { name: 'Sitios' }).click()
+
+    for (const concept of ['farmacia', 'estanco']) {
+      await page.getByRole('button', { name: 'Añadir un sitio' }).click()
+      const form = page.getByRole('dialog', { name: 'Nuevo sitio' })
+      await form.getByRole('combobox', { name: 'Concepto' }).fill(concept)
+      await form.getByRole('button', { name: 'Guardar el sitio' }).click()
+    }
+
+    await page.getByRole('button', { name: /Ver «estanco»/ }).click()
+    const sheet = page.getByRole('dialog', { name: 'Sitio guardado' })
+    await sheet.getByRole('combobox', { name: 'Concepto' }).fill('farmacia')
+    await sheet.getByRole('button', { name: 'Guardar los cambios' }).click()
+
+    await expect(sheet.getByRole('alert')).toContainText('Ya tienes otro sitio')
+    await sheet.getByRole('button', { name: 'Cerrar' }).click()
+    // Both still there, both still themselves.
+    await expect(page.getByRole('listitem').filter({ hasText: 'estanco' })).toHaveCount(1)
     await expect(page.getByRole('listitem').filter({ hasText: 'farmacia' })).toHaveCount(1)
   })
 

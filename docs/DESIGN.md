@@ -450,8 +450,20 @@ and never raises a dialog. Prompting is one button's job and it says so.) The
 detail is an address rather than state for the usual reason: the phone's back
 button closes the map instead of leaving the screen.
 
-**And the two things you can do to a place, both of them there.** *Corregir la
-posición* replaces the position a place was saved with, and it is the cure for the
+**And everything you can do to a place, all of it there.** The concept and the
+category are editable in place — two fields under the map, with a Guardar that
+appears only when something has actually changed, so the button is never a
+question about whether anything did. They are editable for the same reason the
+position is: the concept was typed at a till and is written into the ledger every
+time that door is recognised, so a typo from that moment is a typo apuntado for
+ever, and the only cure this screen offered was deleting the place and starting it
+again — which threw its `uses` away with it. A rename onto a concept another place
+already has *at that same doorway* is refused rather than written: the pair is what
+makes two places one, so that would be a duplicate rather than a correction. The
+card stays read-only, because it is what was used there last rather than a
+decision.
+
+*Corregir la posición* replaces the position a place was saved with, and it is the cure for the
 failure this feature has that nothing else could fix: a place saved indoors at
 ±40 m is outside its own fifteen-metre tolerance from the first day, so it never
 comes back, and the only answer used to be deleting it and apuntando another gasto
