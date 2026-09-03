@@ -6,6 +6,8 @@
  * that boundary from blurring — when a Spanish string appears in a component,
  * it is a bug. See CLAUDE.md.
  */
+import { roundDistance } from '../lib/geo'
+
 export const T = {
   appName: 'A medias',
 
@@ -305,7 +307,12 @@ export const T = {
     unavailable: 'No se ha podido saber dónde estás',
     here: 'Aquí',
     hereRow: 'Aquí has apuntado',
-    distance: (metres: number) => `A ${metres} m de aquí`,
+    /** How far away, rounded by `roundDistance` — the unit symbol lives here
+     *  with the sentence, and the arithmetic lives with the maths. */
+    distance: (metres: number) => {
+      const away = roundDistance(metres)
+      return `A ${away.amount} ${away.km ? 'km' : 'm'} de aquí`
+    },
     accuracy: (metres: number) => `±${metres} m`,
     savedOn: (date: string) => `Guardado el ${date}`,
     uses: (n: number) => (n === 0 ? 'Sin usar todavía'
@@ -346,7 +353,12 @@ export const T = {
     /** Under it, one line per way the point on screen got there. */
     fixFromSaved: 'Es la posición que tiene guardada ahora',
     fixByHand: 'Lo has puesto tú en el mapa',
-    fixMoves: (metres: number) => `El sitio se movería ${metres} m`,
+    /** Rounded like the distances on the list, and for the same reason: a map
+     *  that has been dragged across town would otherwise say five digits. */
+    fixMoves: (metres: number) => {
+      const away = roundDistance(metres)
+      return `El sitio se movería ${away.amount} ${away.km ? 'km' : 'm'}`
+    },
     fixSame: 'El sitio se quedaría donde está',
     fixSave: 'Guardar esta posición',
     fixCancel: 'Dejarlo como estaba',

@@ -83,7 +83,7 @@ export function PlacesScreen({
 
       <ul className="flex flex-col gap-2">
         {rows.map(place => {
-          const metres = here ? Math.round(metresBetween(here, place)) : null
+          const metres = here ? metresBetween(here, place) : null
           return (
             <li key={place.id}>
               {/* The whole row opens the place now that there is somewhere to
@@ -402,7 +402,7 @@ function Detail({
   const [concept, setConcept] = useState(place.concept)
   const [category, setCategory] = useState(place.category)
   const [edited, setEdited] = useState<'none' | 'saved' | 'again'>('none')
-  const metres = here ? Math.round(metresBetween(here, place)) : null
+  const metres = here ? metresBetween(here, place) : null
 
   // Something to save, and something worth saving: an empty concept is not a
   // rename, it is a place with nothing to offer at that door.

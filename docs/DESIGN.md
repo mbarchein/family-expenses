@@ -474,6 +474,17 @@ and never raises a dialog. Prompting is one button's job and it says so.) The
 detail is an address rather than state for the usual reason: the phone's back
 button closes the map instead of leaving the screen.
 
+**The distances are rounded, and the rounding is the point.** The list said
+"A 47728 m de aquí" — read from another town, five digits wrapping onto a second
+line, and the doorways only differing in the hundreds. Every digit there was a
+claim the fix could not back: it knows itself to ±10 m. So `roundDistance` lets
+the precision fall away with the distance, always in a step smaller than the
+accuracy of what is being measured — whole metres under 100 m, where the
+proximity cards live and two metres against fifteen is a different answer; tens
+of metres under a kilometre; one decimal of a kilometre under ten; whole
+kilometres beyond. The unit is chosen *after* the rounding, because 997 m is a
+kilometre once the tens are gone and "1000 m" is a number nobody says.
+
 **And everything you can do to a place, all of it there.** The concept and the
 category are editable in place — two fields under the map, with a Guardar that
 appears only when something has actually changed, so the button is never a

@@ -50,6 +50,49 @@ export function metresBetween(a: Point, b: Point): number {
   return 2 * EARTH_RADIUS_METRES * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
+/**
+ * How near it is, at the precision that means anything.
+ *
+ * Reported: a list of five doorways in the same town, read from another one,
+ * that said "A 47728 m de aquí" — five digits of metres, wrapping onto a second
+ * line, and four of the five differing only in the hundreds. Every one of those
+ * digits was a claim: the fix behind it knows itself to ±10 m, so the last three
+ * were noise that the eye still has to read past.
+ *
+ * So the precision falls away with the distance, and the step is always smaller
+ * than the accuracy of the thing being measured:
+ *
+ * - under 100 m, whole metres — the proximity cards live here, where a place
+ *   fifteen metres away and one two metres away are a different answer;
+ * - under a kilometre, tens of metres;
+ * - under ten kilometres, one decimal of a kilometre;
+ * - beyond that, whole kilometres.
+ *
+ * The number is formatted es-ES, so the decimal is a comma. The unit symbol is
+ * not here: it is in `strings.ts` with the sentence it belongs to.
+ */
+export interface Rounded {
+  /** The number, already formatted for reading. */
+  amount: string
+  /** Whether `amount` counts kilometres rather than metres. */
+  km: boolean
+}
+
+const NUMBER = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 })
+
+export function roundDistance(metres: number): Rounded {
+  const away = Number.isFinite(metres) ? Math.max(0, metres) : 0
+  if (away < 100) return { amount: NUMBER.format(Math.round(away)), km: false }
+
+  // Rounded first, then re-read: 997 m is a kilometre once the tens are gone,
+  // and "1000 m" is a number nobody says out loud.
+  const tens = Math.round(away / 10) * 10
+  if (tens < 1000) return { amount: NUMBER.format(tens), km: false }
+
+  const km = tens / 1000
+  return { amount: NUMBER.format(km < 10 ? Math.round(km * 10) / 10 : Math.round(km)), km: true }
+}
+
 /** Whether two points are close enough to be the same place. */
 export function samePlace(a: Point, b: Point, tolerance = TOLERANCE_METRES): boolean {
   return metresBetween(a, b) <= tolerance

@@ -60,7 +60,7 @@ export function PlaceCards({ places, concept, method, onPick }: {
                 </span>
               )}
               <span className="block pt-0.5 text-[11px]" style={{ opacity: 0.6 }}>
-                {T.places.distance(Math.round(place.metres))}
+                {T.places.distance(place.metres)}
               </span>
             </button>
           )

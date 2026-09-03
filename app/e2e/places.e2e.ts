@@ -677,6 +677,32 @@ test.describe('with the location allowed', () => {
     await expect(page.getByRole('dialog', { name: 'Sitio guardado' })).toHaveCount(0)
   })
 
+  test('a place in another town is kilometres away, not five digits of metres',
+    async ({ page, context }) => {
+      // Reported from the list: "A 47728 m de aquí". The fix knows itself to
+      // ±10 m, so the last three digits were noise, and five of them wrapped the
+      // line onto a second one. Whole metres are kept where they mean something
+      // — the tolerance is fifteen — and dropped where they do not.
+      await stubApi(page)
+      await signIn(page)
+
+      await reachReview(page, 'ferretería')
+      await savePlace(page)
+      await page.getByRole('button', { name: 'Guardar' }).click()
+      await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+      await page.getByRole('button', { name: 'Sitios' }).click()
+      const row = page.getByRole('listitem').filter({ hasText: 'ferretería' })
+      await expect(row).toContainText('A 0 m de aquí')
+
+      // The same doorway, read from a town 48 km up the road.
+      await context.setGeolocation(northOf(47_728))
+      await page.getByRole('button', { name: 'Gastos' }).click()
+      await page.getByRole('button', { name: 'Sitios' }).click()
+      await expect(row).toContainText('A 48 km de aquí')
+      await expect(row).not.toContainText('47')
+    })
+
   test('a place saved with a bad fix can be corrected to where you are standing',
     async ({ page, context }) => {
     // The failure this answers: a place saved indoors at ±40 m is outside its own

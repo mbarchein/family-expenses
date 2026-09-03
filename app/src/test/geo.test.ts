@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TOLERANCE_METRES, metresBetween, samePlace } from '../lib/geo'
+import { TOLERANCE_METRES, metresBetween, roundDistance, samePlace } from '../lib/geo'
 
 // A doorway in Granada, which is where this app is used and 37° from the
 // equator — far enough north that a longitude degree is a fifth shorter than a
@@ -53,5 +53,50 @@ describe('samePlace', () => {
     // and the other is not, and only the cosine tells them apart.
     expect(samePlace(DOOR, { ...DOOR, lat: DOOR.lat + 0.00015 })).toBe(false)
     expect(samePlace(DOOR, { ...DOOR, lon: DOOR.lon + 0.00015 })).toBe(true)
+  })
+})
+
+describe('roundDistance', () => {
+  const said = (metres: number) => {
+    const away = roundDistance(metres)
+    return `${away.amount} ${away.km ? 'km' : 'm'}`
+  }
+
+  it('keeps whole metres where the tolerance lives', () => {
+    // The proximity cards only ever show distances inside TOLERANCE_METRES, so
+    // this range is the one where every metre changes the answer.
+    expect(said(0)).toBe('0 m')
+    expect(said(2.4)).toBe('2 m')
+    expect(said(14.6)).toBe('15 m')
+    expect(said(99)).toBe('99 m')
+  })
+
+  it('drops to tens of metres beyond a hundred', () => {
+    expect(said(104)).toBe('100 m')
+    expect(said(137)).toBe('140 m')
+    expect(said(986)).toBe('990 m')
+  })
+
+  it('says a kilometre rather than a thousand metres', () => {
+    // 997 rounds to 1000 m, which is the number nobody says. The unit has to be
+    // chosen after the rounding, not before it.
+    expect(said(997)).toBe('1 km')
+    expect(said(1234)).toBe('1,2 km')
+    expect(said(9940)).toBe('9,9 km')
+  })
+
+  it('drops the decimal past ten kilometres', () => {
+    // The reported one: five doorways in the same town, seen from another.
+    expect(said(9951)).toBe('10 km')
+    expect(said(47_728)).toBe('48 km')
+    expect(said(48_235)).toBe('48 km')
+  })
+
+  it('never shows a negative or a NaN', () => {
+    // Both are unreachable through metresBetween, and both would be read as a
+    // fact about where the phone is if they ever got out.
+    expect(said(-5)).toBe('0 m')
+    expect(said(Number.NaN)).toBe('0 m')
+    expect(said(Number.POSITIVE_INFINITY)).toBe('0 m')
   })
 })
