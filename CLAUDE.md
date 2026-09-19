@@ -131,11 +131,16 @@ against the copy of the spreadsheet, never the live ledger.
   not to the screen — the keypad is what this app opens on, so a read on mount
   would ask the device every time somebody opened the app, and it would hand the
   next gasto the fix the last one was saved with, which is how «forty metres away
-  is somewhere else» went red. And the fix has a best-before, `FIX_GOOD_FOR`: ten
-  seconds, because ten seconds of walking is the fifteen-metre tolerance, after
-  which the step that uses it drops the fix and reads again. Reading early is
-  free only while the early fix is still true. Section 13 and the Sitios
-  disclosure both name this read, as the rule above requires.
+  is somewhere else» went red. And the fix has a best-before, `FIX_GOOD_FOR`,
+  after which the step that uses it drops it and reads again — two minutes, which
+  is only safe because of what it does not govern: every gasto starts from a real
+  reading, so this decides how long somebody may dawdle *inside* one gasto and
+  nothing else. It was ten seconds, the honest figure from the tolerance and a
+  walking pace, and ten seconds is shorter than writing a concept and picking a
+  category, so the cards blanked and were fetched again in the middle of entering
+  one expense. Asked for deliberately, and the cost is written down where the
+  constant is. Section 13 and the Sitios disclosure both name this read, as the
+  rule above requires.
 
   Which is why the map is draggable through a prop and not by default: a map
   somebody opened to read must not become a way to look around, or the "tiles for

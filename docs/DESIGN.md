@@ -611,13 +611,22 @@ to read for, and one non-prompting read per gasto is what section 13 and the
 disclosure on Sitios describe.
 
 Reading early is free only while the early fix is still true, and that is what
-`FIX_GOOD_FOR` is for: ten seconds, the same arithmetic that refuses the
-browser's position cache — fifteen metres of tolerance against a walking pace.
-Somebody who types an amount, is interrupted and writes the concept in the next
-shop would otherwise be offered the doorway they left, which is a wrong
-suggestion where the old flow had none at all. So the step that shows the cards
-checks the age of what it was handed: fresh, and the cards are already there;
-stale, and the fix is dropped and read again exactly where it used to be.
+`FIX_GOOD_FOR` is for. The step that shows the cards checks the age of what it
+was handed: fresh, and the cards are already there; stale, and the fix is dropped
+and read again exactly where it used to be.
+
+**It is two minutes, and the reason that is not reckless is that it does not
+govern much.** The honest figure from the tolerance is ten seconds — fifteen
+metres against a walking pace — and ten seconds was useless: writing a concept,
+opening the category picker and stepping back takes longer than that, so the
+cards blanked and were fetched again in the middle of entering one expense, which
+is the reading being redone rather than kept. What makes two minutes safe is the
+trigger above it. Every gasto reads from scratch, so this is not a cache that
+carries one shop's fix into the next gasto; it decides only how long somebody may
+dawdle *inside* one. A stale fix can therefore only mean a card offered part-way
+through a gasto for a doorway left mid-gasto — walking out of a shop while
+apuntando what was spent in it — and a card is an offer that writes nothing until
+it is tapped.
 
 **Fifteen metres**, and the number is load-bearing in both directions. The shop
 next door is fifteen metres away, so a radius wide enough to always match would

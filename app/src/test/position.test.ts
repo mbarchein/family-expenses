@@ -16,16 +16,18 @@ describe('stillHere', () => {
     expect(stillHere(0, NOW)).toBe(false)
   })
 
-  it('keeps a fix taken a moment ago', () => {
+  it('keeps a fix through the length of a gasto', () => {
+    // The window this is for: writing a concept, opening the category picker and
+    // stepping back is a normal minute of apuntando one expense, and none of it
+    // should send the app back to the GPS.
     expect(stillHere(NOW, NOW)).toBe(true)
     expect(stillHere(NOW - 2_000, NOW)).toBe(true)
+    expect(stillHere(NOW - 90_000, NOW)).toBe(true)
   })
 
-  it('drops one taken longer ago than a person can walk the tolerance', () => {
-    // The arithmetic the constant comes from: 15 m of tolerance at about
-    // 1.4 m/s. A fix older than that is a doorway somebody may have left.
+  it('drops one from long enough ago to be another doorway', () => {
     expect(stillHere(NOW - FIX_GOOD_FOR, NOW)).toBe(false)
-    expect(stillHere(NOW - 60_000, NOW)).toBe(false)
+    expect(stillHere(NOW - 600_000, NOW)).toBe(false)
   })
 
   it('is right up to the last millisecond either side', () => {

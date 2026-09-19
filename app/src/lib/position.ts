@@ -21,19 +21,30 @@ export type PositionFailure = 'denied' | 'unavailable'
 /**
  * How long a fix is still where you are, in milliseconds.
  *
- * The same arithmetic as the `maximumAge: 0` below, which is the line that
- * refuses the browser's own cache: places match within 15 m and a person walks
- * about 1.4 m a second, so ten seconds of walking is the tolerance. That comment
- * works the number out and then throws it away, because at the time nothing was
- * gained by keeping a fix for ten seconds. Something is now.
+ * **Two minutes, and this number is only safe because of what it does not
+ * govern.** Every gasto reads the position from scratch — the add flow asks the
+ * moment the first digit of the amount is typed, throwing away whatever was
+ * held — so this is not a cache that carries one shop's fix into the next
+ * gasto. It governs one thing: how long somebody may dawdle *inside* a single
+ * gasto before the step that shows the proximity cards takes the reading again.
  *
- * The add flow reads the position when the amount starts being typed rather than
- * on the step that uses it: a GPS read takes seconds, the keypad needs nothing
- * from the device, and the proximity cards used to turn up well after the screen
- * they belong to. That gains nothing if the person then leaves the keypad open
- * and walks off, so the fix has a best-before and this is it.
+ * Asked for, and worth being plain about what it costs. The arithmetic written
+ * above `maximumAge: 0` below says places match within 15 m and a person walks
+ * about 1.4 m a second, which makes ten seconds the honest window and two
+ * minutes about a hundred and seventy metres — several doorways. What bought
+ * the other hundred and ten seconds is that ten was too short to be worth
+ * having: writing a concept, opening the category picker and stepping back is
+ * more than ten seconds of a normal gasto, so the cards kept blanking and being
+ * fetched again in the middle of entering one expense, which is the reading
+ * being redone rather than kept.
+ *
+ * So the trade is: a stale fix can only ever mean a card offered part-way
+ * through a gasto for a doorway that was left mid-gasto, which is somebody
+ * walking out of a shop while apuntando what they spent in it. A card is an
+ * offer — it fills two fields when it is tapped and writes nothing on its own —
+ * and the fifteen metres still decide whether it appears at all.
  */
-export const FIX_GOOD_FOR = 10_000
+export const FIX_GOOD_FOR = 120_000
 
 /**
  * Whether a fix taken at `takenAt` is still where you are.
@@ -88,9 +99,11 @@ function locate(): Promise<GeolocationPosition> {
       // test that walks forty metres up the street caught it: the radius is
       // 15 m and a minute of walking is eighty. A cache window would have to be
       // under ten seconds to be safe, which is close enough to zero that the
-      // reasoning is not worth keeping — and where that ten seconds did end up
-      // being worth something, see `FIX_GOOD_FOR`. The cost is one GPS read per
-      // gasto, taken on the keypad where nobody is waiting on it.
+      // reasoning is not worth keeping. It is the browser's cache this refuses,
+      // and that refusal is what makes every gasto start from a real reading;
+      // how long one reading then lasts inside a gasto is `FIX_GOOD_FOR`, which
+      // is a different question with a different answer. The cost is one GPS
+      // read per gasto, taken on the keypad where nobody is waiting on it.
       maximumAge: 0,
     })
   })

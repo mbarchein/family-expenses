@@ -173,11 +173,15 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
    *
    * Reading early is only free while the early fix is still true. Somebody who
    * types an amount, is interrupted, and comes back to write the concept in the
-   * next shop would otherwise be offered the one they have left — a wrong
-   * suggestion where the old flow had none at all, which is worse than the wait
-   * it saves. So the step that shows the cards checks the age of what it was
-   * handed: under `FIX_GOOD_FOR` nothing happens and the cards are already
-   * there, over it the fix is dropped and read again where it used to be.
+   * next shop would otherwise be offered the one they have left. So this checks
+   * the age of what it was handed: under `FIX_GOOD_FOR` nothing happens and the
+   * cards are already there, over it the fix is dropped and read again where it
+   * used to be.
+   *
+   * The check and not a re-read, because this fires on every arrival at the
+   * step and somebody walking back and forth between the concept and the review
+   * is not somebody who has moved. Two minutes is long enough for all of that to
+   * be one reading, which is the point of the constant.
    */
   useEffect(() => {
     if (step === 1) void refreshHere()
