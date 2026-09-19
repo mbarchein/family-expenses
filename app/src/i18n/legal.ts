@@ -172,7 +172,10 @@ export const PRIVACY: LegalDocument = {
         '«Usar dónde estoy ahora» al añadir o corregir un sitio guardado. Con el ' +
         'permiso ya concedido, la pantalla «Sitios» lee tu posición para ordenar la ' +
         'lista y decirte a qué distancia queda cada sitio, y el mapa de un sitio nuevo ' +
-        'se abre donde estás; arrastrar el mapa no lee nada. Sirve para una cosa: ' +
+        'se abre donde estás; arrastrar el mapa no lee nada. Al apuntar un gasto también ' +
+        'se lee, sin preguntarte nada: empieza en cuanto escribes la primera cifra del ' +
+        'importe, para tener la respuesta lista en el paso del concepto, y se vuelve a ' +
+        'leer allí si han pasado más de diez segundos. Sirve para una cosa: ' +
         'reconocer que estás en un sitio que ya guardaste y proponerte el mismo concepto. ' +
         'Las coordenadas se guardan únicamente en el almacenamiento de tu navegador, en tu ' +
         'dispositivo: no se envían a nuestro servidor, no se escriben en la hoja de ' +

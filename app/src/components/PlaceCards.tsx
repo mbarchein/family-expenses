@@ -18,7 +18,7 @@ import type { NearPlace } from '../store/places'
  * where somebody has saved five things at one address.
  */
 export function PlaceCards({ places, concept, method, onPick }: {
-  places: NearPlace[]
+  places: readonly NearPlace[]
   concept: string
   /** The payment method, which is the other half a card fills. It was the note
    *  until the method got a column of its own. */

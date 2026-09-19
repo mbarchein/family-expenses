@@ -18,6 +18,35 @@ export interface Fix {
 
 export type PositionFailure = 'denied' | 'unavailable'
 
+/**
+ * How long a fix is still where you are, in milliseconds.
+ *
+ * The same arithmetic as the `maximumAge: 0` below, which is the line that
+ * refuses the browser's own cache: places match within 15 m and a person walks
+ * about 1.4 m a second, so ten seconds of walking is the tolerance. That comment
+ * works the number out and then throws it away, because at the time nothing was
+ * gained by keeping a fix for ten seconds. Something is now.
+ *
+ * The add flow reads the position when the amount starts being typed rather than
+ * on the step that uses it: a GPS read takes seconds, the keypad needs nothing
+ * from the device, and the proximity cards used to turn up well after the screen
+ * they belong to. That gains nothing if the person then leaves the keypad open
+ * and walks off, so the fix has a best-before and this is it.
+ */
+export const FIX_GOOD_FOR = 10_000
+
+/**
+ * Whether a fix taken at `takenAt` is still where you are.
+ *
+ * Zero means there is no fix, which is not the same as an old one and is false
+ * here for the same reason: neither is a position. Split out from the store so
+ * the boundary can be tested without a browser — the wiring around it needs one,
+ * the arithmetic does not.
+ */
+export function stillHere(takenAt: number, now: number = Date.now()): boolean {
+  return takenAt > 0 && now - takenAt < FIX_GOOD_FOR
+}
+
 /** A fix, or why there is none. Prompts if the permission has not been decided. */
 export async function askForPosition(): Promise<Fix | PositionFailure> {
   if (!navigator.geolocation) return 'unavailable'
@@ -59,8 +88,9 @@ function locate(): Promise<GeolocationPosition> {
       // test that walks forty metres up the street caught it: the radius is
       // 15 m and a minute of walking is eighty. A cache window would have to be
       // under ten seconds to be safe, which is close enough to zero that the
-      // reasoning is not worth keeping. The cost is one GPS read per visit to
-      // the second step, and a suggestion that arrives a moment after the screen.
+      // reasoning is not worth keeping — and where that ten seconds did end up
+      // being worth something, see `FIX_GOOD_FOR`. The cost is one GPS read per
+      // gasto, taken on the keypad where nobody is waiting on it.
       maximumAge: 0,
     })
   })

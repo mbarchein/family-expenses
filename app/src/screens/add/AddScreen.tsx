@@ -69,12 +69,13 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
   const { draft, ready, patch, reset } = useDraft(me === 1 ? 1 : 0)
   const [problem, setProblem] = useState<string | null>(null)
 
-  // No `locate`: this only ever writes a place, and reading the GPS on the way
-  // into a flow that may never ask for one is exactly what the option exists to
-  // avoid. The screen that suggests by proximity does its own reading. `nearby`
-  // is measured against whatever fix the store already holds, so taking it costs
-  // nothing and is empty until the switch has asked.
-  const { locateNow, knows, rememberAt, countUse, nearby } = usePlaces()
+  // No `locate`: that reads on mount, and this screen is what the app opens on,
+  // so it would ask the device every time somebody opened the app to look at
+  // something. This flow asks for itself, when there is a gasto to ask for —
+  // see the two effects below.
+  const {
+    locateNow, locateQuietly, refreshHere, knows, rememberAt, countUse, nearby,
+  } = usePlaces()
   const [place, setPlace] = useState<PlaceState>({ kind: 'off' })
   const [showDue, setShowDue] = useState(false)
   // It opens over the keypad from a banner rather than from an address, so this
@@ -136,6 +137,51 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
   useEffect(() => {
     if (ready && detail && step !== 1) onCloseDetail()
   }, [ready, detail, step, onCloseDetail])
+
+  /**
+   * Where the phone is, asked for on the keypad — one step before anything is
+   * suggested with it.
+   *
+   * The second step used to read the position on mount, which is the moment its
+   * cards are wanted: they appeared several seconds after the screen they belong
+   * to, and on a phone at a till those seconds are somebody standing still
+   * waiting for a shop they are already inside to be recognised. A GPS read
+   * takes as long as it takes; what can move is when it starts. The amount is
+   * the one part of this flow that is pure typing and needs nothing from the
+   * device, so the read runs underneath it.
+   *
+   * The trigger is the first digit rather than the screen appearing, and that is
+   * the load-bearing half. A gasto is what the fix belongs to: reading on mount
+   * would read on every visit to the app's own front screen, whether or not
+   * anybody was apuntando anything, and it would hand the *next* gasto the fix
+   * the last one was saved with — the browser test that walks forty metres up
+   * the street is what says so, and it failed exactly that way while this was
+   * keyed to the mount. Clearing the amount and starting again is a new gasto by
+   * the same reasoning, and asks again.
+   *
+   * It never prompts: `locateQuietly` gives up unless the permission is already
+   * granted, so a phone that has never used places sees no dialog here. Only the
+   * switch on the third step may ask, and it says so.
+   */
+  const typing = draft.typed.length > 0
+  useEffect(() => {
+    if (typing) void locateQuietly()
+  }, [typing, locateQuietly])
+
+  /**
+   * And on the step that uses it, a fix past its best-before is read again.
+   *
+   * Reading early is only free while the early fix is still true. Somebody who
+   * types an amount, is interrupted, and comes back to write the concept in the
+   * next shop would otherwise be offered the one they have left — a wrong
+   * suggestion where the old flow had none at all, which is worse than the wait
+   * it saves. So the step that shows the cards checks the age of what it was
+   * handed: under `FIX_GOOD_FOR` nothing happens and the cards are already
+   * there, over it the fix is dropped and read again where it used to be.
+   */
+  useEffect(() => {
+    if (step === 1) void refreshHere()
+  }, [step, refreshHere])
 
   /**
    * While the switch is on and this screen is up, keep improving the fix.
@@ -455,6 +501,9 @@ export function AddScreen({ ledger, onLeave, detail, onOpen, onCloseDetail }: {
           draft={draft}
           data={data}
           entries={ledger.entries}
+          // Measured against the fix taken on the keypad, one step ago — which
+          // is the whole point of reading it there.
+          nearby={nearby}
           patch={patch}
           onNext={forward}
           onSaveCategory={ledger.saveCategory}

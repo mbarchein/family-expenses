@@ -231,8 +231,9 @@ export const T = {
       'mapa — un cuadrado de cien metros o más, no el punto exacto — y solo ' +
       'mientras se está viendo. Pedirte permiso solo lo hace «Usar dónde estoy ' +
       'ahora», y por eso el botón lo dice; si ya se lo has dado, esta pantalla lee ' +
-      'tu posición para decirte a qué distancia queda cada sitio. Arrastrar el mapa ' +
-      'no lee nada.',
+      'tu posición para decirte a qué distancia queda cada sitio, y al apuntar un ' +
+      'gasto se lee en cuanto escribes el importe, para reconocer el sitio en el ' +
+      'paso del concepto. Arrastrar el mapa no lee nada.',
     /** The row's own name, because the row is now a button: read out loud, a list
      *  of dates and metres does not say what tapping it does. */
     open: (concept: string) => `Ver «${concept}» en el mapa`,

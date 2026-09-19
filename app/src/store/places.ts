@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { idb } from './db'
 import { TOLERANCE_METRES, metresBetween, samePlace } from '../lib/geo'
 import {
-  askForPosition, positionIfAlreadyAllowed, type Fix, type PositionFailure,
+  askForPosition, positionIfAlreadyAllowed, stillHere,
+  type Fix, type PositionFailure,
 } from '../lib/position'
 
 /**
@@ -73,6 +74,33 @@ export interface PlacesStore {
   /** Reads where the phone is, prompting if the permission has not been decided
    *  yet. Only ever reached from a control that says it will ask. */
   locateNow: () => Promise<Fix | PositionFailure>
+  /**
+   * Reads where the phone is **without prompting**, throwing away whatever was
+   * held first.
+   *
+   * The pair of `locateNow`, and the difference is the whole privacy design:
+   * that one may raise a dialog and is only ever wired to a control that says
+   * so, this one gives up unless the permission is already granted. So it is
+   * free to be called by something that is not a button — and it is: the add
+   * flow calls it when the amount starts being typed, because a GPS read takes
+   * seconds and the keypad is the part of entering a gasto that needs nothing
+   * from the device.
+   *
+   * The old fix goes before the new one is asked for, not after. A screen that
+   * kept it would offer the doorway you have left for as long as the read takes,
+   * which is a wrong suggestion where there used to be none.
+   */
+  locateQuietly: () => Promise<void>
+  /**
+   * The same, but only if what is held has gone past `FIX_GOOD_FOR`.
+   *
+   * For the step that uses the fix rather than the one that asks for it. Reading
+   * early is free only while the early fix is still true: somebody who starts an
+   * amount, is interrupted, and finishes it in the next shop must not be offered
+   * the last one. Fresh, and this does nothing and the cards are already there;
+   * stale, and the read happens exactly where it used to.
+   */
+  refreshHere: () => Promise<void>
   /** Whether this doorway already holds this concept. Asked by the review
    *  step's switch, which has a fix in hand and no business recomputing the
    *  tolerance itself. */
@@ -145,10 +173,14 @@ export interface PlacesStore {
 
 /**
  * `locate` asks for the position on mount — but only where it is already
- * allowed, and never with a prompt. It is opt-in because two screens need it
- * (the chips on the second step, the distances on the places screen) and one
- * does not: the flow that only ever writes a place would otherwise read the GPS
- * on every mount for nothing.
+ * allowed, and never with a prompt.
+ *
+ * It is opt-in because the read is not free — a GPS fix takes seconds and holds
+ * the receiver open — and a screen that will not use one has no business asking.
+ * The places screen wants it on mount, for its distances and the map a new place
+ * opens on, and it is the only one: the add flow reads through `locateQuietly`
+ * instead, when a gasto starts rather than when its screen appears, so opening
+ * the app on the keypad touches nothing.
  */
 export interface PlacesOptions {
   locate?: boolean
@@ -158,6 +190,40 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
   const [places, setPlaces] = useState<Place[]>([])
   const [ready, setReady] = useState(false)
   const [here, setHere] = useState<Fix | null>(null)
+  /** When `here` was taken, so `refreshHere` can tell a fix from a memory of
+   *  one. Zero means there is none. A ref rather than state: nothing on screen
+   *  is drawn from it, and it changes inside the read it belongs to. */
+  const takenAt = useRef(0)
+  /** One read at a time. Two are not twice as fast — they are two GPS reads —
+   *  and the second would land on top of the first for no gain. */
+  const reading = useRef(false)
+
+  const readHere = useCallback(async () => {
+    if (reading.current) return
+    reading.current = true
+    try {
+      // Deliberately without prompting: the screens that use this are useful
+      // with no position at all, and a dialog nobody asked for is how a
+      // permission gets denied for good.
+      const fix = await positionIfAlreadyAllowed()
+      if (!fix) return
+      setHere(fix)
+      takenAt.current = Date.now()
+    } finally {
+      reading.current = false
+    }
+  }, [])
+
+  const locateQuietly = useCallback(async () => {
+    takenAt.current = 0
+    setHere(null)
+    await readHere()
+  }, [readHere])
+
+  const refreshHere = useCallback(async () => {
+    if (stillHere(takenAt.current)) return
+    await locateQuietly()
+  }, [locateQuietly])
 
   useEffect(() => {
     let cancelled = false
@@ -167,15 +233,12 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
         setPlaces(stored.filter(isPlace).map(readPlace))
         setReady(true)
       }
-      // Deliberately after the list and deliberately without prompting: the
-      // screens that use this are useful with no position at all, and a dialog
-      // nobody asked for is how a permission gets denied for good.
-      if (!locate) return
-      const fix = await positionIfAlreadyAllowed()
-      if (!cancelled && fix) setHere(fix)
+      // After the list, because the list is what the screen draws first and the
+      // fix is what it draws better with.
+      if (locate && !cancelled) await readHere()
     })()
     return () => { cancelled = true }
-  }, [locate])
+  }, [locate, readHere])
 
   const nearby = useMemo<NearPlace[]>(() => {
     if (!here) return []
@@ -187,7 +250,10 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
 
   const locateNow = useCallback(async () => {
     const fix = await askForPosition()
-    if (fix !== 'denied' && fix !== 'unavailable') setHere(fix)
+    if (fix !== 'denied' && fix !== 'unavailable') {
+      setHere(fix)
+      takenAt.current = Date.now()
+    }
     return fix
   }, [])
 
@@ -302,8 +368,8 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
   }, [])
 
   return {
-    places, ready, here, nearby, locateNow, knows, rememberAt, addPlace, countUse,
-    moveTo, editPlace, forget,
+    places, ready, here, nearby, locateNow, locateQuietly, refreshHere, knows,
+    rememberAt, addPlace, countUse, moveTo, editPlace, forget,
   }
 }
 

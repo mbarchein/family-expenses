@@ -12,7 +12,7 @@ import { fuzzyFilter } from '../../lib/fuzzy'
 import { useAvatars } from '../../store/avatars'
 import { carriedMethod } from '../../store/carry'
 import { useIconChoices } from '../../store/iconChoices'
-import { usePlaces } from '../../store/places'
+import type { NearPlace } from '../../store/places'
 import type { Draft } from '../../store/draft'
 import type { Bootstrap, Entry, Suggestion } from '../../api/types'
 
@@ -54,7 +54,7 @@ const TILES = 8
  * and because they are the only control here that can answer the whole screen.
  */
 export function StepDetails({
-  draft, data, entries, patch, onNext, onSaveCategory, onDeleteCategory,
+  draft, data, entries, nearby, patch, onNext, onSaveCategory, onDeleteCategory,
   menu, onOpenMenu, onCloseMenu,
 }: {
   draft: Draft
@@ -62,6 +62,17 @@ export function StepDetails({
   /** What the list is showing, queue included. The search offers these too, so a
    *  concept that has not reached the sheet yet can still be found. */
   entries: Entry[]
+  /**
+   * The saved places within the tolerance of where the phone is, nearest first.
+   *
+   * Handed down rather than read here, which is the point: this screen used to
+   * call `usePlaces({ locate: true })` itself, so the GPS read began the moment
+   * the cards were wanted and they appeared seconds after the screen did. The
+   * flow above starts it on the keypad instead — see `AddScreen` — so by the
+   * time this opens the answer is usually already in hand. Empty while there is
+   * no fix, and empty is the honest state: no position, nothing to recognise.
+   */
+  nearby: readonly NearPlace[]
   patch: (fields: Partial<Draft>) => void
   onNext: () => void
   /** The Categorías tab, written from the cog. Passed down rather than reached
@@ -75,10 +86,6 @@ export function StepDetails({
   onOpenMenu: () => void
   onCloseMenu: () => void
 }) {
-  // `locate` because this is the screen that suggests by proximity, and the
-  // position is read again on every visit: a fix is only worth what it was worth
-  // when it was taken.
-  const { nearby } = usePlaces({ locate: true })
   const { chosen, choose } = useIconChoices()
   const { faces, choose: chooseFace } = useAvatars()
 

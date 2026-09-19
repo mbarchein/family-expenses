@@ -64,6 +64,27 @@ async function drag(page: Page, sheet: Locator, dx: number, dy: number) {
   await page.mouse.up()
 }
 
+/**
+ * Counts every read of the device's position.
+ *
+ * So a test can say *when* the app asked rather than only whether an answer
+ * turned up: the two are indistinguishable from the screen, because a stubbed
+ * fix arrives instantly and a real one takes seconds. Must be armed before the
+ * page is opened, which is why it is not inside `signIn`.
+ */
+async function positionReads(page: Page) {
+  await page.addInitScript(() => {
+    const geolocation = navigator.geolocation
+    const original = geolocation.getCurrentPosition.bind(geolocation)
+    Object.assign(window, { __reads: 0 })
+    geolocation.getCurrentPosition = ((...args: Parameters<typeof original>) => {
+      Object.assign(window, { __reads: (window as { __reads?: number }).__reads! + 1 })
+      return original(...args)
+    }) as typeof original
+  })
+  return () => page.evaluate(() => (window as { __reads?: number }).__reads ?? 0)
+}
+
 test.beforeEach(async ({ page }) => {
   await stubGoogle(page)
 })
@@ -106,6 +127,34 @@ test.describe('with the location allowed', () => {
     expect(JSON.stringify(calls)).not.toContain('37.17')
     expect(JSON.stringify(calls)).not.toContain('-3.59')
   })
+
+  test('the position is read on the keypad, a step before anything needs it',
+    async ({ page }) => {
+      // The change this test exists for: the second step used to read the GPS
+      // on mount, which is the moment its cards are wanted, so they turned up
+      // several seconds after the screen did — somebody standing at a till
+      // waiting for a shop they are already inside to be recognised. A read
+      // takes as long as it takes; what can move is when it starts.
+      await stubApi(page)
+      const reads = await positionReads(page)
+      await signIn(page)
+
+      // Opening the app is not apuntar un gasto. The keypad is what this app
+      // opens on, so a read on mount would be a read every time somebody looked
+      // at anything.
+      expect(await reads()).toBe(0)
+
+      // The first digit is where a gasto begins, and the device is asked there
+      // — while there is still an amount to finish typing.
+      await typeAmount(page, '10')
+      await expect.poll(reads).toBe(1)
+
+      // And the step that uses it does not ask again: the fix is seconds old,
+      // which is inside FIX_GOOD_FOR, so the cards are there with the screen.
+      await next(page)
+      await expect(page.getByRole('textbox', { name: 'Concepto' })).toBeVisible()
+      expect(await reads()).toBe(1)
+    })
 
   test('a concept lent by a saved place is told, not offered', async ({ page }) => {
     // The switch says "Guardar este sitio". When the concept came off one of the
@@ -785,12 +834,19 @@ test.describe('with the location not allowed', () => {
     // The screen must not read the position and must not raise a dialog: the
     // chips are the ones the sheet and the history gave it, in that order.
     await stubApi(page)
+    const reads = await positionReads(page)
     await signIn(page)
     await reachDetails(page)
 
     const concepts = page.getByRole('group', { name: 'Conceptos frecuentes' })
     await expect(concepts.getByRole('button').first()).toHaveText('farmacia')
     await expect(page.getByRole('group', { name: 'Aquí has apuntado' })).toHaveCount(0)
+
+    // The half of that which is invisible, and the half that matters now the
+    // keypad is the one asking: with the permission undecided, the device is
+    // never touched at all. `positionIfAlreadyAllowed` looks at the permission
+    // and gives up, so moving the read one step earlier moved no dialog with it.
+    expect(await reads()).toBe(0)
   })
 
   test('a refusal is said out loud rather than going quiet', async ({ page }) => {

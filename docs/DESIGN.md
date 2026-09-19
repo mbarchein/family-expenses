@@ -594,6 +594,31 @@ the row — see **Añadir**. It carries the concept and the payment method saved
 with it, because at a given shop it tends to be the same card, and both are
 printed on it.
 
+**The read starts a step early.** A GPS fix takes seconds, and the second step
+used to ask for one on mount — the moment its cards are wanted — so the shop you
+are standing in was recognised well after the screen that would have offered it.
+Nothing can make the read faster, but it can start where nobody is waiting on
+it: the keypad needs nothing from the device, so the add flow asks there and the
+answer is usually in hand before the concept step opens.
+
+**The trigger is the first digit of the amount, not the screen appearing**, and
+that is the half that took two goes to get right. A fix belongs to a gasto. Keyed
+to the mount, it read every time anybody opened the app — the keypad is the front
+screen — and, worse, it handed the *next* gasto the fix the last one was saved
+with, which is how the browser test that walks forty metres up the street went
+red. Keyed to the amount, the read happens once per gasto, when there is a gasto
+to read for, and one non-prompting read per gasto is what section 13 and the
+disclosure on Sitios describe.
+
+Reading early is free only while the early fix is still true, and that is what
+`FIX_GOOD_FOR` is for: ten seconds, the same arithmetic that refuses the
+browser's position cache — fifteen metres of tolerance against a walking pace.
+Somebody who types an amount, is interrupted and writes the concept in the next
+shop would otherwise be offered the doorway they left, which is a wrong
+suggestion where the old flow had none at all. So the step that shows the cards
+checks the age of what it was handed: fresh, and the cards are already there;
+stale, and the fix is dropped and read again exactly where it used to be.
+
 **Fifteen metres**, and the number is load-bearing in both directions. The shop
 next door is fifteen metres away, so a radius wide enough to always match would
 match the wrong shop; and an indoor fix is often worse than fifteen metres, so

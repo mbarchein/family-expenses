@@ -123,6 +123,20 @@ against the copy of the spreadsheet, never the live ledger.
   Spanish lines say «pedirte permiso solo lo hace este botón» rather than
   «nada lee tu posición» — the first is true and the second was not.
 
+  The add flow reads that way too, and it reads **when the first digit of the
+  amount is typed** rather than on the step that uses it: a GPS fix takes
+  seconds, the keypad needs nothing from the device, and the proximity cards used
+  to appear well after the screen they belong to. Two things keep that honest and
+  both were found by tests rather than by reasoning. It is keyed to the gasto and
+  not to the screen — the keypad is what this app opens on, so a read on mount
+  would ask the device every time somebody opened the app, and it would hand the
+  next gasto the fix the last one was saved with, which is how «forty metres away
+  is somewhere else» went red. And the fix has a best-before, `FIX_GOOD_FOR`: ten
+  seconds, because ten seconds of walking is the fifteen-metre tolerance, after
+  which the step that uses it drops the fix and reads again. Reading early is
+  free only while the early fix is still true. Section 13 and the Sitios
+  disclosure both name this read, as the rule above requires.
+
   Which is why the map is draggable through a prop and not by default: a map
   somebody opened to read must not become a way to look around, or the "tiles for
   a map that was asked for" clause stops describing what is happening. All of this
