@@ -142,6 +142,15 @@ against the copy of the spreadsheet, never the live ledger.
   constant is. Section 13 and the Sitios disclosure both name this read, as the
   rule above requires.
 
+  The third thing that keeps it honest, and the one that cost a bug report:
+  **a step that finds a read in flight has to wait for its answer, not walk past
+  it.** Earlier is colder, and a cold receiver does not refuse quickly — it holds
+  the line and gives up at the ten-second timeout, long after the keypad has been
+  left behind. The step that wants the fix saw a read already running, did
+  nothing, and when that read timed out nothing was left that would ask again, so
+  the cards stopped appearing altogether. The in-flight read is a shared promise
+  now, and a reading that comes back with nothing is asked once more.
+
   Which is why the map is draggable through a prop and not by default: a map
   somebody opened to read must not become a way to look around, or the "tiles for
   a map that was asked for" clause stops describing what is happening. All of this

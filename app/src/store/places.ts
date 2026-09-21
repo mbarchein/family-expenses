@@ -194,23 +194,38 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
    *  one. Zero means there is none. A ref rather than state: nothing on screen
    *  is drawn from it, and it changes inside the read it belongs to. */
   const takenAt = useRef(0)
-  /** One read at a time. Two are not twice as fast — they are two GPS reads —
-   *  and the second would land on top of the first for no gain. */
-  const reading = useRef(false)
+  /**
+   * The read in flight, if there is one, so that a second caller waits for its
+   * answer rather than walking away without one.
+   *
+   * It was a boolean — "somebody is reading, come back later" — and nobody came
+   * back. Reported: the cards stopped appearing at all. A read takes seconds, so
+   * the one started on the keypad is usually still in flight when the step that
+   * wants it opens; that step found the flag up, did nothing, and when the read
+   * then failed there was no longer anything left to try. Sharing the promise is
+   * what turns "somebody is reading" into an answer that can be waited for and
+   * found wanting.
+   */
+  const pending = useRef<Promise<Fix | null> | null>(null)
 
-  const readHere = useCallback(async () => {
-    if (reading.current) return
-    reading.current = true
-    try {
+  const readHere = useCallback(async (): Promise<Fix | null> => {
+    if (pending.current) return pending.current
+    const run = (async () => {
       // Deliberately without prompting: the screens that use this are useful
       // with no position at all, and a dialog nobody asked for is how a
       // permission gets denied for good.
       const fix = await positionIfAlreadyAllowed()
-      if (!fix) return
-      setHere(fix)
-      takenAt.current = Date.now()
+      if (fix) {
+        setHere(fix)
+        takenAt.current = Date.now()
+      }
+      return fix
+    })()
+    pending.current = run
+    try {
+      return await run
     } finally {
-      reading.current = false
+      if (pending.current === run) pending.current = null
     }
   }, [])
 
@@ -222,8 +237,19 @@ export function usePlaces({ locate = false }: PlacesOptions = {}): PlacesStore {
 
   const refreshHere = useCallback(async () => {
     if (stillHere(takenAt.current)) return
-    await locateQuietly()
-  }, [locateQuietly])
+    takenAt.current = 0
+    setHere(null)
+    // Waits for whatever is in flight instead of walking away from it, and asks
+    // again if it came back with nothing. The first reading of a session is
+    // taken on a receiver that has not locked on and is the one that times out;
+    // it used to be taken on this step, so a failure here was a failure the
+    // person could see happening, and moving the read to the keypad meant the
+    // step that needs the answer had stopped being the one asking for it. One
+    // more go, not a loop: the second read has a warm receiver behind it, and a
+    // screen that keeps asking is a GPS held open by a screen nobody is
+    // watching.
+    if (!await readHere()) await readHere()
+  }, [readHere])
 
   useEffect(() => {
     let cancelled = false

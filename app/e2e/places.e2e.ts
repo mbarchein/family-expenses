@@ -85,6 +85,31 @@ async function positionReads(page: Page) {
   return () => page.evaluate(() => (window as { __reads?: number }).__reads ?? 0)
 }
 
+/**
+ * Fails the next reading of the position, slowly.
+ *
+ * Both halves matter. A receiver that has not locked on does not answer quickly
+ * and then say no — it holds the line and gives up at the timeout, which is ten
+ * seconds, which is longer than anybody spends on the keypad. So this is what
+ * the first reading of a session looks like on a phone indoors, and it is the
+ * one the flow now takes.
+ */
+async function failNextRead(page: Page) {
+  await page.addInitScript(() => {
+    const geolocation = navigator.geolocation
+    const original = geolocation.getCurrentPosition.bind(geolocation)
+    Object.assign(window, { __failNext: false })
+    geolocation.getCurrentPosition = ((success, error, options) => {
+      const flags = window as { __failNext?: boolean }
+      if (!flags.__failNext) return original(success, error, options)
+      flags.__failNext = false
+      // 3 is TIMEOUT, and the delay is what makes this the interesting case:
+      // the step that wants the fix opens while this one is still in flight.
+      setTimeout(() => error?.({ code: 3, message: 'timeout' } as GeolocationPositionError), 1500)
+    }) as typeof geolocation.getCurrentPosition
+  })
+}
+
 test.beforeEach(async ({ page }) => {
   await stubGoogle(page)
 })
@@ -154,6 +179,30 @@ test.describe('with the location allowed', () => {
       await next(page)
       await expect(page.getByRole('textbox', { name: 'Concepto' })).toBeVisible()
       expect(await reads()).toBe(1)
+    })
+
+  test('a first reading that times out does not cost the gasto its cards',
+    async ({ page }) => {
+      // Reported: the cards stopped appearing. The read moved from the step that
+      // uses it to the keypad, which is earlier and therefore colder, and the
+      // step found a read already in flight and left it alone — so when that one
+      // timed out there was nothing left that would ask again. It waits for the
+      // answer now, and asks once more when the answer is nothing.
+      await stubApi(page)
+      await failNextRead(page)
+      await signIn(page)
+
+      await reachReview(page, 'ferretería')
+      await savePlace(page)
+      await page.getByRole('button', { name: 'Guardar' }).click()
+      await expect(page.getByText('Paso 1 de 3')).toBeVisible()
+
+      // The next gasto opens on a receiver that does not answer the first time.
+      await page.evaluate(() => Object.assign(window, { __failNext: true }))
+      await reachDetails(page)
+
+      await expect(page.getByRole('group', { name: 'Aquí has apuntado' })
+        .getByRole('button', { name: /ferretería/ })).toBeVisible()
     })
 
   test('a concept lent by a saved place is told, not offered', async ({ page }) => {

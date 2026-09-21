@@ -628,6 +628,18 @@ through a gasto for a doorway left mid-gasto — walking out of a shop while
 apuntando what was spent in it — and a card is an offer that writes nothing until
 it is tapped.
 
+**And earlier is colder**, which is the part that had to be learned from a bug
+report: the cards stopped appearing at all. A receiver that has not locked on
+does not answer quickly and say no — it holds the line and gives up at the
+ten-second timeout, which is longer than anybody spends on a keypad. So the step
+that wanted the fix found a read already in flight, left it alone on the
+reasonable-sounding grounds that two reads are not faster than one, and when that
+read timed out there was nothing left that would ask again. Waiting for a read is
+not the same as starting one: the in-flight read is a shared promise, the step
+that needs the answer waits for it, and a reading that comes back with nothing is
+asked once more — once, because the second read has a warm receiver behind it and
+a screen that keeps asking is a GPS held open by a screen nobody is watching.
+
 **Fifteen metres**, and the number is load-bearing in both directions. The shop
 next door is fifteen metres away, so a radius wide enough to always match would
 match the wrong shop; and an indoor fix is often worse than fifteen metres, so
