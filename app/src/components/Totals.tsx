@@ -1,11 +1,12 @@
+import { useLayoutEffect, useRef } from 'react'
 import { T } from '../i18n/strings'
 import { formatMonthShort, formatShortDate } from '../lib/dates'
 import { formatEur } from '../lib/money'
 import type { Matched, MonthTotal } from '../lib/totals'
 
 /**
- * The band over the list: the year, then a month per cell, back as far as the
- * app has loaded.
+ * The band over the list: a month per cell going back as far as the app has
+ * loaded, with the year at the right-hand end.
  *
  * They are computed from the entries the list is showing, so they follow the
  * person filter and the search — asked for that way, and right that way: the
@@ -35,11 +36,25 @@ import type { Matched, MonthTotal } from '../lib/totals'
  *   hairline divider each, so what moves under the thumb is a strip of numbers
  *   and not a row of cards.
  *
- * Newest on the left and older to the right, which is the one ordering that
- * needs no opening jump: the band rests where it loads, at nought, and going
- * back in time is going forwards in the scroll. The year sits first because it
- * is the one cell that is not a month, and because the three that show without
- * touching anything are then the three this band always showed.
+ * **Time runs left to right, so the band rests at its right-hand end.** That is
+ * the order the strip always had — last month, this month, the year — and it is
+ * the one a calendar has: going back is going left. The cost is that the resting
+ * place is `scrollWidth` rather than nought, and a band that painted at nought
+ * and then jumped would be exactly the jerk this was asked not to have. So the
+ * scroll is set in a layout effect, which runs after the cells are in the DOM
+ * and before the browser paints: the first frame anybody sees is already at the
+ * right end.
+ *
+ * The same effect is what keeps a filter from moving the band. Cells are added
+ * and removed at the *left* — a search that matches nothing older shortens the
+ * band from its far end — so a `scrollLeft` held constant would slide the months
+ * under somebody's eyes every time they typed a letter. What is held constant is
+ * the distance from the right, which is the end that means "now" and the only
+ * end that does not move.
+ *
+ * The year is the last cell because it is the one that is not a month, and
+ * because the three that show without touching anything are then the three this
+ * band always showed.
  *
  * And a number underneath while a filter is on: what everything that matches
  * adds up to, months ignored. The cells answer "how is this month going", which
@@ -77,6 +92,30 @@ export function Totals({ months, year, today, filtered, matched, since }: {
    */
   since: string | null
 }) {
+  const band = useRef<HTMLDivElement>(null)
+  /**
+   * How far the band is from its right-hand end, in pixels.
+   *
+   * Nought on the first render, which is what puts it at that end to begin with.
+   * After that it is whatever the last scroll left it at, so that a band looking
+   * at March in a ledger that has just grown four months of history is still
+   * looking at March.
+   *
+   * A ref and not state: nothing on screen is drawn from it, and making it state
+   * would re-render the list under every pixel of a swipe.
+   */
+  const fromRight = useRef(0)
+
+  // Before the paint, not after: `useEffect` would show one frame of the band at
+  // its left end and then move it, which is a jump rather than a position.
+  useLayoutEffect(() => {
+    const node = band.current
+    if (node) node.scrollLeft = node.scrollWidth - node.clientWidth - fromRight.current
+    // The count and not the contents: the amounts change under a filter without
+    // moving anything, and re-running this on every keystroke would fight the
+    // thumb of somebody scrolling while the search box still has focus.
+  }, [months.length])
+
   return (
     <div className="flex flex-col gap-1">
       {/* `tabIndex` because a region that scrolls has to be reachable by
@@ -87,19 +126,24 @@ export function Totals({ months, year, today, filtered, matched, since }: {
           scrollbar is hidden the way the other sideways rows in this app hide
           it: on a strip three cells wide it is furniture over the numbers. */}
       <div
+        ref={band}
         role="group"
         aria-label={T.list.totalsRow}
         tabIndex={0}
+        onScroll={event => {
+          const node = event.currentTarget
+          fromRight.current = node.scrollWidth - node.clientWidth - node.scrollLeft
+        }}
         className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain
                    rounded-xl border border-line focus-visible:outline focus-visible:outline-2
                    [-ms-overflow-style:none] [scrollbar-width:none]
                    [&::-webkit-scrollbar]:hidden"
         style={{ background: 'var(--surface)' }}
       >
-        {/* The year names itself rather than saying "Año": the cells beside it
-            carry theirs, and a cell labelled only "Año" among dated ones reads
-            as a different kind of number. */}
-        <Cell label={today.slice(0, 4)} amount={year} />
+        {/* Oldest first in the DOM, because the DOM is left to right and so is
+            time. `months` comes newest first — the order it is built in and the
+            order anything reasoning about it wants — so the one place that
+            cares which way round the screen runs is the one that turns it. */}
         {months.map((month, index) => (
           <Cell
             key={month.month}
@@ -107,11 +151,14 @@ export function Totals({ months, year, today, filtered, matched, since }: {
             amount={month.total}
             // The month we are in, which is the number somebody opened this
             // screen to see. It keeps the weight it had when it was the middle
-            // of three fixed cells.
+            // of three fixed cells, and it is still in the middle of them.
             strong={index === 0}
-            last={index === months.length - 1}
           />
-        ))}
+        )).reverse()}
+        {/* The year names itself rather than saying "Año": the cells beside it
+            carry theirs, and a cell labelled only "Año" among dated ones reads
+            as a different kind of number. */}
+        <Cell label={today.slice(0, 4)} amount={year} last />
       </div>
 
       {matched && (

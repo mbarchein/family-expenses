@@ -356,8 +356,8 @@ opening the sheet refiles nothing, because the row's category may have been pick
 by hand or typed into the spreadsheet. Change the word and the derivation is
 invalid, exactly as on the second step.
 
-Over the list, a band of totals: **the year, then a cell per month, back as far
-as the app has loaded**. They are computed from the entries the list is showing,
+Over the list, a band of totals: **a cell per month back as far as the app has
+loaded, with the year at the right-hand end**. They are computed from the entries the list is showing,
 so they follow the filter and the search — which is the point, because the useful
 question is rarely "what have we spent" but "what has *this* cost us", and the
 answer has to change when the question does. The band says **Solo lo filtrado**
@@ -374,7 +374,7 @@ continuous strip rather than a widget:
 - **Every cell is exactly a third of the band**, not a minimum width. The snap
   points are then a third apart, the band is a whole number of them wide and so
   is the furthest it can scroll — so no position in the whole travel shows a cell
-  cut in half, the far end included. A sliver of a fourth cell peeking would be a
+  cut in half, either end included. A sliver of a fourth cell peeking would be a
   fine hint that it scrolls and is precisely what "sin que se vean cortados"
   rules out.
 - **The snap is mandatory**, which is what finishes a half-finished swipe. Lift a
@@ -384,13 +384,26 @@ continuous strip rather than a widget:
   hairline divider each — so what moves under the thumb is a strip of numbers and
   not a row of cards.
 
-Newest on the left and older to the right, which is the one ordering that needs
-no opening jump: the band rests where it loads, at nought, and going back in time
-is going forwards in the scroll. The year is the first cell because it is the one
-that is not a month, and because the three that show without touching anything
-are then the three the strip always showed. Months are never skipped: a month
-that cost nothing is a zero on the band, since a hole in a strip that reads as
-continuous is a worse answer than a zero.
+**Time runs left to right, so the band rests at its right-hand end.** That is
+the order the strip always had — last month, this month, the year — and the order
+a calendar has: going back is going left. The cost is that the resting place is
+`scrollWidth` rather than nought, and a band that painted at nought and then
+jumped to the end would be exactly the jerk this was asked not to have. So the
+scroll is set in a layout effect, which runs once the cells are in the DOM and
+before the browser paints: the first frame anybody sees is already at the right
+end.
+
+That same effect is what keeps a filter from moving the band. Cells come and go
+at the *left* — a search that matches nothing older shortens the band from its
+far end — so a `scrollLeft` held constant would slide the months under somebody's
+eyes with every letter they typed. What is held constant is the distance from the
+right, which is the end that means "now" and the only one that does not move.
+
+The year is the last cell because it is the one that is not a month, and because
+the three that show without touching anything are then the three the strip always
+showed. Months are never skipped: a month that cost nothing is a zero on the
+band, since a hole in a strip that reads as continuous is a worse answer than a
+zero.
 
 **And a number underneath while a filter is on: the total of everything that
 matches, with no calendar in it.** The cells are months, which is the right
