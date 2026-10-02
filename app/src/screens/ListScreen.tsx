@@ -11,7 +11,7 @@ import { iconOf } from '../lib/categories'
 import { knownConcepts } from '../lib/concepts'
 import { fold } from '../lib/icons'
 import { formatEur } from '../lib/money'
-import { earliestDay, matchedTotal, summarise, yearIsPartial } from '../lib/totals'
+import { earliestDay, matchedTotal, monthlyTotals, yearTotal } from '../lib/totals'
 import type { Category } from '../api/types'
 import { useIconChoices } from '../store/iconChoices'
 import type { Ledger, ShownEntry } from '../store/ledger'
@@ -50,7 +50,10 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
   )
   const days = useMemo(() => groupByDay(shown), [shown])
   const today = todayIso()
-  const sums = useMemo(() => summarise(shown, today), [shown, today])
+  // A cell per month, back as far as the loaded entries go — the band scrolls,
+  // so the two it used to have room for are no longer the limit.
+  const months = useMemo(() => monthlyTotals(shown, today), [shown, today])
+  const year = useMemo(() => yearTotal(shown, today), [shown, today])
   const filtered = filter !== 'all' || Boolean(query.trim()) || category !== null
   // Only while something is filtered: unfiltered, "everything that matches" is
   // everything the app happens to have loaded, which is a number about the window
@@ -111,11 +114,12 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
       <CategoryFilter value={category} categories={categories} onChange={setCategory} />
 
       <Totals
-        sums={sums}
+        months={months}
+        year={year}
         today={today}
         filtered={filtered}
         matched={matched}
-        partialSince={yearIsPartial(from, today) ? formatShortDate(from!) : null}
+        since={from}
       />
 
       {!days.length && (

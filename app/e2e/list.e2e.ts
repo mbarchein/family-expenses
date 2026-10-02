@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 import {
   LAST_YEAR, MARIO, PREVIOUS_MONTH, TODAY, VIQUI, bootstrap, entry, longLedger, signIn, stubApi,
   stubGoogle,
@@ -86,30 +86,79 @@ test('the concept filter has a cross inside it that empties it', async ({ page }
   await expect(clear).toHaveCount(0)
 })
 
-test('the strip totals last month, this month and this year', async ({ page }) => {
-  await stubApi(page)
-  await signIn(page)
-  await page.getByRole('button', { name: 'Gastos' }).click()
+test('the band totals this year, this month and last month without being touched',
+  async ({ page }) => {
+    await stubApi(page)
+    await signIn(page)
+    await page.getByRole('button', { name: 'Gastos' }).click()
 
-  const cells = page.getByRole('group', { name: 'Resumen' }).locator('> div')
-  // Three cells in the order the question is usually asked: what did last month
-  // cost, what is this one costing, and where is the year.
-  await expect(cells).toHaveCount(3)
+    const cells = page.getByRole('group', { name: 'Resumen' }).locator('> div')
+    // The band scrolls back by months now, so it is longer than it looks — and
+    // what shows without touching it is the three it has always shown, in the
+    // order a band that goes backwards has to put them.
+    await expect(cells.nth(0)).toContainText(TODAY.slice(0, 4))
+    // Last year's 1000 is excluded either way. Whether last month counts towards
+    // this year depends on the day this runs: in January it does not.
+    const sameYear = PREVIOUS_MONTH.slice(0, 4) === TODAY.slice(0, 4)
+    await expect(cells.nth(0)).toContainText(sameYear ? '486,72' : '386,72')
+    expect(LAST_YEAR.slice(0, 4)).not.toBe(TODAY.slice(0, 4))
 
-  await expect(cells.nth(0)).toContainText(month(PREVIOUS_MONTH))
-  await expect(cells.nth(0)).toContainText('100,00')
+    await expect(cells.nth(1)).toContainText(month(TODAY))
+    await expect(cells.nth(1)).toContainText('386,72')   // 326,72 + 60
 
-  await expect(cells.nth(1)).toContainText(month(TODAY))
-  await expect(cells.nth(1)).toContainText('386,72')   // 326,72 + 60
+    await expect(cells.nth(2)).toContainText(month(PREVIOUS_MONTH))
+    await expect(cells.nth(2)).toContainText('100,00')
+  })
 
-  // The year names itself, between two cells that now carry theirs.
-  await expect(cells.nth(2)).toContainText(TODAY.slice(0, 4))
-  // Last year's 1000 is excluded either way. Whether last month counts towards
-  // this year depends on the day this runs: in January it does not.
-  const sameYear = PREVIOUS_MONTH.slice(0, 4) === TODAY.slice(0, 4)
-  await expect(cells.nth(2)).toContainText(sameYear ? '486,72' : '386,72')
-  expect(LAST_YEAR.slice(0, 4)).not.toBe(TODAY.slice(0, 4))
-})
+test('the band slides back through the months and lands on whole cells',
+  async ({ page }) => {
+    // Asked for in as many words: a band that slides under a thumb, reads as one
+    // continuous strip, and finishes the swipe by itself so that whatever it
+    // comes to rest on is three whole cells rather than two and a half.
+    await stubApi(page)
+    await signIn(page)
+    await page.getByRole('button', { name: 'Gastos' }).click()
+
+    const band = page.getByRole('group', { name: 'Resumen' })
+    const cells = band.locator('> div')
+
+    // Exactly three fill it, which is what makes every snap point a cell
+    // boundary and the end of the travel one too.
+    const [room, reach] = await band.evaluate(node => [node.clientWidth, node.scrollWidth])
+    const cell = await cells.first().evaluate(node => node.getBoundingClientRect().width)
+    expect(Math.abs(cell * 3 - room)).toBeLessThan(1)
+    // And there is more of it than fits: last June is in the fixture, so the
+    // band reaches back past the three cells on screen.
+    expect(reach).toBeGreaterThan(room + cell)
+
+    // A swipe that stops between two cells finishes itself.
+    await band.evaluate(node => node.scrollBy({ left: 30 }))
+    await expect.poll(() => offBy(band)).toBeLessThan(1)
+    await expect(cells.nth(0)).not.toBeInViewport()
+
+    // And so does one that goes a long way: the far end is a cell boundary too,
+    // which is the half of this that only holds because the cells are a third
+    // of the band rather than merely narrow enough.
+    await band.evaluate(node => node.scrollBy({ left: 10_000 }))
+    await expect.poll(() => offBy(band)).toBeLessThan(1)
+
+    // What is at the end of it: the month of the oldest expense the app loaded,
+    // which is the one the strip could never reach when it was three fixed
+    // cells.
+    await expect(cells.last()).toContainText(month(LAST_YEAR))
+    // Four figures, so es-ES groups nothing: "1000,00 €".
+    await expect(cells.last()).toContainText('1000,00')
+    await expect(cells.last()).toBeInViewport()
+  })
+
+/** How far the band is from resting on a cell boundary, in pixels. */
+function offBy(band: Locator): Promise<number> {
+  return band.evaluate(node => {
+    const cell = node.clientWidth / 3
+    const over = node.scrollLeft % cell
+    return Math.min(over, cell - over)
+  })
+}
 
 test('filtering moves the totals with it, and the strip says it is filtered', async ({ page }) => {
   // The reason the strip is fed the filtered entries: the useful question is
@@ -124,13 +173,13 @@ test('filtering moves the totals with it, and the strip says it is filtered', as
 
   await page.getByRole('button', { name: 'Viqui', exact: true }).click()
   await expect(cells.nth(1)).toContainText('326,72')
-  await expect(cells.nth(0)).toContainText('0,00')       // last month was Mario's
+  await expect(cells.nth(2)).toContainText('0,00')       // last month was Mario's
   await expect(page.getByText('Solo lo filtrado')).toBeVisible()
 
   await page.getByRole('button', { name: 'Ambos' }).click()
   await page.getByRole('searchbox', { name: 'Buscar concepto…' }).fill('gaso')
   await expect(cells.nth(1)).toContainText('60,00')
-  await expect(cells.nth(2)).toContainText('60,00')
+  await expect(cells.nth(0)).toContainText('60,00')
   await expect(page.getByText('Solo lo filtrado')).toBeVisible()
 })
 
@@ -222,7 +271,7 @@ test('a year the app cannot see all of says so', async ({ page }) => {
   await signIn(page)
   await page.getByRole('button', { name: 'Gastos' }).click()
 
-  await expect(page.getByText(/El año cuenta desde el/)).toBeVisible()
+  await expect(page.getByText(/El resumen cuenta desde el/)).toBeVisible()
 })
 
 test('a year of expenses renders, and every day carries its own containment', async ({ page }) => {

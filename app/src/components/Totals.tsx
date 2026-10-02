@@ -1,28 +1,58 @@
 import { T } from '../i18n/strings'
 import { formatMonthShort, formatShortDate } from '../lib/dates'
 import { formatEur } from '../lib/money'
-import type { Matched, Totals as Sums } from '../lib/totals'
+import type { Matched, MonthTotal } from '../lib/totals'
 
 /**
- * Three numbers over the list: last month, this month, this year.
+ * The band over the list: the year, then a month per cell, back as far as the
+ * app has loaded.
  *
  * They are computed from the entries the list is showing, so they follow the
  * person filter and the search — asked for that way, and right that way: the
  * useful question is usually not "what have we spent" but "what has *this* cost
  * us", and the answer to that has to change when the question does.
  *
- * Which is exactly why the strip says so when a filter is on. Three euro amounts
- * on a dark strip read as the household's total whatever produced them, and a
- * filtered number wearing that look is a wrong number rather than a narrow one.
+ * Which is exactly why the band says so when a filter is on. Euro amounts on a
+ * strip read as the household's total whatever produced them, and a filtered
+ * number wearing that look is a wrong number rather than a narrow one.
  *
- * And a fourth number underneath while a filter is on: what everything that
- * matches adds up to, months ignored. The three cells answer "how is this month
- * going", which is not what somebody typing `farmacia` into the search box wants
- * to know — they want what the chemist costs, and the month it happened in is the
- * part of that they are trying to get rid of.
+ * **It scrolls sideways, and that is the whole shape of it.** Three fixed cells
+ * — last month, this month, the year — were all a phone had room for, and the
+ * month before last was a number the app held and could not show. So the band is
+ * a scroller now, asked for in as many words: slide it with a thumb and the
+ * months keep going back.
+ *
+ * Three things make that read as one continuous band rather than a widget:
+ *
+ * - **Every cell is exactly a third of the band.** Not a minimum width, a third:
+ *   the snap points are then a third apart, the band's own width is a whole
+ *   number of them, and so is the furthest it can scroll — so no position in the
+ *   whole travel can show a cell cut in half, including the end.
+ * - **The snap is mandatory**, which is what makes a half-finished swipe finish
+ *   itself. Lift a thumb between two cells and the browser carries it to the
+ *   nearer one; there is no resting place that is not a cell boundary.
+ * - **Nothing is between the cells.** No gaps and no padding at either end: one
+ *   hairline divider each, so what moves under the thumb is a strip of numbers
+ *   and not a row of cards.
+ *
+ * Newest on the left and older to the right, which is the one ordering that
+ * needs no opening jump: the band rests where it loads, at nought, and going
+ * back in time is going forwards in the scroll. The year sits first because it
+ * is the one cell that is not a month, and because the three that show without
+ * touching anything are then the three this band always showed.
+ *
+ * And a number underneath while a filter is on: what everything that matches
+ * adds up to, months ignored. The cells answer "how is this month going", which
+ * is not what somebody typing `farmacia` into the search box wants to know —
+ * they want what the chemist costs, and the month it happened in is the part of
+ * that they are trying to get rid of.
  */
-export function Totals({ sums, today, filtered, matched, partialSince }: {
-  sums: Sums
+export function Totals({ months, year, today, filtered, matched, since }: {
+  /** Newest first, and never empty: see `monthlyTotals`. */
+  months: readonly MonthTotal[]
+  /** What this calendar year comes to, which is not the sum of `months` — the
+   *  band stops where the loaded window does and the year does not. */
+  year: number
   today: string
   filtered: boolean
   /**
@@ -35,24 +65,53 @@ export function Totals({ sums, today, filtered, matched, partialSince }: {
    * answer instead of a quarter of the furniture.
    */
   matched: Matched | null
-  /** Set when the loaded window starts after 1 January, which makes the year a
-   *  floor rather than a total. Shown, not hidden. */
-  partialSince: string | null
+  /**
+   * The first day the app has, or null for an empty ledger.
+   *
+   * Shown, not hidden, and it says more now than it used to. It was only there
+   * when the window started after 1 January — the case where the year is a floor
+   * rather than a total — and the band has since grown an end: its last cell is
+   * the month the window starts in, so that month is a floor too, and on a busy
+   * ledger it always will be. One line saying where the whole band begins covers
+   * both, and covers them whatever the filter leaves standing.
+   */
+  since: string | null
 }) {
   return (
     <div className="flex flex-col gap-1">
+      {/* `tabIndex` because a region that scrolls has to be reachable by
+          something other than a thumb — with it, the arrow keys move the band,
+          and without it the months past the third are keyboard-unreachable.
+          `overscroll-x-contain` so that running out of months does not hand the
+          gesture to the browser, which on a phone is the back swipe. The
+          scrollbar is hidden the way the other sideways rows in this app hide
+          it: on a strip three cells wide it is furniture over the numbers. */}
       <div
         role="group"
         aria-label={T.list.totalsRow}
-        className="grid grid-cols-3 overflow-hidden rounded-xl border border-line"
+        tabIndex={0}
+        className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain
+                   rounded-xl border border-line focus-visible:outline focus-visible:outline-2
+                   [-ms-overflow-style:none] [scrollbar-width:none]
+                   [&::-webkit-scrollbar]:hidden"
         style={{ background: 'var(--surface)' }}
       >
-        <Cell label={formatMonthShort(sums.previousMonth)} amount={sums.previous} />
-        <Cell label={formatMonthShort(today)} amount={sums.current} strong />
         {/* The year names itself rather than saying "Año": the cells beside it
-            now carry theirs, and a column labelled only "Año" between two dated
-            ones reads as a different kind of number. */}
-        <Cell label={today.slice(0, 4)} amount={sums.year} last />
+            carry theirs, and a cell labelled only "Año" among dated ones reads
+            as a different kind of number. */}
+        <Cell label={today.slice(0, 4)} amount={year} />
+        {months.map((month, index) => (
+          <Cell
+            key={month.month}
+            label={formatMonthShort(month.month)}
+            amount={month.total}
+            // The month we are in, which is the number somebody opened this
+            // screen to see. It keeps the weight it had when it was the middle
+            // of three fixed cells.
+            strong={index === 0}
+            last={index === months.length - 1}
+          />
+        ))}
       </div>
 
       {matched && (
@@ -79,10 +138,10 @@ export function Totals({ sums, today, filtered, matched, partialSince }: {
         </div>
       )}
 
-      {(filtered || partialSince) && (
+      {(filtered || since) && (
         <p className="text-[11px] text-ink-3">
           {[filtered ? T.list.filtered : null,
-            partialSince ? T.list.partialYear(partialSince) : null]
+            since ? T.list.countsFrom(formatShortDate(since)) : null]
             .filter(Boolean).join(' · ')}
         </p>
       )}
@@ -97,7 +156,10 @@ function Cell({ label, amount, strong, last }: {
   last?: boolean
 }) {
   return (
-    <div className={'px-3 py-2' + (last ? '' : ' border-r border-line')}>
+    // A third of the band exactly — see the note on the scroller about why that
+    // is a width and not a minimum.
+    <div className={'w-1/3 shrink-0 snap-start px-3 py-2'
+      + (last ? '' : ' border-r border-line')}>
       <p className="text-[10px] font-bold uppercase tracking-wider text-ink-3">{label}</p>
       <p
         className={'tabular truncate font-mono text-sm' + (strong ? ' font-semibold' : '')}

@@ -438,8 +438,17 @@ export const T = {
     // Said out loud whenever a filter is on: the same three numbers mean
     // something completely different, and nothing else on the strip shows it.
     filtered: 'Solo lo filtrado',
-    partialYear: (date: string) =>
-      `El año cuenta desde el ${date}: la app carga los últimos gastos, no toda la hoja.`,
+    /**
+     * Where the band begins, under the band.
+     *
+     * It used to say «el año cuenta desde…» and only appeared when the window
+     * started after 1 January. The band scrolls back by months now, so its last
+     * cell is whatever month the window starts in and that month is a part of a
+     * month — the same caveat the year had, one cell further along, and there
+     * whatever time of year it is. One line about the whole band says both.
+     */
+    countsFrom: (date: string) =>
+      `El resumen cuenta desde el ${date}: la app carga los últimos gastos, no toda la hoja.`,
     /**
      * The fourth number, and only while a filter is on: what everything that
      * matches adds up to, with no month in it.

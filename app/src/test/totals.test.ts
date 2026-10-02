@@ -1,58 +1,94 @@
 import { describe, expect, it } from 'vitest'
-import { earliestDay, matchedTotal, summarise, yearIsPartial, latestDay } from '../lib/totals'
+import { earliestDay, matchedTotal, monthlyTotals, yearTotal, latestDay } from '../lib/totals'
 
 const entry = (date: string, amount: number, voided = false) => ({ date, amount, voided })
 
-describe('summarise', () => {
-  it('splits the loaded entries into last month, this month and this year', () => {
-    const totals = summarise([
+describe('monthlyTotals', () => {
+  const months = (list: ReturnType<typeof monthlyTotals>) => list.map(item => item.month)
+
+  it('is a cell per month, newest first, back to the oldest entry', () => {
+    const list = monthlyTotals([
       entry('2026-08-24', 10),
       entry('2026-08-01', 5),
       entry('2026-07-31', 100),
-      entry('2026-01-02', 7),
-      entry('2025-12-31', 1000),
+      entry('2026-05-02', 7),
     ], '2026-08-24')
 
-    expect(totals.current).toBe(15)
-    expect(totals.previous).toBe(100)
-    // Everything dated 2026, including the two months above; nothing from 2025.
-    expect(totals.year).toBe(122)
+    expect(months(list)).toEqual(['2026-08', '2026-07', '2026-06', '2026-05'])
+    expect(list[0].total).toBe(15)
+    expect(list[1].total).toBe(100)
+  })
+
+  it('leaves no month out, however empty', () => {
+    // The band reads as one continuous strip under a thumb. A month nobody spent
+    // anything in is a zero on it, not a jump from July to April.
+    const list = monthlyTotals([entry('2026-08-24', 10), entry('2026-04-04', 3)], '2026-08-24')
+    expect(months(list)).toEqual(['2026-08', '2026-07', '2026-06', '2026-05', '2026-04'])
+    expect(list.map(item => item.total)).toEqual([10, 0, 0, 0, 3])
   })
 
   it('knows that the month before January is December of the year before', () => {
     // `month - 1` gets this wrong, and gets it wrong once a year.
-    const totals = summarise([
-      entry('2026-01-05', 20),
-      entry('2025-12-20', 300),
-    ], '2026-01-15')
-
-    expect(totals.previousMonth).toBe('2025-12')
-    expect(totals.current).toBe(20)
-    expect(totals.previous).toBe(300)
-    // The December expense is last year's, however recent it feels.
-    expect(totals.year).toBe(20)
+    const list = monthlyTotals([entry('2026-01-05', 20), entry('2025-12-20', 300)], '2026-01-15')
+    expect(months(list)).toEqual(['2026-01', '2025-12'])
+    expect(list[1].total).toBe(300)
   })
 
-  it('leaves voided entries out of every total', () => {
-    const totals = summarise([
+  it('still shows two months when there is nothing to show', () => {
+    // An empty ledger, or a filter that matches only today: one lonely cell on a
+    // band built for three would read as something that failed to load.
+    expect(months(monthlyTotals([], '2026-08-24'))).toEqual(['2026-08', '2026-07'])
+    expect(months(monthlyTotals([entry('2026-08-24', 10)], '2026-08-24')))
+      .toEqual(['2026-08', '2026-07'])
+  })
+
+  it('leaves voided entries out without losing their month', () => {
+    const list = monthlyTotals([
       entry('2026-08-24', 10),
       entry('2026-08-23', 999, true),
-      entry('2026-07-10', 999, true),
+      entry('2026-06-10', 999, true),
     ], '2026-08-24')
 
-    expect(totals).toMatchObject({ current: 10, previous: 0, year: 10 })
+    expect(list[0].total).toBe(10)
+    // June was voided away, so the band stops at the two it always shows rather
+    // than reaching back for a month that came to nothing.
+    expect(months(list)).toEqual(['2026-08', '2026-07'])
   })
 
-  it('is zero for an empty list rather than undefined', () => {
-    expect(summarise([], '2026-08-24')).toMatchObject({ current: 0, previous: 0, year: 0 })
+  it('starts at the month we are in, whatever is dated after it', () => {
+    // A row dated next month is not a cell: the band goes backwards from today.
+    const list = monthlyTotals([entry('2026-09-01', 50), entry('2026-08-24', 10)], '2026-08-24')
+    expect(months(list)).toEqual(['2026-08', '2026-07'])
   })
 
   it('sums whatever it is handed, which is how the filter reaches it', () => {
     // The screen passes the filtered entries. This function has no opinion about
     // who paid or what was searched for, and that is the whole mechanism.
     const all = [entry('2026-08-24', 10), entry('2026-08-24', 90)]
-    expect(summarise(all, '2026-08-24').current).toBe(100)
-    expect(summarise(all.slice(0, 1), '2026-08-24').current).toBe(10)
+    expect(monthlyTotals(all, '2026-08-24')[0].total).toBe(100)
+    expect(monthlyTotals(all.slice(0, 1), '2026-08-24')[0].total).toBe(10)
+  })
+})
+
+describe('yearTotal', () => {
+  it('counts this calendar year and nothing else', () => {
+    expect(yearTotal([
+      entry('2026-08-24', 10),
+      entry('2026-01-02', 7),
+      entry('2025-12-31', 1000),
+    ], '2026-08-24')).toBe(17)
+  })
+
+  it('is not the sum of the months on the band', () => {
+    // December is recent and belongs to last year, which is the case that
+    // catches people out every January — and the reason this is its own pass
+    // rather than a column added up.
+    expect(yearTotal([entry('2026-01-05', 20), entry('2025-12-20', 300)], '2026-01-15')).toBe(20)
+  })
+
+  it('leaves voided entries out, and is zero rather than undefined', () => {
+    expect(yearTotal([entry('2026-08-24', 999, true)], '2026-08-24')).toBe(0)
+    expect(yearTotal([], '2026-08-24')).toBe(0)
   })
 })
 
@@ -64,17 +100,6 @@ describe('earliestDay', () => {
 
   it('is null when there is nothing loaded', () => {
     expect(earliestDay([])).toBeNull()
-  })
-})
-
-describe('yearIsPartial', () => {
-  it('is true when the window starts after the first of January', () => {
-    // The app loads the last few hundred rows, so on a busy ledger the year
-    // total is a floor. Saying so is the difference between a number and a lie.
-    expect(yearIsPartial('2026-03-03', '2026-08-24')).toBe(true)
-    expect(yearIsPartial('2026-01-01', '2026-08-24')).toBe(false)
-    expect(yearIsPartial('2025-11-30', '2026-08-24')).toBe(false)
-    expect(yearIsPartial(null, '2026-08-24')).toBe(false)
   })
 })
 

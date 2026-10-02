@@ -356,16 +356,44 @@ opening the sheet refiles nothing, because the row's category may have been pick
 by hand or typed into the spreadsheet. Change the word and the derivation is
 invalid, exactly as on the second step.
 
-Over the list, three totals: **last month, this month, this year**. They are
-computed from the entries the list is showing, so they follow the filter and the
-search — which is the point, because the useful question is rarely "what have we
-spent" but "what has *this* cost us", and the answer has to change when the
-question does. The strip says **Solo lo filtrado** whenever one is on: three euro
-amounts read as the household's total whatever produced them, and a filtered
-number wearing that look is a wrong number rather than a narrow one.
+Over the list, a band of totals: **the year, then a cell per month, back as far
+as the app has loaded**. They are computed from the entries the list is showing,
+so they follow the filter and the search — which is the point, because the useful
+question is rarely "what have we spent" but "what has *this* cost us", and the
+answer has to change when the question does. The band says **Solo lo filtrado**
+whenever one is on: euro amounts on a strip read as the household's total
+whatever produced them, and a filtered number wearing that look is a wrong number
+rather than a narrow one.
 
-**And a fourth number while a filter is on: the total of everything that
-matches, with no calendar in it.** The three cells are months, which is the right
+**The band slides, and that is the whole shape of it.** It was three fixed cells
+— last month, this month, the year — because that is what a phone has room for,
+which meant the month before last was a number the app held and could not show.
+Asked for as a carousel, and three decisions are what make it read as one
+continuous strip rather than a widget:
+
+- **Every cell is exactly a third of the band**, not a minimum width. The snap
+  points are then a third apart, the band is a whole number of them wide and so
+  is the furthest it can scroll — so no position in the whole travel shows a cell
+  cut in half, the far end included. A sliver of a fourth cell peeking would be a
+  fine hint that it scrolls and is precisely what "sin que se vean cortados"
+  rules out.
+- **The snap is mandatory**, which is what finishes a half-finished swipe. Lift a
+  thumb between two cells and the browser carries it to the nearer one; there is
+  no resting place that is not a cell boundary.
+- **Nothing sits between the cells** — no gaps, no padding at either end, one
+  hairline divider each — so what moves under the thumb is a strip of numbers and
+  not a row of cards.
+
+Newest on the left and older to the right, which is the one ordering that needs
+no opening jump: the band rests where it loads, at nought, and going back in time
+is going forwards in the scroll. The year is the first cell because it is the one
+that is not a month, and because the three that show without touching anything
+are then the three the strip always showed. Months are never skipped: a month
+that cost nothing is a zero on the band, since a hole in a strip that reads as
+continuous is a worse answer than a zero.
+
+**And a number underneath while a filter is on: the total of everything that
+matches, with no calendar in it.** The cells are months, which is the right
 shape for "how are we doing" and the wrong one for a filter — somebody who types
 `farmacia` into the search box is asking what the chemist costs, and the month
 each row landed in is the part they are trying to get rid of. It is its own row
@@ -385,9 +413,13 @@ style, layout and paint for the days that are off screen while find-in-page and
 row heights keep working. Where that property is unsupported the list behaves
 exactly as it did before: slower, never wrong.
 
-The strip still prints the day it counts from when the year is incomplete, since
-the ceiling can bite and a ledger can start mid-year — a floor is never allowed
-to pass for a total.
+The band still prints the day it counts from, since the ceiling can bite and a
+ledger can start mid-year — a floor is never allowed to pass for a total. That
+line used to appear only when the year was incomplete; now the band has an end
+as well, and its last cell is whatever month the window starts in, which on a
+busy ledger is a part of a month whatever time of year it is. One line saying
+where the whole band begins covers both, and covers them whatever the filter
+leaves standing.
 
 Months are compared as `YYYY-MM` string prefixes rather than as dates: the ledger
 stores days as strings, nothing here needs arithmetic on them, and going through

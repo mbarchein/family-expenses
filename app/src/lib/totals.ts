@@ -1,5 +1,5 @@
 /**
- * What the three numbers over the list add up to.
+ * What the numbers over the list add up to.
  *
  * Sums by calendar month and calendar year, over whatever list it is handed —
  * which is the point: the strip is fed the *filtered* entries, so searching for
@@ -14,35 +14,78 @@
  * expense into the wrong month at midnight on the first.
  */
 
-export interface Totals {
-  previous: number
-  current: number
-  year: number
-  /** `YYYY-MM` of the month before the one we are in — December of last year
-   *  when we are in January, which is the case a `month - 1` gets wrong. */
-  previousMonth: string
+/** One cell of the strip: a calendar month, and what it came to. */
+export interface MonthTotal {
+  /** `YYYY-MM`. */
+  month: string
+  total: number
 }
 
-export function summarise(
+/**
+ * Every month the loaded entries cover, newest first.
+ *
+ * It was two numbers — this month and the one before — because that was all the
+ * strip had room for. The strip scrolls now, so the limit is gone and the right
+ * answer is the whole timeline: a month per cell, back to the oldest expense the
+ * app has, with nothing skipped. A missing month would be a hole in a scroll
+ * that is meant to read as one continuous band, and a month that happens to have
+ * cost nothing is an answer rather than an absence.
+ *
+ * Never shorter than two, so an empty ledger — or a filter that matches only
+ * today — still shows the pair this strip has always shown instead of collapsing
+ * to one cell.
+ *
+ * Entries dated in the future are left out, as they always were: the strip
+ * starts at the month we are in. They are still in the year, which is the one
+ * place a date nobody has reached yet can be seen.
+ */
+export function monthlyTotals(
   entries: readonly { date: string; amount: number; voided: boolean }[],
   today: string,
-): Totals {
-  const year = today.slice(0, 4)
-  const current = today.slice(0, 7)
-  const previous = monthBefore(current)
-  const totals: Totals = { previous: 0, current: 0, year: 0, previousMonth: previous }
+): MonthTotal[] {
+  const sums = new Map<string, number>()
+  let earliest: string | null = null
 
   for (const entry of entries) {
     // A voided row keeps its place in the list, struck through, and contributes
     // nothing here. Its amounts are gone from the sheet too.
     if (entry.voided) continue
     const month = entry.date.slice(0, 7)
-    if (month === current) totals.current += entry.amount
-    else if (month === previous) totals.previous += entry.amount
-    if (entry.date.slice(0, 4) === year) totals.year += entry.amount
+    sums.set(month, (sums.get(month) ?? 0) + entry.amount)
+    if (!earliest || month < earliest) earliest = month
   }
 
-  return totals
+  const current = today.slice(0, 7)
+  const previous = monthBefore(current)
+  const last = earliest && earliest < previous ? earliest : previous
+
+  const months: MonthTotal[] = []
+  for (let month = current; month >= last; month = monthBefore(month)) {
+    months.push({ month, total: sums.get(month) ?? 0 })
+  }
+  return months
+}
+
+/**
+ * What `today`'s calendar year comes to.
+ *
+ * Its own pass rather than a field on the months, because it is not their sum:
+ * the strip stops at the oldest month loaded and the year counts every entry
+ * dated this year, which are the same number only by coincidence. December's
+ * expenses are recent and belong to the year before, which is the case that
+ * catches people out every January.
+ */
+export function yearTotal(
+  entries: readonly { date: string; amount: number; voided: boolean }[],
+  today: string,
+): number {
+  const year = today.slice(0, 4)
+  let total = 0
+  for (const entry of entries) {
+    if (entry.voided) continue
+    if (entry.date.slice(0, 4) === year) total += entry.amount
+  }
+  return total
 }
 
 /**
@@ -101,11 +144,6 @@ export function latestDay(entries: readonly { date: string }[]): string | null {
   let latest: string | null = null
   for (const entry of entries) if (!latest || entry.date > latest) latest = entry.date
   return latest
-}
-
-/** True when the loaded window cannot see the whole of `today`'s year. */
-export function yearIsPartial(from: string | null, today: string): boolean {
-  return Boolean(from) && from! > `${today.slice(0, 4)}-01-01`
 }
 
 function monthBefore(month: string): string {
