@@ -70,7 +70,7 @@ test('the concept filter has a cross inside it that empties it', async ({ page }
   await signIn(page)
   await page.getByRole('button', { name: 'Gastos' }).click()
 
-  const field = page.getByRole('searchbox', { name: 'Buscar concepto…' })
+  const field = page.getByRole('searchbox', { name: 'Buscar concepto o importe…' })
   const clear = page.getByRole('button', { name: 'Borrar la búsqueda' })
 
   // Nothing to clear, nothing shown: a cross on an empty field is a control
@@ -222,12 +222,105 @@ test('filtering moves the totals with it, and the strip says it is filtered', as
   await expect(page.getByText('Solo lo filtrado')).toBeVisible()
 
   await page.getByRole('button', { name: 'Ambos' }).click()
-  await page.getByRole('searchbox', { name: 'Buscar concepto…' }).fill('gaso')
+  await page.getByRole('searchbox', { name: 'Buscar concepto o importe…' }).fill('gaso')
   cells = await band(page)
   await expect(cells.current).toContainText('60,00')
   await expect(cells.year).toContainText('60,00')
   await expect(page.getByText('Solo lo filtrado')).toBeVisible()
 })
+
+test('the quick search finds a row by what it cost, exactly', async ({ page }) => {
+  // Asked for: the box takes an amount as well as a word. Exactly, because a
+  // quick search is for the row you remember and the amount is the thing you
+  // remember about it — ranges are what the button beside it is for.
+  await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+
+  const field = page.getByRole('searchbox', { name: 'Buscar concepto o importe…' })
+  await field.fill('60')
+  await expect(page.getByRole('button', { name: /gasolina/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /super/ })).toHaveCount(0)
+
+  // The same row, written the way the screen writes it: what is printed on a
+  // row can be typed back into the box above it.
+  await field.fill('60,00 €')
+  await expect(page.getByRole('button', { name: /gasolina/ })).toBeVisible()
+
+  // And a number that is nobody's amount finds nothing rather than everything.
+  await field.fill('61')
+  await expect(page.getByText('Ningún gasto con ese concepto')).toBeVisible()
+
+  // Still a concept search as well: a query that happens to be a number is both
+  // questions at once, and the box answers both.
+  await field.fill('seguro')
+  await expect(page.getByRole('button', { name: /seguro/ })).toBeVisible()
+})
+
+test('the advanced search takes a range of amounts and a range of days',
+  async ({ page }) => {
+    await stubApi(page)
+    await signIn(page)
+    await page.getByRole('button', { name: 'Gastos' }).click()
+
+    const open = page.getByRole('button', { name: 'Búsqueda avanzada' })
+    await expect(open).toHaveAttribute('aria-pressed', 'false')
+    await open.click()
+
+    const dialog = page.getByRole('dialog', { name: 'Búsqueda avanzada' })
+    await dialog.getByRole('textbox', { name: 'Importe desde' }).fill('100')
+
+    // It narrows as it is typed, with the dialog still up: there is no Aplicar
+    // because there is nothing to apply.
+    await expect(page.getByRole('button', { name: /gasolina/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /seguro/ })).toBeVisible()
+
+    // The other end of the range, which is the half the quick box cannot ask.
+    await dialog.getByRole('textbox', { name: 'Importe hasta' }).fill('500')
+    await expect(page.getByRole('button', { name: /seguro/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /luz/ })).toBeVisible()
+
+    await dialog.getByRole('button', { name: 'Ver los gastos' }).click()
+    await expect(dialog).toHaveCount(0)
+    // And the button says it is holding something, because a filter folded
+    // behind a dialog is one nobody can see from the screen.
+    await expect(open).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByText('Solo lo filtrado')).toBeVisible()
+
+    // Days, on their own: everything since this month started, which leaves
+    // last month's and last year's out.
+    await open.click()
+    await dialog.getByRole('button', { name: 'Quitar estos filtros' }).click()
+    await dialog.getByRole('textbox', { name: 'Desde el día' }).fill(`${TODAY.slice(0, 8)}01`)
+    await expect(page.getByRole('button', { name: /super/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: /seguro/ })).toHaveCount(0)
+
+    // Taking them off puts everything back, and the button goes out with them.
+    await dialog.getByRole('button', { name: 'Quitar estos filtros' }).click()
+    await dialog.getByRole('button', { name: 'Ver los gastos' }).click()
+    await expect(page.getByRole('button', { name: /seguro/ })).toBeVisible()
+    await expect(open).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByText('Solo lo filtrado')).toHaveCount(0)
+  })
+
+test('the advanced search closes with the back button, leaving its filters on',
+  async ({ page }) => {
+    // Back closes a sheet in this app and never undoes anything — the same rule
+    // the category picker and every detail sheet follow.
+    await stubApi(page)
+    await signIn(page)
+    await page.getByRole('button', { name: 'Gastos' }).click()
+
+    await page.getByRole('button', { name: 'Búsqueda avanzada' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Búsqueda avanzada' })
+    await dialog.getByRole('textbox', { name: 'Importe desde' }).fill('100')
+
+    await page.goBack()
+    await expect(dialog).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /gasolina/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Búsqueda avanzada activa' }))
+      .toBeVisible()
+  })
 
 test('a filter brings its own total, with no months in it', async ({ page }) => {
   // Asked for in as many words: the three cells answer "how is this month going",
@@ -249,7 +342,7 @@ test('a filter brings its own total, with no months in it', async ({ page }) => 
   await expect(total).toContainText('2 apuntes')
 
   await page.getByRole('button', { name: 'Ambos' }).click()
-  await page.getByRole('searchbox', { name: 'Buscar concepto…' }).fill('seguro')
+  await page.getByRole('searchbox', { name: 'Buscar concepto o importe…' }).fill('seguro')
   // A single row from last year, which every one of the three cells above reads
   // as zero. This is the number that says it is a thousand euros.
   //
@@ -261,7 +354,7 @@ test('a filter brings its own total, with no months in it', async ({ page }) => 
 
   // And it says which stretch it covers, because a total with no dates on it
   // reads as a total of everything — this one is a total of what got loaded.
-  await page.getByRole('searchbox', { name: 'Buscar concepto…' }).fill('')
+  await page.getByRole('searchbox', { name: 'Buscar concepto o importe…' }).fill('')
   await page.getByRole('button', { name: 'Viqui', exact: true }).click()
   await expect(total).toContainText(/del .* al /)
 })

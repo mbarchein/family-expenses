@@ -356,6 +356,42 @@ opening the sheet refiles nothing, because the row's category may have been pick
 by hand or typed into the spreadsheet. Change the word and the derivation is
 invalid, exactly as on the second step.
 
+**The list is narrowed four ways, and they are one object.** Who paid, a quick
+search box, a category, and — behind a button beside the box — a range of
+amounts and a range of days. They were four `useState`s on the screen, which is
+fine for four conditions and not for seven: the dialog sets two at a time and
+clears four at once, and a screen that spells out which control touches which
+filter is a screen where one of them eventually gets left behind. So `Filters`
+is one object and `matches` is one function, in `lib/search.ts`, read by the
+list, the day totals and the band alike.
+
+**The quick box takes a concept or an amount**, whichever the text can be, and
+`60` is both: it finds the sixty-euro row *and* «ruta 60». Two boxes would make
+somebody choose what kind of question they are asking before they have finished
+asking it, and one box that quietly stopped searching concepts the moment a
+query looked numeric would lose rows without saying so. The amount has to match
+exactly, which is the only way that is any use: a quick search is for the row you
+remember, and «39,90» is the thing you remember about it. What counts as a number
+is what the app prints — `10.000,50 €` can be read off a row and typed back in —
+and `amountTyped` has to be able to answer "that is not a number" about `gaso`,
+which is why `parseAmount` could not do this job: that one is fed by a keypad
+that can only produce digits and answers 0 for anything else, and 0 is a real
+amount.
+
+**Ranges are a dialog**, because each needs two values and the box has one. It
+is a card over the list rather than a screen over it — four boxes on a full
+screen is nine centimetres of nothing under them — and it filters as it is
+typed, so the list is already narrowed behind it and the button at the bottom
+says «Ver los gastos» rather than «Aplicar». Each bound stands alone: an empty
+box is "no limit at this end" rather than a zero, which is what makes
+"everything over fifty euros" and "everything since March" askable, and it is
+said under the boxes because blank and nought are easy to confuse in a number
+field. A bound that is half-typed filters nothing, so the list does not empty
+itself under somebody's hands. And the button that opens it wears the accent
+while it is holding something: a range folded behind a dialog is the one filter
+on this screen that cannot be seen from the screen, and an invisible filter is
+how somebody concludes the app has lost their gastos.
+
 Over the list, a band of totals: **a cell per month back as far as the app has
 loaded, with the year at the right-hand end**. They are computed from the entries the list is showing,
 so they follow the filter and the search — which is the point, because the useful

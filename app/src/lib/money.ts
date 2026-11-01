@@ -67,3 +67,43 @@ export function typedFrom(raw: string): string {
   if (parts.length === 1) return whole
   return `${whole || '0'},${parts.slice(1).join('').slice(0, 2)}`
 }
+
+/**
+ * The amount somebody meant, when what they typed is a number — and null when
+ * it is not.
+ *
+ * The search box over the list takes one string and asks two questions of it:
+ * is this a concept, and is this an amount. So this has to be able to say "not
+ * an amount" about `gaso`, which `parseAmount` cannot — that one is fed by a
+ * keypad that can only produce digits, and answers 0 for anything else, and 0
+ * is a real amount here.
+ *
+ * What counts as a number is what this app puts on a screen: digits, with the
+ * comma or the point as the decimal separator, and the es-ES grouping it prints
+ * for five figures and up — so `10.000,50 €` can be read off a row and typed
+ * back in. The euro sign and the spaces around it are allowed for the same
+ * reason. A grouped form has to be grouped properly, in threes: `1.0000` is a
+ * typo rather than a number, and a search that silently read it as something
+ * would answer a question nobody asked.
+ */
+export function amountTyped(raw: string): number | null {
+  const text = raw.replace(/[\s€]/g, '')
+  if (!text) return null
+
+  // Plain: 60, 12,5, 12.50 — one separator, at most two decimals.
+  if (/^\d+([.,]\d{1,2})?$/.test(text)) return Number(text.replace(',', '.'))
+
+  // Grouped, as es-ES prints it: 10.000 or 10.000,50. The decimal separator can
+  // only be the comma here — a point is already doing the other job.
+  if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(text)) {
+    return Number(text.replace(/\./g, '').replace(',', '.'))
+  }
+
+  return null
+}
+
+/** Whether two amounts are the same money. Compared in cents, because 0.1 + 0.2
+ *  is not 0.3 and a search that missed a row over that would be inexplicable. */
+export function sameAmount(a: number, b: number): boolean {
+  return Math.round(a * 100) === Math.round(b * 100)
+}

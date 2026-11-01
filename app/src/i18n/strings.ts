@@ -416,8 +416,37 @@ export const T = {
 
   list: {
     both: 'Ambos',
-    search: 'Buscar concepto…',
+    /** It takes an amount as well as a word now, and the box has to say so: a
+     *  search that can do something nobody knows about cannot be used. */
+    search: 'Buscar concepto o importe…',
     clearSearch: 'Borrar la búsqueda',
+    /**
+     * The dialog behind the button beside the search box.
+     *
+     * The two things the quick box cannot ask for, because they need two values
+     * each and it has one: between which amounts, and between which days.
+     */
+    advanced: 'Búsqueda avanzada',
+    advancedOn: 'Búsqueda avanzada activa',
+    amountRange: 'Importe',
+    amountFrom: 'Importe desde',
+    amountTo: 'Importe hasta',
+    /** Printed in the boxes. The long form is the label underneath, for
+     *  anything reading the screen out loud; these two fit the width. */
+    rangeStart: 'Desde',
+    rangeEnd: 'Hasta',
+    dateRange: 'Fechas',
+    dateFrom: 'Desde el día',
+    dateTo: 'Hasta el día',
+    /** Said under the two amount boxes, because an empty one is not a zero and
+     *  the difference is the whole of how these fields work. */
+    rangeHint: 'Deja un lado en blanco para no poner tope por ahí.',
+    /** The button that closes the dialog. It says what happens rather than
+     *  «Aplicar», because the filters are already applied — the list behind the
+     *  dialog has been narrowing as each box was typed into. */
+    apply: 'Ver los gastos',
+    clearAdvanced: 'Quitar estos filtros',
+    closeAdvanced: 'Cerrar',
     /** On the row itself, next to the concept. The strip above the tab bar says
      *  something is going up; this says which one, which is the question when
      *  the list has thirty rows in it and one of them is yours. */

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { AdvancedSearch } from '../components/AdvancedSearch'
 import { CategoryFilter } from '../components/CategoryField'
 import { ClearButton } from '../components/ClearButton'
 import { Icon } from '../components/Icon'
@@ -9,8 +10,8 @@ import { T } from '../i18n/strings'
 import { formatDayHeading, formatShortDate, todayIso } from '../lib/dates'
 import { iconOf } from '../lib/categories'
 import { knownConcepts } from '../lib/concepts'
-import { fold } from '../lib/icons'
 import { formatEur } from '../lib/money'
+import { NO_FILTERS, isFiltered, isNarrowed, matches, type Filters } from '../lib/search'
 import { earliestDay, matchedTotal, monthlyTotals, yearTotal } from '../lib/totals'
 import type { Category } from '../api/types'
 import { useIconChoices } from '../store/iconChoices'
@@ -33,20 +34,28 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
   // neither of them showing it.
   const { chosen } = useIconChoices()
   const categories = ledger.data?.categories ?? []
-  const [filter, setFilter] = useState('all')
-  const [query, setQuery] = useState('')
-  /** The category filter: null for all of them, '' for the rows that have none.
-   *  Asked for by name — the search box answers "what was it called" and this
-   *  answers "what kind of thing was it", which is the question the whole column
-   *  exists for. */
-  const [category, setCategory] = useState<string | null>(null)
+  /**
+   * Everything narrowing the list, in one object.
+   *
+   * Four `useState`s before, which was fine for four and is not for seven: the
+   * advanced search sets two of them at a time and clears four at once, and a
+   * screen that spells out which ones each control touches is a screen where one
+   * of them eventually gets left behind. See `lib/search.ts`.
+   */
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS)
+  const narrow = (fields: Partial<Filters>) =>
+    setFilters(current => ({ ...current, ...fields }))
+  /** Whether the dialog is up. Not an address, like the category picker it sits
+   *  beside and unlike the edit sheet: it is a control on this screen rather
+   *  than a thing with its own identity. Back still closes it. */
+  const [advanced, setAdvanced] = useState(false)
 
-  // Filtered once, used three times: the list, the day totals and the strip must
-  // agree about what is on screen, and three copies of the same three conditions
-  // is three chances for them to stop agreeing.
+  // Filtered once, used three times: the list, the day totals and the band must
+  // agree about what is on screen, and three copies of seven conditions is three
+  // chances for them to stop agreeing.
   const shown = useMemo(
-    () => matching(ledger.entries, filter, query, category),
-    [ledger.entries, filter, query, category],
+    () => ledger.entries.filter(entry => matches(entry, filters)),
+    [ledger.entries, filters],
   )
   const days = useMemo(() => groupByDay(shown), [shown])
   const today = todayIso()
@@ -54,7 +63,7 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
   // so the two it used to have room for are no longer the limit.
   const months = useMemo(() => monthlyTotals(shown, today), [shown, today])
   const year = useMemo(() => yearTotal(shown, today), [shown, today])
-  const filtered = filter !== 'all' || Boolean(query.trim()) || category !== null
+  const filtered = isFiltered(filters)
   // Only while something is filtered: unfiltered, "everything that matches" is
   // everything the app happens to have loaded, which is a number about the window
   // rather than about the household.
@@ -86,8 +95,8 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
       <ScreenHeader title={T.tabs.list} onBack={onBack} />
 
       <Segmented
-        value={filter}
-        onChange={setFilter}
+        value={filters.payer}
+        onChange={payer => narrow({ payer })}
         options={[
           { label: T.list.both, value: 'all' },
           { label: people[0].name, value: '0', tone: 'person-1' },
@@ -95,23 +104,50 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
         ]}
       />
 
-      {/* The cross lives inside the field — see `ClearButton`, which is also what
-          the concept box on the second step uses. */}
-      <div className="relative">
-        <input
-          value={query}
-          onChange={event => setQuery(event.target.value)}
-          placeholder={T.list.search}
-          aria-label={T.list.search}
-          type="search"
-          className="w-full rounded-lg border border-line bg-surface py-2.5 pl-3 pr-11 text-sm
-                     text-ink placeholder:text-ink-3 focus-visible:outline focus-visible:outline-2
-                     [&::-webkit-search-cancel-button]:appearance-none"
-        />
-        {query && <ClearButton label={T.list.clearSearch} onClick={() => setQuery('')} />}
+      <div className="flex gap-2">
+        {/* The cross lives inside the field — see `ClearButton`, which is also
+            what the concept box on the second step uses. */}
+        <div className="relative min-w-0 flex-1">
+          <input
+            value={filters.query}
+            onChange={event => narrow({ query: event.target.value })}
+            placeholder={T.list.search}
+            aria-label={T.list.search}
+            type="search"
+            className="w-full rounded-lg border border-line bg-surface py-2.5 pl-3 pr-11 text-sm
+                       text-ink placeholder:text-ink-3 focus-visible:outline focus-visible:outline-2
+                       [&::-webkit-search-cancel-button]:appearance-none"
+          />
+          {filters.query && (
+            <ClearButton label={T.list.clearSearch} onClick={() => narrow({ query: '' })} />
+          )}
+        </div>
+
+        {/* Beside the box, where the category filter already puts its second
+            control. It wears the accent when it is holding something: a range
+            folded behind a dialog is the one filter on this screen that cannot
+            be seen from the screen, and an invisible filter is how somebody
+            concludes the app has lost their gastos. */}
+        <button
+          type="button"
+          onClick={() => setAdvanced(true)}
+          aria-label={isNarrowed(filters) ? T.list.advancedOn : T.list.advanced}
+          aria-pressed={isNarrowed(filters)}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border
+                     focus-visible:outline focus-visible:outline-2"
+          style={isNarrowed(filters)
+            ? { background: 'var(--accent)', borderColor: 'var(--accent)', color: 'var(--accent-ink)' }
+            : { background: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink-2)' }}
+        >
+          <SlidersIcon />
+        </button>
       </div>
 
-      <CategoryFilter value={category} categories={categories} onChange={setCategory} />
+      <CategoryFilter
+        value={filters.category}
+        categories={categories}
+        onChange={category => narrow({ category })}
+      />
 
       <Totals
         months={months}
@@ -125,7 +161,7 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
       {!days.length && (
         <p className="py-8 text-center text-sm text-ink-3">
           {!ledger.entries.length ? T.list.empty
-            : query.trim() || category === null ? T.list.noResults
+            : filters.query.trim() || filters.category === null ? T.list.noResults
             : T.list.noResultsCategory}
         </p>
       )}
@@ -205,6 +241,14 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
         </section>
       ))}
 
+      {advanced && (
+        <AdvancedSearch
+          filters={filters}
+          onChange={narrow}
+          onClose={() => setAdvanced(false)}
+        />
+      )}
+
       {open && (
         <EditSheet
           key={open.id}
@@ -220,6 +264,21 @@ export function ListScreen({ ledger, onBack, editing, onOpen, onCloseEditor }: {
         />
       )}
     </div>
+  )
+}
+
+/** Three sliders, the shape every app uses for "there are more filters than
+ *  fit here". It is a button with no word on it, so the word is its label. */
+function SlidersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="h-5 w-5"
+         fill="none" stroke="currentColor" strokeWidth={2}
+         strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h10M18 17h2" />
+      <circle cx="16" cy="7" r="2" />
+      <circle cx="10" cy="12" r="2" />
+      <circle cx="16" cy="17" r="2" />
+    </svg>
   )
 }
 
@@ -276,28 +335,6 @@ function RowIcon({ entry, categories, chosen }: {
 }
 
 interface Day { date: string; total: number; entries: ShownEntry[] }
-
-/**
- * The entries the three filters leave standing.
- *
- * The category is compared folded, like everywhere else that compares one: the
- * names come from a tab the two of them edit by hand in Google Sheets, so
- * `Educación` typed there and `educacion` written by an older version of the app
- * are the same category and a filter that disagreed would show an empty list.
- */
-function matching(
-  entries: ShownEntry[], filter: string, query: string, category: string | null,
-): ShownEntry[] {
-  const needle = query.trim().toLowerCase()
-  const wanted = category === null ? null : fold(category)
-  return entries.filter(entry =>
-    (filter === 'all' || entry.payer === Number(filter)) &&
-    (!needle || entry.concept.toLowerCase().includes(needle)) &&
-    // `?? ''` against the types on purpose: a ledger cached by a version from
-    // before column H existed has rows with no category at all, and it is read
-    // straight off the disk on the next open.
-    (wanted === null || fold(entry.category ?? '') === wanted))
-}
 
 /**
  * Groups into days, newest first.
