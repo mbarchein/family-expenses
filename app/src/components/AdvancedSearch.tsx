@@ -56,22 +56,43 @@ export function AdvancedSearch({ filters, onChange, onClose }: {
     <div
       // Above the tab bar as well as the list: a dialog you can tap straight
       // past is a dialog that will be tapped straight past.
-      className="fixed inset-0 z-20 grid place-items-center bg-black/40 p-6"
+      //
+      // `grid-cols-[minmax(0,1fr)]` and not just `place-items-center`, which is
+      // what this was and which put the card 48px off the right-hand edge of a
+      // 360px phone. A grid with no columns declared invents one, sized `auto`,
+      // and an `auto` track is floored at the min-content width of what is in
+      // it — here two date inputs, which will not go below about 164px each. So
+      // the track grew past the screen and took `w-full` with it, since 100% of
+      // an overflowing track is an overflowing card. A `minmax(0, …)` track has
+      // no such floor and cannot be wider than the room it was given.
+      className="fixed inset-0 z-20 grid grid-cols-[minmax(0,1fr)] place-items-center
+                 bg-black/60 p-4"
       onClick={event => { if (event.target === event.currentTarget) onClose() }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={T.list.advanced}
-        className="flex w-full max-w-sm flex-col gap-4 rounded-2xl p-4"
-        style={{ background: 'var(--paper)' }}
+        // `--surface` and a border, not `--paper`: paper is the colour of the
+        // screen underneath, so the card was the page floating on the page, and
+        // under the dark theme — where paper is #0f1413 and a 40% veil over it
+        // is nearly the same black — there was nothing to tell them apart. A
+        // card has to be a step up from what it covers in both themes, and the
+        // border and the shadow are what say so when the step is small.
+        className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-line
+                   p-4 shadow-2xl"
+        style={{ background: 'var(--surface)' }}
       >
         <p className="text-base font-semibold">{T.list.advanced}</p>
         <section className="flex flex-col gap-2">
           <h2 className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
             {T.list.amountRange}
           </h2>
-          <div className="flex items-center gap-2">
+          {/* Two halves and the dash between them, as grid tracks rather than
+              as flex children: `minmax(0,1fr)` is the only way to say "half,
+              whatever is in it" to a box that has an opinion about how narrow
+              it is willing to be. A date input has a strong one. */}
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
             {/* `inputMode` rather than `type="number"`: the spinner arrows are
                 furniture on a phone, and a number input in a Spanish locale
                 argues with the comma. The text is cleaned the same way every
@@ -97,7 +118,7 @@ export function AdvancedSearch({ filters, onChange, onClose }: {
           <h2 className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
             {T.list.dateRange}
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
             <Day
               label={T.list.dateFrom}
               value={filters.from}
@@ -154,7 +175,7 @@ function Amount({ label, hint, value, onChange }: {
   onChange: (value: string) => void
 }) {
   return (
-    <label className="flex min-w-0 flex-1 items-center gap-1 rounded-lg border border-line
+    <label className="flex min-w-0 items-center gap-1 rounded-lg border border-line
                       bg-surface px-3 py-2.5 focus-within:outline focus-within:outline-2">
       <input
         value={value}
@@ -184,7 +205,7 @@ function Day({ label, value, onChange }: {
       max={todayIso()}
       onChange={event => onChange(event.target.value)}
       aria-label={label}
-      className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2.5 py-2.5 text-sm
+      className="w-full min-w-0 rounded-lg border border-line bg-surface px-2.5 py-2.5 text-sm
                  focus-visible:outline focus-visible:outline-2"
     />
   )

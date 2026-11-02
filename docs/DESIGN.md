@@ -392,6 +392,23 @@ while it is holding something: a range folded behind a dialog is the one filter
 on this screen that cannot be seen from the screen, and an invisible filter is
 how somebody concludes the app has lost their gastos.
 
+Two things about that card were reported and are worth writing down, because
+both are true of any dialog this app grows. It **ran off the right-hand edge of
+a narrow phone**: a `grid` with no columns declared invents one sized `auto`,
+an `auto` track cannot be narrower than the min-content width of what is in it,
+and two `input[type=date]` will not go below about 164px each — so the track
+grew past the screen and `w-full` grew with it. The column is `minmax(0, 1fr)`
+now, which has no such floor, and the two ranges are grid tracks of the same
+shape rather than flex children, so a box with an opinion about how narrow it is
+willing to be cannot push the card wider. And it **blended into what it
+covered**: the card was `--paper`, which is the colour of the page under it, so
+it was the page floating on the page. That reads well enough in the light theme,
+where a veil over paper is visibly grey, and not at all in the dark one, where
+paper is `#0f1413` and a veil over it is the same black. A card is `--surface`
+with a border and a shadow — a step up from what it covers, in both themes —
+and `Confirm`, which had the same two faults and only ever showed the second,
+was changed with it.
+
 Over the list, a band of totals: **a cell per month back as far as the app has
 loaded, with the year at the right-hand end**. They are computed from the entries the list is showing,
 so they follow the filter and the search — which is the point, because the useful

@@ -303,6 +303,27 @@ test('the advanced search takes a range of amounts and a range of days',
     await expect(page.getByText('Solo lo filtrado')).toHaveCount(0)
   })
 
+test('the advanced search fits inside the narrowest phone', async ({ page }) => {
+  // Reported: it ran off the right-hand edge. A grid with no columns declared
+  // invents one sized `auto`, an `auto` track is floored at the min-content
+  // width of what is in it, and two date inputs will not go below about 164px
+  // each — so the track grew past the screen and `w-full` grew with it. 320 is
+  // the narrowest phone anybody still holds.
+  await page.setViewportSize({ width: 320, height: 700 })
+  await stubApi(page)
+  await signIn(page)
+  await page.getByRole('button', { name: 'Gastos' }).click()
+  await page.getByRole('button', { name: 'Búsqueda avanzada' }).click()
+
+  const dialog = page.getByRole('dialog', { name: 'Búsqueda avanzada' })
+  const card = await dialog.boundingBox()
+  expect(card!.x).toBeGreaterThanOrEqual(0)
+  expect(card!.x + card!.width).toBeLessThanOrEqual(320)
+  // And nothing inside it is reaching past its own edge either, which is the
+  // half a bounding box cannot see.
+  expect(await dialog.evaluate(node => node.scrollWidth - node.clientWidth)).toBe(0)
+})
+
 test('the advanced search closes with the back button, leaving its filters on',
   async ({ page }) => {
     // Back closes a sheet in this app and never undoes anything — the same rule

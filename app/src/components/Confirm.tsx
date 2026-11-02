@@ -54,15 +54,30 @@ export function Confirm({
     <div
       // Above the detail sheets, which are z-10: this can be asked from inside
       // one of them.
-      className="fixed inset-0 z-20 grid place-items-center bg-black/40 p-6"
+      //
+      // The column is `minmax(0, …)` rather than the `auto` a grid invents for
+      // itself, because an `auto` track cannot be narrower than what is in it
+      // and will happily run off the side of a 360px phone. This dialog is two
+      // lines of text and has never hit that; the one next door did — see
+      // `AdvancedSearch` — and the two are the same component wearing different
+      // contents, so they get the same floor.
+      className="fixed inset-0 z-20 grid grid-cols-[minmax(0,1fr)] place-items-center
+                 bg-black/60 p-4"
       onClick={event => { if (event.target === event.currentTarget) onCancel() }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="flex w-full max-w-xs flex-col gap-3 rounded-2xl p-4"
-        style={{ background: 'var(--paper)' }}
+        // `--surface` and a border, not `--paper`: paper is the colour of the
+        // screen underneath, so this was the page floating on the page — which
+        // reads well enough in the light theme, where a veil over paper is
+        // visibly grey, and not at all in the dark one, where paper is #0f1413
+        // and a veil over it is the same black. Reported about the dialog next
+        // door, true of this one.
+        className="flex w-full max-w-xs flex-col gap-3 rounded-2xl border border-line
+                   p-4 shadow-2xl"
+        style={{ background: 'var(--surface)' }}
       >
         <p className="text-base font-semibold">{title}</p>
         <p className="text-sm text-ink-2">{body}</p>
